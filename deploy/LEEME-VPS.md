@@ -9,7 +9,7 @@ apt update && apt upgrade -y
 apt install -y git curl nginx mysql-server certbot python3-certbot-nginx ufw
 adduser vanta && usermod -aG sudo vanta
 ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
-mkdir -p /var/lib/vanta/uploads && chown -R vanta:vanta /var/lib/vanta
+mkdir -p /var/lib/vanta/uploads /var/www/vantagg && chown -R vanta:vanta /var/lib/vanta /var/www/vantagg
 ```
 
 ## 2. MySQL
@@ -39,8 +39,8 @@ pm2 startup   # copia y ejecuta el comando sudo que imprime
 
 ```bash
 ssh-keygen -t ed25519 -C "vps-vantagg"     # agrega ~/.ssh/id_ed25519.pub como Deploy key (solo lectura) del repo
-git clone git@github.com:Martinvb07/vantagg.co.git ~/vantagg
-cd ~/vantagg
+git clone git@github.com:Martinvb07/vantagg.co.git /var/www/vantagg
+cd /var/www/vantagg
 nano .env
 ```
 
@@ -92,7 +92,7 @@ GitHub → repo → Settings → Environments → **produccion** → secretos:
 |---|---|
 | `VPS_HOST` | IP del VPS |
 | `VPS_USER` | `vanta` |
-| `VPS_PATH` | `/home/vanta/vantagg` |
+| `VPS_PATH` | `/var/www/vantagg` |
 | `VPS_SSH_KEY` | la clave privada `gh_actions` completa |
 
 Cada push a `main`: tipos + pruebas + build en CI → en el VPS `git reset`, `npm ci`, migraciones, build, PM2 y health check a `/api/health` (si falla, vuelve a la versión anterior).
@@ -104,7 +104,7 @@ crontab -e
 ```
 ```cron
 */2 * * * * curl -fsS -m 50 -H "Authorization: Bearer TU_CRON_SECRET" https://vantagg.co/api/cron/maintenance > /dev/null
-30 3 * * * sh /home/vanta/vantagg/deploy/respaldo-vps.sh >> /home/vanta/respaldo.log 2>&1
+30 3 * * * sh /var/www/vantagg/deploy/respaldo-vps.sh >> /home/vanta/respaldo.log 2>&1
 ```
 
 Para el respaldo crea `~/.my.cnf` (`chmod 600`):
