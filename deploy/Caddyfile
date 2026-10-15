@@ -1,0 +1,9 @@
+# HTTPS automático con Let's Encrypt para tu dominio (y www, que redirige al dominio principal).
+{$DOMINIO} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+www.{$DOMINIO} {
+	redir https://{$DOMINIO}{uri} permanent
+}

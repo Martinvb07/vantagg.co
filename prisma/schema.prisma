@@ -1,0 +1,666 @@
+// VANTA Store — esquema de datos (MySQL 8+)
+// Precios en pesos colombianos enteros (COP no usa centavos en la práctica).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// Usuarios y sesiones
+// ---------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  SUPPORT
+  ADMIN
+}
+
+model User {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  name              String?
+  passwordHash      String
+  role              Role            @default(CUSTOMER)
+  disabled          Boolean         @default(false)
+  emailVerifiedAt   DateTime?
+  hasPassword       Boolean         @default(true) // false si entró solo con Google o con código
+  avatarUrl         String?         @db.VarChar(512) // foto subida por el cliente
+  avatarPreset      String?         @db.VarChar(40) // avatar elegido de la galería
+  phone             String?         @db.VarChar(30)
+  ffPlayerId        String?         @db.VarChar(12) // ID de Free Fire guardado para recargar rápido
+  profileTheme      String?         @db.VarChar(20) // portada elegida en Mi cuenta
+  // 2FA del equipo (TOTP). Los secretos se guardan cifrados; los códigos de recuperación, como HMAC.
+  totpSecret        String?         @db.Text
+  totpPendingSecret String?         @db.Text
+  totpEnabledAt     DateTime?
+  totpLastStep      Int?
+  recoveryCodes     Json?
+  googleSub         String?         @unique // cuenta de Google vinculada
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  sessions          Session[]
+  orders            Order[]
+  auditLogs         AuditLog[]
+  notes             AdminNote[]
+  passwordResets    PasswordReset[]
+  tickets           SupportTicket[]
+}
+
+enum EmailCodePurpose {
+  LOGIN
+  VERIFY
+}
+
+/// Código de 6 dígitos enviado por correo (ingresar sin contraseña o verificar el correo). Se guarda solo su HMAC.
+model EmailCode {
+  id         String           @id @default(cuid())
+  email      String           @db.VarChar(191)
+  purpose    EmailCodePurpose
+  codeHash   String           @db.VarChar(128)
+  attempts   Int              @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([email, purpose, createdAt])
+}
+
+/// Registro de correos enviados (sin contenido: los correos pueden llevar códigos o enlaces).
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String   @db.VarChar(191)
+  template  String   @db.VarChar(40)
+  subject   String   @db.VarChar(200)
+  status    String   @db.VarChar(20) // SENT | SKIPPED | FAILED
+  error     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Enlace de un solo uso para crear una nueva contraseña (se guarda solo el hash del token).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipHash    String?
+  userAgent String?  @db.VarChar(255)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------
+// Configuración de la tienda (clave/valor editable en el panel)
+// ---------------------------------------------------------------------
+
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------
+// Catálogo: paquetes de diamantes
+// ---------------------------------------------------------------------
+
+enum ProductLabel {
+  NONE
+  BEST_SELLER
+  OFFER
+  BONUS
+  RECOMMENDED
+}
+
+model DiamondPackage {
+  id                 String       @id @default(cuid())
+  slug               String       @unique
+  name               String
+  diamonds           Int
+  bonusDiamonds      Int          @default(0)
+  price              Int
+  compareAtPrice     Int?
+  currency           String       @default("COP")
+  label              ProductLabel @default(NONE)
+  available          Boolean      @default(true)
+  active             Boolean      @default(true)
+  featured           Boolean      @default(false)
+  sortOrder          Int          @default(0)
+  providerSku        String? // product_key del proveedor, ej. "topup/free-fire/latam/110 Diamonds"
+  region             String       @default("latam") @db.VarChar(60) // región del juego (slug del proveedor)
+  costCents          Int? // costo del proveedor en centavos de USDT (última sincronización)
+  supplierOutOfStock Boolean      @default(false) // el proveedor lo marcó agotado
+  isDemo             Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  orders             Order[]
+
+  @@index([region, active])
+}
+
+// Catálogo del proveedor mayorista (copia local, se sincroniza cada pocas horas).
+model SupplierProduct {
+  productKey String   @id @db.VarChar(191)
+  game       String   @db.VarChar(60)
+  regionSlug String   @db.VarChar(60)
+  regionName String   @db.VarChar(100)
+  name       String   @db.VarChar(191)
+  amount     Int?
+  unit       String?  @db.VarChar(30)
+  priceCents Int // centavos de USDT
+  outOfStock Boolean  @default(false)
+  delivery   String   @db.VarChar(20)
+  syncedAt   DateTime
+
+  @@index([game, regionSlug])
+}
+
+// ---------------------------------------------------------------------
+// Catálogo: cuentas digitales
+// ---------------------------------------------------------------------
+
+enum ListingStatus {
+  DRAFT // borrador, no visible
+  PENDING_REVIEW // esperando verificación de procedencia
+  PUBLISHED // visible y comprable
+  RESERVED // reservada durante un checkout
+  SOLD // vendida
+  PAUSED // pausada por el administrador
+  SUSPENDED // suspendida por reclamación
+  RETIRED // retirada definitivamente
+}
+
+model AccountListing {
+  id                 String        @id @default(cuid())
+  slug               String        @unique
+  title              String
+  description        String        @db.Text
+  price              Int
+  compareAtPrice     Int?
+  currency           String        @default("COP")
+  level              Int?
+  skinsCount         Int?
+  inventoryItems     String        @db.Text // un objeto por línea
+  rank               String? // id de FF_RANKS (src/domain/freefire.ts)
+  region             String        @default("LATAM") // código de FF_REGIONS
+  deliveryConditions String        @db.Text
+  extraInfo          String?       @db.Text
+  label              ProductLabel  @default(NONE)
+  status             ListingStatus @default(DRAFT)
+  featured           Boolean       @default(false)
+  isDemo             Boolean       @default(false)
+
+  // Verificación de inventario (capturas/revisión hecha por el administrador)
+  inventoryVerified   Boolean   @default(true)
+  inventoryVerifiedAt DateTime?
+
+  // Procedencia y autorización comercial (obligatorio antes de publicar)
+  provenanceSource       String?   @db.VarChar(255)
+  provenanceNotes        String?   @db.Text
+  authorizationConfirmed Boolean   @default(false)
+  provenanceVerifiedAt   DateTime?
+  provenanceVerifiedById String?
+
+  // Reserva temporal de inventario
+  reservedUntil   DateTime?
+  reservedOrderId String?
+
+  soldAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  images AccountImage[]
+  tags   AccountTag[]
+  orders Order[]
+  claims ListingClaim[]
+
+  @@index([status])
+  @@index([price])
+}
+
+model AccountImage {
+  id        String         @id @default(cuid())
+  accountId String
+  account   AccountListing @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  url       String         @db.VarChar(1024)
+  alt       String         @default("")
+  sortOrder Int            @default(0)
+
+  @@index([accountId])
+}
+
+model AccountTag {
+  accountId String
+  account   AccountListing @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tag       String         @db.VarChar(64)
+
+  @@id([accountId, tag])
+  @@index([tag])
+}
+
+enum ClaimStatus {
+  OPEN
+  REVIEWING
+  UPHELD // reclamo procedente: la publicación se retira
+  DISMISSED // reclamo descartado: la publicación puede reactivarse
+}
+
+model ListingClaim {
+  id         String         @id @default(cuid())
+  accountId  String
+  account    AccountListing @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email      String
+  reason     String         @db.Text
+  status     ClaimStatus    @default(OPEN)
+  resolution String?        @db.Text
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([accountId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------
+// Códigos promocionales (creados por el administrador)
+// ---------------------------------------------------------------------
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum PromoScope {
+  ALL
+  TOPUP
+  ACCOUNT
+}
+
+model PromoCode {
+  id              String            @id @default(cuid())
+  code            String            @unique @db.VarChar(32) // siempre en MAYÚSCULAS
+  description     String?           @db.VarChar(255) // nota interna
+  discountType    DiscountType      @default(PERCENT)
+  value           Int // % (1-90) o pesos
+  maxDiscount     Int? // tope en pesos para porcentajes
+  minSubtotal     Int? // compra mínima
+  scope           PromoScope        @default(ALL)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  maxUses         Int? // total de usos (null = ilimitado)
+  maxUsesPerEmail Int               @default(1)
+  uses            Int               @default(0) // reservados + confirmados
+  active          Boolean           @default(true)
+  isDemo          Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  redemptions     PromoRedemption[]
+}
+
+enum RedemptionStatus {
+  RESERVED // pedido creado, pago pendiente
+  CONFIRMED // pago confirmado
+  RELEASED // pedido cancelado/expirado: el uso se devuelve
+}
+
+model PromoRedemption {
+  id          String           @id @default(cuid())
+  promoCodeId String
+  promoCode   PromoCode        @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+  orderId     String           @unique
+  order       Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  email       String
+  discount    Int
+  status      RedemptionStatus @default(RESERVED)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([promoCodeId, email])
+}
+
+// ---------------------------------------------------------------------
+// Órdenes, pagos y entregas
+// ---------------------------------------------------------------------
+
+enum OrderType {
+  TOPUP
+  ACCOUNT
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  DELIVERED
+  DELIVERY_FAILED
+  REFUND_REQUESTED
+  REFUNDED
+  CANCELLED
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  number         String      @unique
+  type           OrderType
+  status         OrderStatus @default(PENDING_PAYMENT)
+  idempotencyKey String      @unique
+  trackingToken  String      @unique
+  isTest         Boolean     @default(false)
+
+  userId        String?
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerEmail String
+  customerName  String?
+  customerPhone String?
+
+  // Recargas
+  packageId      String?
+  package        DiamondPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  playerId       String?
+  playerNickname String?
+
+  // Cuentas
+  accountId String?
+  account   AccountListing? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  itemSnapshot Json // copia inmutable del producto al momento de compra
+  subtotal     Int
+  discount     Int              @default(0)
+  total        Int
+  currency     String           @default("COP")
+  promoCode    String?          @db.VarChar(32)
+  redemption   PromoRedemption?
+
+  paymentProvider String
+  expiresAt       DateTime
+  paidAt          DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  payments      Payment[]
+  delivery      Delivery?
+  events        OrderEvent[]
+  notes         AdminNote[]
+  tickets       SupportTicket[]
+  notifications Notification[]
+  messages      OrderMessage[]
+
+  // Chat de entrega (pedidos de cuentas)
+  chatUnreadStaff    Int              @default(0)
+  chatUnreadCustomer Int              @default(0)
+  chatLastAt         DateTime?
+  chatEmailedAt      DateTime? // último aviso por correo de mensaje nuevo (evita spam)
+  chatCustomerReadAt DateTime? // última vez que el comprador vio el chat (para el «visto»)
+  chatStaffReadAt    DateTime? // última vez que el equipo vio el chat
+  chatAttachments    ChatAttachment[]
+
+  @@index([status])
+  @@index([type, chatLastAt])
+  @@index([customerEmail])
+  @@index([createdAt])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  VOIDED
+  ERROR
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider    String
+  providerRef String
+  status      PaymentStatus @default(PENDING)
+  method      String?
+  amount      Int
+  currency    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([provider, providerRef])
+  @@index([orderId])
+}
+
+enum DeliveryStatus {
+  QUEUED
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+// Una sola entrega por orden (orderId único) => imposible entregar dos veces.
+model Delivery {
+  id             String         @id @default(cuid())
+  orderId        String         @unique
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider       String
+  providerRef    String?
+  idempotencyKey String         @unique
+  status         DeliveryStatus @default(QUEUED)
+  simulated      Boolean        @default(false)
+  attempts       Int            @default(0)
+  lastError      String?        @db.Text
+  lockedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String   @db.VarChar(64)
+  message   String   @db.Text
+  actor     String   @db.VarChar(120) // SYSTEM | WEBHOOK:<proveedor> | ADMIN:<email> | CUSTOMER
+  data      Json?
+  public    Boolean  @default(false) // visible en el seguimiento del cliente
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+enum ChatAuthor {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+/// Mensajes del chat de entrega. El texto se guarda cifrado (AES-256-GCM).
+model OrderMessage {
+  id           String          @id @default(cuid())
+  orderId      String
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author       ChatAuthor
+  staffId      String?
+  body         String          @db.Text
+  attachmentId String?         @unique
+  attachment   ChatAttachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// Imagen adjunta en el chat de entrega. Se guarda CIFRADA (AES-256-GCM) y solo se sirve al comprador y al equipo.
+model ChatAttachment {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  mime      String        @db.VarChar(20)
+  size      Int
+  width     Int?
+  height    Int?
+  data      Bytes         @db.MediumBlob
+  createdAt DateTime      @default(now())
+  message   OrderMessage?
+
+  @@index([orderId])
+}
+
+model AdminNote {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------
+// Webhooks, auditoría, soporte, notificaciones e integraciones
+// ---------------------------------------------------------------------
+
+model WebhookEvent {
+  id             String    @id @default(cuid())
+  provider       String
+  externalId     String
+  type           String?
+  signatureValid Boolean
+  payload        Json
+  processedAt    DateTime?
+  error          String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@unique([provider, externalId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String   @db.VarChar(80)
+  entity    String   @db.VarChar(60)
+  entityId  String?
+  data      Json?
+  ipHash    String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id        String        @id @default(cuid())
+  orderId   String?
+  userId    String? // cuenta que la abrió (o la dueña del correo verificado)
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order     Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  email     String
+  topic     String        @db.VarChar(60)
+  message   String        @db.Text
+  status    TicketStatus  @default(OPEN)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  replies   TicketReply[]
+
+  @@index([status])
+  @@index([userId])
+  @@index([email])
+}
+
+/// Mensaje de una solicitud de soporte: del equipo (se envía por correo) o del cliente desde su cuenta.
+model TicketReply {
+  id           String        @id @default(cuid())
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorEmail  String        @db.VarChar(191)
+  fromCustomer Boolean       @default(false) // true: el cliente respondió desde su cuenta
+  body         String        @db.Text
+  delivery     String        @db.VarChar(20) // SENT | SKIPPED | FAILED
+  error        String?       @db.Text
+  createdAt    DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  orderId   String?
+  order     Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  channel   String             @db.VarChar(20)
+  recipient String
+  template  String             @db.VarChar(60)
+  status    NotificationStatus @default(PENDING)
+  error     String?            @db.Text
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  @@unique([orderId, template])
+}
+
+model IntegrationState {
+  key         String    @id // payment:wompi | payment:mercadopago | topup | storage | notifications
+  lastCheckAt DateTime?
+  lastOkAt    DateTime?
+  lastError   String?   @db.Text
+  updatedAt   DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------
+// Banners promocionales (imágenes/edits que sube el administrador)
+// ---------------------------------------------------------------------
+
+enum BannerPlacement {
+  TOP // Inicio · carrusel bajo el hero (1200×630)
+  HOME_TRUST // Inicio · pareja tras los diamantes (1200×630)
+  WIDE // Inicio · franja antes de las cuentas (1600×400)
+  HOME_BOTTOM // Inicio · pareja tras las cuentas (1200×630)
+  TOPUP_SIDE // Recargas · columna junto al checkout (1200×630)
+  CATALOG_FEED // Catálogo de cuentas · fila tras la primera fila (1200×630)
+  ACCOUNT_SIDE // Ficha de cuenta · bajo el botón de compra (1200×630)
+  TRACK_SIDE // Seguimiento · bajo la guía de estados (1200×630)
+  HELP_SIDE // Centro de ayuda · junto al contacto (1200×630)
+}
+
+model PromoBanner {
+  id             String          @id @default(cuid())
+  placement      BannerPlacement @default(TOP)
+  title          String          @db.VarChar(120) // texto alternativo (accesibilidad y SEO)
+  imageUrl       String          @db.VarChar(1024)
+  imageMobileUrl String?         @db.VarChar(1024) // versión para celular (opcional; formato vertical/4:3)
+  href           String?         @db.VarChar(255)
+  sortOrder      Int             @default(0)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}

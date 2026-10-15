@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1200"/>
+      <stop offset="0.55" stop-color="#5e3a00"/>
+      <stop offset="1" stop-color="#f29a00"/>
+    </linearGradient>
+    <linearGradient id="ticket" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ffb100"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000" flood-opacity=".5"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="880" cy="320" r="240" fill="#ffcc33" opacity=".3" filter="url(#glow)"/>
+  <g fill="#fff" opacity=".9">
+    <path d="M600 90 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 Z"/>
+    <path d="M1120 120 l5 13 13 5 -13 5 -5 13 -5 -13 -13 -5 13 -5 Z"/>
+    <path d="M1100 520 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 Z"/>
+  </g>
+
+  <!-- tiquete -->
+  <g filter="url(#shadow)" transform="rotate(-10 880 320)">
+    <path d="M660 210 h440 a0 0 0 0 1 0 0 v60 a40 40 0 0 0 0 80 v60 h-440 v-60 a40 40 0 0 0 0 -80 Z" fill="url(#ticket)"/>
+    <path d="M800 220 v200" stroke="#5e3a00" stroke-width="4" stroke-dasharray="10 12"/>
+    <text x="730" y="345" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="64" fill="#5e3a00">%</text>
+    <text x="950" y="335" text-anchor="middle" font-family="Courier New, monospace" font-weight="700" font-size="54" letter-spacing="4" fill="#3a2400">CÓDIGO</text>
+    <text x="950" y="385" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#5e3a00">APLÍCALO AL PAGAR</text>
+  </g>
+
+  <text x="66" y="200" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="86" fill="#fff">¿TIENES UN</text>
+  <text x="62" y="320" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="120" fill="url(#ticket)" stroke="#2a1800" stroke-width="5" paint-order="stroke">CÓDIGO?</text>
+  <text x="70" y="390" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="32" fill="#ffe9c2">Escríbelo en el último paso</text>
+  <text x="70" y="432" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="32" fill="#ffe9c2">y ve tu descuento antes de pagar</text>
+  <rect x="70" y="480" rx="30" width="320" height="62" fill="#ffffff"/>
+  <text x="230" y="521" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="#5e3a00">USAR CÓDIGO  →</text>
+</svg>

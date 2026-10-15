@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#03141a"/>
+      <stop offset="0.6" stop-color="#06383f"/>
+      <stop offset="1" stop-color="#0c7a6a"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9f77f"/><stop offset="1" stop-color="#45d99b"/></linearGradient>
+    <linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eaf7ff"/><stop offset="1" stop-color="#7cc8ff"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity=".45"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="560" r="240" fill="#45d99b" opacity=".25" filter="url(#glow)"/>
+  <g opacity=".08" stroke="#fff"><path d="M0 0 L1200 630"/><path d="M200 0 L1200 520"/><path d="M0 120 L1000 630"/></g>
+
+  <text x="600" y="130" text-anchor="middle" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#fff">RECARGA EN 3 PASOS</text>
+
+  <!-- conectores -->
+  <path d="M330 330 H470 M730 330 H870" stroke="#d9f77f" stroke-width="8" stroke-dasharray="4 18" stroke-linecap="round"/>
+
+  <g filter="url(#shadow)">
+    <!-- 1 ID -->
+    <circle cx="210" cy="330" r="120" fill="#0b2a2e" stroke="url(#ring)" stroke-width="10"/>
+    <g fill="none" stroke="#d9f77f" stroke-width="9" stroke-linecap="round">
+      <path d="M170 360c0-40 18-66 40-66s40 26 40 66"/>
+      <path d="M190 370c0-30 8-50 20-50s20 20 20 50"/>
+      <path d="M152 330c6-48 30-76 58-76s52 28 58 76"/>
+    </g>
+    <!-- 2 Pago -->
+    <circle cx="600" cy="330" r="120" fill="#0b2a2e" stroke="url(#ring)" stroke-width="10"/>
+    <rect x="530" y="285" rx="14" width="140" height="92" fill="#d9f77f"/>
+    <rect x="530" y="305" width="140" height="20" fill="#0b2a2e"/>
+    <rect x="546" y="340" rx="5" width="38" height="24" fill="#0b2a2e"/>
+    <!-- 3 Diamantes -->
+    <circle cx="990" cy="330" r="120" fill="#0b2a2e" stroke="url(#ring)" stroke-width="10"/>
+    <g transform="translate(930 280) scale(1)">
+      <path d="M30 8h60l26 30H4L30 8Z" fill="url(#gt)"/>
+      <path d="M4 38h40l16 66L4 38Z" fill="#7cc8ff"/>
+      <path d="M44 38h32l-16 66-16-66Z" fill="#a8dcff"/>
+      <path d="M76 38h40L60 104l16-66Z" fill="#2f7fe0"/>
+    </g>
+  </g>
+
+  <g font-family="Arial Black, Arial, sans-serif" font-weight="900" fill="#fff" text-anchor="middle">
+    <circle cx="210" cy="195" r="26" fill="#d9f77f"/><text x="210" y="205" font-size="28" fill="#0b2a2e">1</text>
+    <circle cx="600" cy="195" r="26" fill="#d9f77f"/><text x="600" y="205" font-size="28" fill="#0b2a2e">2</text>
+    <circle cx="990" cy="195" r="26" fill="#d9f77f"/><text x="990" y="205" font-size="28" fill="#0b2a2e">3</text>
+    <text x="210" y="510" font-size="40">PON TU ID</text>
+    <text x="600" y="510" font-size="40">PAGA</text>
+    <text x="990" y="510" font-size="40">RECIBE</text>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#bff3dd" text-anchor="middle">
+    <text x="210" y="550">Verificamos tu cuenta</text>
+    <text x="600" y="550">Nequi, PSE o tarjeta</text>
+    <text x="990" y="550">Directo a tu cuenta</text>
+  </g>
+</svg>

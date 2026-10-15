@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE `User` ADD COLUMN `avatarPreset` VARCHAR(40) NULL,
+    ADD COLUMN `avatarUrl` VARCHAR(512) NULL,
+    ADD COLUMN `ffPlayerId` VARCHAR(12) NULL,
+    ADD COLUMN `phone` VARCHAR(30) NULL;
+

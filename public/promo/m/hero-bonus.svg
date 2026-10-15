@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="bg" cx="0.8" cy="0.2" r="1">
+      <stop offset="0" stop-color="#1d6fe6"/>
+      <stop offset="0.45" stop-color="#0b2e74"/>
+      <stop offset="1" stop-color="#050b1f"/>
+    </radialGradient>
+    <linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eaf7ff"/><stop offset="1" stop-color="#7cc8ff"/></linearGradient>
+    <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc8ff"/><stop offset="1" stop-color="#2f7fe0"/></linearGradient>
+    <linearGradient id="gr" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7fe0"/><stop offset="1" stop-color="#173a8a"/></linearGradient>
+    <linearGradient id="big" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ffb8"/><stop offset="0.55" stop-color="#d4f560"/><stop offset="1" stop-color="#9ccc1e"/></linearGradient>
+    <symbol id="gem" viewBox="0 0 120 110">
+      <path d="M30 8h60l26 30H4L30 8Z" fill="url(#gt)"/>
+      <path d="M30 8 44 38H4L30 8Z" fill="#7cc8ff" fill-opacity=".55"/>
+      <path d="M90 8 76 38h40L90 8Z" fill="#2f7fe0" fill-opacity=".55"/>
+      <path d="M44 38 60 8l16 30H44Z" fill="#fff" fill-opacity=".35"/>
+      <path d="M4 38h40l16 66L4 38Z" fill="url(#gl)"/>
+      <path d="M44 38h32l-16 66-16-66Z" fill="#7cc8ff"/>
+      <path d="M76 38h40L60 104l16-66Z" fill="url(#gr)"/>
+      <path d="M36 14h18l-6 8H31l5-8Z" fill="#fff" fill-opacity=".75"/>
+    </symbol>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="30"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#000" flood-opacity=".5"/></filter>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <g opacity=".12" stroke="#fff" stroke-width="2">
+    <path d="M-40 520 L560 -40"/><path d="M200 640 L860 20"/><path d="M420 660 L900 200"/>
+  </g>
+  <circle cx="630" cy="130" r="170" fill="#4cb4ff" opacity=".35" filter="url(#glow)"/>
+  <g filter="url(#shadow)">
+    <use href="#gem" x="540" y="30" width="210" height="193" transform="rotate(-10 645 126)"/>
+    <use href="#gem" x="436" y="104" width="78" height="72" transform="rotate(14 475 140)"/>
+    <use href="#gem" x="715" y="210" width="62" height="57" transform="rotate(-18 746 238)"/>
+  </g>
+  <g fill="#fff"><circle cx="470" cy="70" r="4"/><circle cx="770" cy="40" r="3"/><circle cx="690" cy="300" r="3"/></g>
+
+  <rect x="44" y="48" rx="18" width="190" height="40" fill="#ffffff" fill-opacity=".16"/>
+  <text x="139" y="75" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="19" letter-spacing="4" fill="#fff">FREE FIRE</text>
+  <text x="36" y="330" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="168" letter-spacing="-6" fill="url(#big)" stroke="#0a2a5e" stroke-width="6" paint-order="stroke">+10%</text>
+  <text x="42" y="428" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="100" fill="#fff">BONUS</text>
+  <text x="46" y="474" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="29" fill="#cfe6ff">EN TODOS LOS PAQUETES DE DIAMANTES</text>
+  <rect x="44" y="504" rx="31" width="340" height="62" fill="#c8f04f"/>
+  <text x="214" y="545" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="#10140a">RECARGA POR ID  →</text>
+</svg>

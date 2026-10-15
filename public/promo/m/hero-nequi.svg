@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="bg" cx="0.85" cy="0.25" r="1">
+      <stop offset="0" stop-color="#b3006e"/>
+      <stop offset="0.5" stop-color="#3d0033"/>
+      <stop offset="1" stop-color="#12000f"/>
+    </radialGradient>
+    <linearGradient id="phone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b0026"/><stop offset="1" stop-color="#14000f"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="34"/></filter>
+    <filter id="shadow" x="-30%" y="-20%" width="160%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#000" flood-opacity=".5"/></filter>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="680" cy="170" r="170" fill="#ff2fa8" opacity=".35" filter="url(#glow)"/>
+
+  <g filter="url(#shadow)" transform="rotate(6 690 190)">
+    <rect x="610" y="40" rx="30" width="164" height="300" fill="url(#phone)" stroke="#ff5cbf" stroke-width="4"/>
+    <rect x="664" y="56" rx="4" width="56" height="8" fill="#ff5cbf" opacity=".5"/>
+    <rect x="634" y="96" width="14" height="14" rx="3" fill="#da0081"/>
+    <text x="700" y="126" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="34" letter-spacing="-1" fill="#fff">nequi</text>
+    <circle cx="692" cy="206" r="46" fill="#da0081"/>
+    <path d="M672 206 l14 14 l26 -30" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="692" y="292" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="19" fill="#fff">PAGO LISTO</text>
+  </g>
+
+  <rect x="44" y="48" rx="18" width="230" height="40" fill="#ffffff" fill-opacity=".14"/>
+  <text x="159" y="75" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="19" letter-spacing="3" fill="#fff">DIAMANTES FF</text>
+  <text x="40" y="250" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#fff">PAGA CON</text>
+  <text x="38" y="392" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="150" letter-spacing="-7" fill="#ff4fb8">nequi</text>
+  <text x="44" y="450" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="29" fill="#ffd1ec">Apruebas el pago en tu app de Nequi</text>
+  <rect x="44" y="490" rx="31" width="290" height="62" fill="#ffffff"/>
+  <text x="189" y="531" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="25" fill="#3d0033">RECARGAR  →</text>
+</svg>

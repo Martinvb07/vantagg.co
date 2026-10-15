@@ -1,0 +1,11 @@
+Logos de medios de pago (se muestran solo para indicar los medios aceptados).
+Las marcas pertenecen a sus titulares. Fuentes: Wikimedia Commons y sitios oficiales de PSE y Bold.
+
+visa.svg        Visa Inc. logo (2021–present).svg          Dominio público (marca registrada de Visa Inc.)
+mastercard.svg  Mastercard 2019 logo.svg                   Dominio público (marca registrada de Mastercard)
+nequi.svg       Nequi Colombia logo.svg                    CC BY-SA 4.0 (marca de Bancolombia S.A.)
+pse.jpg         Logo oficial de www.pse.com.co (encabezado)  Marca de ACH Colombia
+bancolombia.svg Bancolombia S.A. logo.svg (Wikimedia Commons)   Dominio público (marca de Bancolombia S.A.)
+bre-b.png       Bre-B-logo.png (reducido)                  Dominio público (marca del Banco de la República)
+bold.svg        Logo del encabezado de bold.co (SVG)       Marca de Bold
+bold-blanco.svg Mismo logo en blanco (versión para fondos oscuros que usa bold.co)

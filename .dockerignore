@@ -1,0 +1,16 @@
+# Nunca dentro de la imagen: secretos, datos locales ni compilaciones previas.
+.env
+.env.*
+**/.env
+**/.env.*
+node_modules
+.next
+.next-prod
+mysql-data
+public/uploads
+.storage
+exportacion
+coverage
+*.log
+.git
+client_secret*.json

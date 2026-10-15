@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secretos: nunca se suben
+.env
+.env.*
+
+# Archivos subidos en modo almacenamiento local
+public/uploads/
+.storage/
+
+# MySQL local de desarrollo
+mysql-data/
+
+# Credenciales descargadas de Google Cloud
+client_secret*.json
+
+# Copia de producción para pruebas locales (NEXT_DIST_DIR=.next-prod)
+.next-prod/
+
+# Exportaciones de configuración (contienen correos de contacto de la tienda)
+exportacion/
+
+# Registros de PM2 en el VPS
+logs/

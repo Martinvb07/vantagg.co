@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 480" width="1600" height="480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a0630"/>
+      <stop offset="0.55" stop-color="#4a0d5e"/>
+      <stop offset="1" stop-color="#b0127a"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1ffc8"/><stop offset="1" stop-color="#a9d42c"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity=".45"/></filter>
+  </defs>
+  <rect width="1600" height="480" fill="url(#bg)"/>
+  <circle cx="1380" cy="220" r="220" fill="#ff3fb4" opacity=".35" filter="url(#glow)"/>
+  <circle cx="120" cy="480" r="200" fill="#7c4dff" opacity=".35" filter="url(#glow)"/>
+
+  <text x="76" y="140" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="90" fill="#fff">PAGA COMO QUIERAS</text>
+  <text x="82" y="190" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" fill="#ffd1ef">En pesos colombianos · pago seguro en la pasarela</text>
+
+  <g filter="url(#shadow)" font-family="Arial Black, Arial, sans-serif" font-weight="900">
+    <!-- Nequi -->
+    <rect x="80" y="236" rx="24" width="210" height="176" fill="#200020" stroke="#da0081" stroke-width="4"/>
+    <rect x="114" y="304" width="18" height="18" rx="4" fill="#da0081"/>
+    <text x="198" y="340" text-anchor="middle" font-size="52" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="900" letter-spacing="-2">nequi</text>
+    <!-- PSE -->
+    <rect x="310" y="236" rx="24" width="210" height="176" fill="#0b4a8b"/>
+    <path d="M378 290 L415 267 L452 290 Z" fill="#fff"/>
+    <rect x="383" y="295" width="9" height="30" rx="2" fill="#fff"/>
+    <rect x="402" y="295" width="9" height="30" rx="2" fill="#fff"/>
+    <rect x="420" y="295" width="9" height="30" rx="2" fill="#fff"/>
+    <rect x="438" y="295" width="9" height="30" rx="2" fill="#fff"/>
+    <rect x="376" y="329" width="78" height="7" rx="2" fill="#fff"/>
+    <text x="415" y="386" text-anchor="middle" font-size="50" fill="#fff">PSE</text>
+    <!-- Débito -->
+    <rect x="540" y="236" rx="24" width="210" height="176" fill="#ffffff"/>
+    <rect x="585" y="264" rx="10" width="120" height="78" fill="#1d2433"/>
+    <rect x="585" y="281" width="120" height="16" fill="#c8f04f"/>
+    <rect x="599" y="312" rx="4" width="30" height="20" fill="#f4b84a"/>
+    <text x="645" y="390" text-anchor="middle" font-size="34" fill="#1d2433">DÉBITO</text>
+    <!-- Crédito -->
+    <rect x="770" y="236" rx="24" width="210" height="176" fill="#ffffff"/>
+    <rect x="815" y="264" rx="10" width="120" height="78" fill="#0b2e74"/>
+    <rect x="815" y="281" width="120" height="16" fill="#6cb4ff"/>
+    <rect x="829" y="312" rx="4" width="30" height="20" fill="#f4b84a"/>
+    <text x="875" y="390" text-anchor="middle" font-size="34" fill="#0b2e74">CRÉDITO</text>
+  </g>
+
+  <!-- escudo -->
+  <g filter="url(#shadow)">
+    <path d="M1380 70 L1500 112 V220 C1500 300 1450 352 1380 392 C1310 352 1260 300 1260 220 V112 Z" fill="#1a0630" stroke="url(#shield)" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M1330 228 l36 36 l70 -78" fill="none" stroke="url(#shield)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="82" y="452" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#ffffff" fill-opacity=".8">Nunca guardamos los datos de tu tarjeta</text>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a0630"/>
+      <stop offset="0.55" stop-color="#4a0d5e"/>
+      <stop offset="1" stop-color="#b0127a"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity=".45"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1050" cy="80" r="220" fill="#ff3fb4" opacity=".35" filter="url(#glow)"/>
+  <circle cx="120" cy="600" r="200" fill="#7c4dff" opacity=".35" filter="url(#glow)"/>
+  <g opacity=".1" stroke="#fff" stroke-width="2"><path d="M0 90 H1200"/><path d="M0 540 H1200"/></g>
+
+  <text x="600" y="150" text-anchor="middle" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="92" fill="#fff">PAGA COMO QUIERAS</text>
+  <text x="600" y="205" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" fill="#ffd1ef">En pesos colombianos · pago seguro en la pasarela</text>
+
+  <g filter="url(#shadow)" font-family="Arial Black, Arial, sans-serif" font-weight="900">
+    <!-- Nequi -->
+    <rect x="70" y="270" rx="28" width="240" height="210" fill="#200020" stroke="#da0081" stroke-width="4"/>
+    <rect x="114" y="350" width="20" height="20" rx="4" fill="#da0081"/>
+    <text x="210" y="392" text-anchor="middle" font-size="58" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="900" letter-spacing="-2">nequi</text>
+    <!-- PSE -->
+    <rect x="340" y="270" rx="28" width="240" height="210" fill="#0b4a8b"/>
+    <path d="M418 330 L460 304 L502 330 Z" fill="#fff"/>
+    <rect x="424" y="336" width="10" height="34" rx="2" fill="#fff"/>
+    <rect x="446" y="336" width="10" height="34" rx="2" fill="#fff"/>
+    <rect x="465" y="336" width="10" height="34" rx="2" fill="#fff"/>
+    <rect x="486" y="336" width="10" height="34" rx="2" fill="#fff"/>
+    <rect x="416" y="374" width="88" height="8" rx="2" fill="#fff"/>
+    <text x="460" y="440" text-anchor="middle" font-size="58" fill="#fff">PSE</text>
+    <!-- Débito -->
+    <rect x="610" y="270" rx="28" width="240" height="210" fill="#ffffff"/>
+    <rect x="660" y="305" rx="12" width="140" height="90" fill="#1d2433"/>
+    <rect x="660" y="325" width="140" height="18" fill="#c8f04f"/>
+    <rect x="676" y="360" rx="4" width="36" height="24" fill="#f4b84a"/>
+    <text x="730" y="447" text-anchor="middle" font-size="40" fill="#1d2433">DÉBITO</text>
+    <!-- Crédito -->
+    <rect x="880" y="270" rx="28" width="240" height="210" fill="#ffffff"/>
+    <rect x="930" y="305" rx="12" width="140" height="90" fill="#0b2e74"/>
+    <rect x="930" y="325" width="140" height="18" fill="#6cb4ff"/>
+    <rect x="946" y="360" rx="4" width="36" height="24" fill="#f4b84a"/>
+    <text x="1000" y="447" text-anchor="middle" font-size="40" fill="#0b2e74">CRÉDITO</text>
+  </g>
+
+  <text x="600" y="565" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#ffffff" fill-opacity=".8">Nunca guardamos los datos de tu tarjeta</text>
+</svg>
