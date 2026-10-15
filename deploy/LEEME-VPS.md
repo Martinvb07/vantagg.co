@@ -107,7 +107,7 @@ crontab -e
 30 3 * * * sh /var/www/vantagg/deploy/respaldo-vps.sh >> /home/vanta/respaldo.log 2>&1
 ```
 
-Para el respaldo crea `~/.my.cnf` (`chmod 600`):
+Para el respaldo crea `~/.my-vanta.cnf` (`chmod 600`; no uses `~/.my.cnf`, cambiaría el usuario de `mysql` en todo el servidor):
 
 ```
 [client]
