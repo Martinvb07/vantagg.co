@@ -37,7 +37,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             rel="noopener noreferrer"
             aria-label="Escribir por WhatsApp"
             title={`WhatsApp ${settings.whatsapp}`}
-            className="wa-float fixed bottom-5 right-5 z-30 grid size-12 place-items-center rounded-full border border-white/10 bg-ink-800 text-ok-400 shadow-[var(--shadow-lift)] transition-[transform,bottom] hover:scale-105"
+            className="wa-float fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-30 grid size-12 place-items-center rounded-full border border-white/10 bg-ink-800 text-ok-400 shadow-[var(--shadow-lift)] transition-[transform,bottom] hover:scale-105"
           >
             <MessageCircle className="size-5" />
           </a>

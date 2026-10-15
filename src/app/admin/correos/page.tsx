@@ -107,7 +107,7 @@ export default async function EmailsAdmin({ searchParams }: { searchParams: Prom
         </ActionForm>
       </div>
 
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-3">
         {(Object.keys(STATUS) as Array<keyof typeof STATUS>).map((s) => (
           <Link key={s} href={filter === s ? "/admin/correos" : `/admin/correos?estado=${s}`} className={cn("rounded-[12px] border bg-ink-850 p-4 transition hover:border-white/15", filter === s ? "border-white/25" : "border-white/[0.07]")}>
             <p className="text-[12px] text-fg-muted">{STATUS[s].l} · 7 días</p>

@@ -17,7 +17,7 @@ export function Panel({ title, actions, children, className, bodyClass }: { titl
   return (
     <section className={cn("rounded-[12px] border border-white/[0.07] bg-ink-850", className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
           {title && <h2 className="text-[14px] font-semibold">{title}</h2>}
           {actions}
         </header>

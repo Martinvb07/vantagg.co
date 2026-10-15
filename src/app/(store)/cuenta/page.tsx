@@ -394,7 +394,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06]">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06]">
               <span className="flex items-center gap-2.5 text-[13px] text-fg-muted">
                 <MonitorSmartphone className="size-4" /> {sessions} sesión(es) abierta(s)
               </span>

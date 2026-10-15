@@ -466,7 +466,7 @@ export function OrderChat({
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
         }}
-        className="h-[400px] space-y-3 overflow-y-auto px-4 py-4 sm:h-[440px]"
+        className="h-[min(400px,62dvh)] space-y-3 overflow-y-auto px-4 py-4 sm:h-[min(440px,70dvh)]"
         aria-live="polite"
       >
         {messages.length === 0 && (

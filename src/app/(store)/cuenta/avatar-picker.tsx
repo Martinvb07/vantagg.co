@@ -80,7 +80,7 @@ export function AvatarPicker({ user }: { user: AvatarUser }) {
       </div>
 
       <p className="mb-2.5 mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">O elige un avatar</p>
-      <div role="radiogroup" aria-label="Avatares" className="grid grid-cols-6 gap-2.5">
+      <div role="radiogroup" aria-label="Avatares" className="grid grid-cols-4 gap-2.5 min-[420px]:grid-cols-6">
         {AVATAR_PRESETS.map((p) => {
           const selected = !preview && !user.avatarUrl && user.avatarPreset === p.key;
           return (

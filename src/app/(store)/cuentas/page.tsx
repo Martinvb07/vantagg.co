@@ -43,7 +43,7 @@ export default async function CuentasPage({ searchParams }: { searchParams: Prom
 
   return (
     <Container className="py-6 sm:py-8">
-      <div className="mb-5 flex items-center justify-between gap-4">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Compra cuentas de Free Fire</h1>
         {sp.destacadas === "1" && (
           <Link href="/cuentas" className="rounded-full border border-white/10 px-4 py-2 text-[13px] font-medium hover:border-white/20">

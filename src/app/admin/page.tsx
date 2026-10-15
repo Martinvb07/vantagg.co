@@ -213,7 +213,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <Panel>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Kpi label="Vendido" value={formatMoney(revenue)} hint="pagos confirmados" />
               <Kpi label="Pedidos" value={formatNumber(count)} hint="pagados" />
               <Kpi label="Promedio" value={formatMoney(avg)} hint="por pedido" />

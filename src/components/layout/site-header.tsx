@@ -191,7 +191,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
       {open &&
         typeof document !== "undefined" &&
         createPortal(
-        <div id="mobile-menu" style={{ top: menuTop }} className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto border-t border-white/[0.06] bg-ink-900 lg:hidden">
+        <div id="mobile-menu" style={{ top: menuTop }} className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto border-t border-white/[0.06] bg-ink-900 pb-[env(safe-area-inset-bottom)] lg:hidden">
           <nav className="flex flex-col gap-1.5 px-4 py-4" aria-label="Menú móvil">
             {[{ href: "/", label: "Inicio", icon: Home }, ...nav].map(({ href, label, icon: Icon }, i) => {
               const active = isActive(href);

@@ -140,7 +140,10 @@ export function AdminNav({ isAdmin, badges }: { isAdmin: boolean; badges: Record
         {list}
       </nav>
       {open && (
-        <nav className="fixed inset-x-0 bottom-0 top-14 z-40 overflow-y-auto border-t border-white/[0.06] bg-ink-900 p-4 lg:hidden" aria-label="Panel móvil">
+        <nav className="fixed inset-x-0 bottom-0 top-14 z-40 overflow-y-auto border-t border-white/[0.06] bg-ink-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Panel móvil">
+          <form action="/admin/pedidos" method="get" role="search" className="mb-4">
+            <input name="q" placeholder="Buscar pedido, correo o ID" aria-label="Buscar en pedidos" className="field h-10" />
+          </form>
           {list}
         </nav>
       )}

@@ -78,9 +78,14 @@
   html {
     color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     scroll-behavior: smooth;
   }
+  /* Red de seguridad: nada provoca scroll horizontal en celular. «clip» (no «hidden») mantiene el header sticky. */
+  html, body { overflow-x: clip; }
   body {
+    overflow-wrap: break-word;
     background-color: var(--color-ink-900);
     color: var(--color-fg);
     font-family: var(--font-sans);
@@ -218,6 +223,13 @@
 .dual-range input[type="range"]:focus-visible::-webkit-slider-thumb {
   outline: 2px solid var(--color-volt-300);
   outline-offset: 2px;
+}
+
+/* iOS hace zoom al enfocar campos con letra menor a 16px: en celular todos los campos usan 16px. */
+@media (max-width: 767.98px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea { font-size: 16px; }
 }
 
 /* Botón flotante de WhatsApp en celular: sube sobre la barra de pago y se oculta donde ya hay chat del pedido. */

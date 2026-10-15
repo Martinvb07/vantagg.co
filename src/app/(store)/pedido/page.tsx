@@ -36,7 +36,7 @@ export default async function TrackPage() {
           <div className="relative mt-6 rounded-[18px] bg-ink-850 p-5 ring-1 ring-white/[0.08] sm:p-7">
             <div className="mb-5 flex items-center justify-between gap-4">
               <p className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.18em] text-fg-subtle">Ticket de pedido · {settings.storeName}</p>
-              <span className="flex h-6 items-stretch gap-[2px] opacity-30" aria-hidden>
+              <span className="hidden h-6 shrink-0 items-stretch gap-[2px] opacity-30 sm:flex" aria-hidden>
                 {[2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2].map((w, i) => (
                   <span key={i} className="bg-white" style={{ width: w }} />
                 ))}
