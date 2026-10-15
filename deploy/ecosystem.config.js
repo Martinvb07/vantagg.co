@@ -1,5 +1,5 @@
 // PM2: mantiene la tienda VANTA encendida en el VPS y la reinicia si se cae.
-//   vanta  ->  Next.js en 127.0.0.1:3001  (nginx la publica en https://vantagg.co)
+//   vanta  ->  Next.js en 127.0.0.1:3020  (nginx la publica en https://vantagg.co)
 // Arrancar:  pm2 start deploy/ecosystem.config.js && pm2 save
 // Las variables (DATABASE_URL, llaves, etc.) se leen de .env en la raíz del proyecto: Next.js y Prisma lo cargan solos.
 const path = require("path");
@@ -12,7 +12,7 @@ module.exports = {
       name: "vanta",
       cwd: ROOT,
       script: path.join(ROOT, "node_modules", "next", "dist", "bin", "next"),
-      args: "start -p 3001 -H 127.0.0.1", // solo nginx habla con la tienda; el puerto 3001 nunca se abre a internet
+      args: "start -p 3020 -H 127.0.0.1", // solo nginx habla con la tienda; el puerto 3020 nunca se abre a internet
       // UNA sola copia: límites de intentos, «escribiendo…» del chat y avisos agrupados viven en memoria (no usar cluster)
       exec_mode: "fork",
       instances: 1,

@@ -1,6 +1,6 @@
 # VANTA en un VPS Ubuntu con PM2 + nginx (vantagg.co)
 
-Alternativa a Docker (DESPLIEGUE.md). La tienda corre con PM2 en `127.0.0.1:3001`, nginx la publica con HTTPS y cada push a `main` se despliega solo con GitHub Actions (`.github/workflows/deploy.yml`).
+Alternativa a Docker (DESPLIEGUE.md). La tienda corre con PM2 en `127.0.0.1:3020`, nginx la publica con HTTPS y cada push a `main` se despliega solo con GitHub Actions (`.github/workflows/deploy.yml`).
 
 ## 1. Servidor base (como root)
 
@@ -56,7 +56,7 @@ chmod 600 .env
 npm ci && npx prisma migrate deploy && npm run build
 npm run db:seed
 pm2 start deploy/ecosystem.config.js && pm2 save
-curl -s http://127.0.0.1:3001/api/health
+curl -s http://127.0.0.1:3020/api/health
 ```
 
 Configuración de tu PC: `npm run config:exportar`, súbela con `scp -r exportacion/config-XXXX vanta@IP:~/` y en el VPS:

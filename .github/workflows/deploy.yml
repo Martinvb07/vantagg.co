@@ -147,12 +147,12 @@ jobs:
 
           # Health check: /api/health responde 200 si la tienda y la base funcionan. Si falla,
           # se reconstruye la versión anterior y se recarga PM2 (las migraciones ya aplicadas no se deshacen).
-          if ! verificar "http://127.0.0.1:3001/api/health"; then
+          if ! verificar "http://127.0.0.1:3020/api/health"; then
             echo "!! Health check fallido — registros:"
             pm2 describe vanta | grep -E "status|script path|exec cwd|restarts" || true
             pm2 logs vanta --lines 60 --nostream || true
-            echo "!! Quien usa el puerto 3001:"
-            ss -ltnp "sport = :3001" || true
+            echo "!! Quien usa el puerto 3020:"
+            ss -ltnp "sport = :3020" || true
             echo "!! Revirtiendo a $ANTERIOR"
             git reset --hard "$ANTERIOR"
             git clean -fd
