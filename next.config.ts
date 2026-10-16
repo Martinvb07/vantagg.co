@@ -1,4 +1,12 @@
+import { createHash } from "node:crypto";
 import type { NextConfig } from "next";
+
+// Clave de las Server Actions estable entre deploys. Next la usa como «sal» de los identificadores de
+// cada formulario; si cambia en cada build (por defecto es aleatoria), un formulario abierto antes de
+// un deploy deja de funcionar («Failed to find Server Action»). Se deriva de AUTH_SECRET (ya fijo).
+if (!process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY && process.env.AUTH_SECRET) {
+  process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY = createHash("sha256").update(`server-actions:${process.env.AUTH_SECRET}`).digest("base64");
+}
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },

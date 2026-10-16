@@ -234,9 +234,6 @@
 
 /* Botón flotante de WhatsApp en celular: sube sobre la barra de pago y se oculta donde ya hay chat del pedido. */
 @media (max-width: 1023.98px) {
-  /* La barra de pago reemplaza a la barra de navegación inferior. */
-  body:has([data-paybar]) .tabbar,
-  body:has([data-paybar]) .tabbar-spacer { display: none; }
   body:has([data-paybar]) .wa-float { bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
   body:has([aria-label="Chat de entrega"]) .wa-float { display: none; }
 }

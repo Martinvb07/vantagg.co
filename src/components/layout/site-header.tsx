@@ -137,7 +137,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           <Link
             href="/carrito"
             className={cn(
-              "relative hidden size-10 place-items-center rounded-full transition-colors lg:grid",
+              "relative grid size-10 place-items-center rounded-full transition-colors",
               isActive("/carrito") ? "bg-white/[0.08] text-fg" : "text-fg-muted hover:bg-white/[0.06] hover:text-fg",
             )}
             aria-label={`Carrito (${count})`}
@@ -184,6 +184,29 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           </button>
         </div>
       </div>
+
+      {/* Secciones en celular y tablet: fila fija bajo el logo, se desliza de lado; la actual queda marcada. */}
+      <nav className="lg:hidden" aria-label="Secciones">
+        <div className="mx-auto flex max-w-[1240px] gap-1.5 overflow-x-auto px-4 pb-2.5 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
+          {[{ href: "/", label: "Inicio", icon: Home }, ...nav].map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 transition-colors",
+                  active ? "bg-volt-400/12 text-volt-300 ring-volt-400/35" : "text-fg-muted ring-white/[0.08] active:bg-white/[0.06]",
+                )}
+              >
+                <Icon className="size-3.5" />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Búsqueda móvil */}
       {searchOpen && (

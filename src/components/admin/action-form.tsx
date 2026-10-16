@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { CircleCheck, CircleX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,21 @@ export function ActionForm({
   resetOnSuccess?: boolean;
   hideMessage?: boolean;
 }) {
-  const [state, formAction] = useActionState(action, null);
+  // Si el envío falla en el navegador (p. ej. el panel se actualizó mientras estaba abierto), se avisa
+  // en vez de no hacer nada. Las redirecciones de Next (errores con digest NEXT_…) siguen su curso.
+  const safeAction = useCallback<Action>(
+    async (prev, form) => {
+      try {
+        return await action(prev, form);
+      } catch (err) {
+        if (String((err as { digest?: unknown })?.digest ?? "").startsWith("NEXT_")) throw err;
+        console.error(err);
+        return { ok: false, message: "No se pudo guardar: el panel se actualizó mientras estaba abierto. Recarga la página (F5) e inténtalo de nuevo." };
+      }
+    },
+    [action],
+  );
+  const [state, formAction] = useActionState(safeAction, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok && resetOnSuccess) ref.current?.reset();
