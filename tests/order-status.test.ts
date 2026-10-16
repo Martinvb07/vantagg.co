@@ -34,14 +34,11 @@ describe("máquina de estados de órdenes", () => {
 });
 
 describe("requisitos de publicación de cuentas", () => {
-  const ok = { authorizationConfirmed: true, provenanceSource: "Titular", provenanceVerifiedAt: new Date(), inventoryVerified: true, imagesCount: 2, openClaims: 0 };
-  it("sin bloqueos cuando todo está verificado", () => {
+  const ok = { imagesCount: 2, openClaims: 0 };
+  it("sin bloqueos con fotos y sin reclamos", () => {
     expect(publishBlockers(ok)).toEqual([]);
   });
-  it("bloquea sin procedencia, autorización, verificación, imágenes o con reclamos", () => {
-    expect(publishBlockers({ ...ok, provenanceSource: null })).toHaveLength(1);
-    expect(publishBlockers({ ...ok, authorizationConfirmed: false })).toHaveLength(1);
-    expect(publishBlockers({ ...ok, inventoryVerified: false })).toHaveLength(1);
+  it("bloquea sin imágenes o con reclamos abiertos", () => {
     expect(publishBlockers({ ...ok, imagesCount: 0 })).toHaveLength(1);
     expect(publishBlockers({ ...ok, openClaims: 1 })).toHaveLength(1);
   });

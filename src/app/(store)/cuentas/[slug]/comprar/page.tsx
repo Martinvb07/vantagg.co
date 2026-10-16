@@ -59,7 +59,7 @@ export default async function BuyAccountPage({ params }: { params: Promise<{ slu
               {a.title} {a.isDemo && <DemoBadge />}
             </p>
             <p className="mt-1 text-[13px] text-fg-muted">
-              Nivel {a.level ?? "—"} · {a.skinsCount ?? "—"} skins · {regionInfo(a.region)?.label ?? a.region}
+              Nivel {a.level ?? "—"} · {a.skinsCount ?? "—"} skins{a.chestsCount != null ? ` · ${a.chestsCount} pechos` : ""} · {regionInfo(a.region)?.label ?? a.region}
             </p>
             <dl className="mt-5 space-y-2 border-t border-white/[0.06] pt-4 text-sm">
               {a.quote.original != null && (

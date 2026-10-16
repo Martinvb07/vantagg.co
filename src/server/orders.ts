@@ -261,6 +261,7 @@ export async function createAccountOrder(input: unknown, userId: string | null):
           slug: listing.slug,
           level: listing.level,
           skinsCount: listing.skinsCount,
+          chestsCount: listing.chestsCount,
           rank: listing.rank,
           region: listing.region,
           isDemo: listing.isDemo,

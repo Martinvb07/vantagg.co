@@ -134,7 +134,8 @@ export async function previewPromoAction(input: {
   itemId: string;
   email?: string;
 }): Promise<{ ok: true; code: string; discount: number; total: number } | { ok: false; error: string }> {
-  const tooMany = await limited("promo", 10, 10 * 60_000);
+  // Cada cambio de paquete con un código puesto también valida: margen para comparar paquetes sin bloquear al cliente.
+  const tooMany = await limited("promo", 40, 10 * 60_000);
   if (tooMany) return { ok: false, error: tooMany };
   if (typeof input?.code !== "string" || typeof input.itemId !== "string" || input.code.length > 40 || input.itemId.length > 40) {
     return { ok: false, error: "El código no es válido o ya no está vigente." };

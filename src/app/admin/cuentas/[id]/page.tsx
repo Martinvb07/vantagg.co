@@ -12,7 +12,9 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
 import { FF_RANKS, FF_REGIONS } from "@/domain/freefire";
-import { imageAction, saveAccountAction, setListingStatusAction, uploadAccountImagesAction } from "@/app/actions/admin";
+import { EmailStatusPicker } from "@/components/admin/email-status-picker";
+import { imageAction, saveAccountAction, setListingStatusAction } from "@/app/actions/admin";
+import { ImagePicker } from "@/components/admin/image-picker";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cuenta" };
@@ -46,10 +48,6 @@ export default async function AccountEditor({ params, searchParams }: { params: 
   const openClaims = a?.claims.filter((c) => c.status === "OPEN" || c.status === "REVIEWING").length ?? 0;
   const blockers = a
     ? publishBlockers({
-        authorizationConfirmed: a.authorizationConfirmed,
-        provenanceSource: a.provenanceSource,
-        provenanceVerifiedAt: a.provenanceVerifiedAt,
-        inventoryVerified: a.inventoryVerified,
         imagesCount: a.images.length,
         openClaims,
       })
@@ -75,11 +73,12 @@ export default async function AccountEditor({ params, searchParams }: { params: 
           </div>
         )}
       </div>
-      {creada && <Alert tone="success" className="mb-6" title="Borrador creado">Sube imágenes y completa la verificación para poder publicarla.</Alert>}
+      {creada === "publicada" && <Alert tone="success" className="mb-6" title="Cuenta publicada">Ya está a la venta en la tienda.</Alert>}
+      {creada === "1" && <Alert tone="success" className="mb-6" title="Borrador creado">{a && a.images.length ? "Publícala cuando quieras desde «Publicación»." : "Agrega al menos una foto para poder publicarla."}</Alert>}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Panel title="Ficha del producto">
-          <AccountForm a={a} tags={a?.tags.map((t) => t.tag) ?? []} />
+          <AccountForm a={a} tags={a?.tags.map((t) => t.tag) ?? []} imagesCount={a?.images.length ?? 0} />
         </Panel>
 
         <div className="space-y-6">
@@ -140,16 +139,11 @@ export default async function AccountEditor({ params, searchParams }: { params: 
                   ))}
                 </ul>
               )}
-              <ActionForm action={uploadAccountImagesAction} resetOnSuccess>
-                <input type="hidden" name="id" value={a.id} />
-                <input name="images" type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" className="block w-full text-[12.5px] text-fg-muted file:mr-3 file:rounded-md file:border-0 file:bg-ink-700 file:px-3 file:py-1.5 file:text-fg" />
-                <p className="mt-1.5 text-[11.5px] text-fg-subtle">JPG, PNG, WebP o AVIF · máx. 5 MB c/u. Evita capturas con datos personales del titular.</p>
-                <div className="mt-2">
-                  <SubmitButton size="sm" variant="secondary">
-                    Subir imágenes
-                  </SubmitButton>
-                </div>
-              </ActionForm>
+              {a.images.length === 0 ? (
+                <p className="text-[13px] text-fg-muted">Aún no tiene fotos. Agrégalas en el formulario y guarda.</p>
+              ) : (
+                <p className="text-[12px] text-fg-subtle">Pasa el cursor sobre una foto para marcarla como principal o quitarla. Para agregar más, usa el formulario.</p>
+              )}
             </Panel>
           )}
 
@@ -186,100 +180,105 @@ export default async function AccountEditor({ params, searchParams }: { params: 
   );
 }
 
-function AccountForm({ a, tags }: { a: AccountListing | null; tags: string[] }) {
+function AccountForm({ a, tags, imagesCount }: { a: AccountListing | null; tags: string[]; imagesCount: number }) {
   return (
-    <ActionForm action={saveAccountAction}>
+    <ActionForm action={saveAccountAction} resetOnSuccess={!!a}>
       {a && <input type="hidden" name="id" value={a.id} />}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Título" className="sm:col-span-2">
-          <input name="title" required minLength={8} maxLength={140} defaultValue={a?.title} className="field" />
-        </Field>
-        <Field label="Precio (COP)">
-          <input name="price" type="number" min={1000} step={1} required defaultValue={a?.price} className="field" />
-        </Field>
-        <Field label="Precio anterior (opcional)">
-          <input name="compareAtPrice" type="number" min={0} step={1} defaultValue={a?.compareAtPrice ?? ""} className="field" />
-        </Field>
-        <Field label="Nivel">
-          <input name="level" type="number" min={0} defaultValue={a?.level ?? ""} className="field" />
-        </Field>
-        <Field label="Cantidad de skins">
-          <input name="skinsCount" type="number" min={0} defaultValue={a?.skinsCount ?? ""} className="field" />
-        </Field>
-        <Field label="Rango (si aplica)">
-          <select name="rank" defaultValue={a?.rank ?? ""} className="field">
-            <option value="">Sin rango</option>
-            {FF_RANKS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Servidor">
-          <select name="region" defaultValue={a?.region ?? "LATAM"} className="field">
-            {FF_REGIONS.map((r) => (
-              <option key={r.code} value={r.code}>
-                {r.label} ({r.code})
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Etiqueta">
-          <select name="label" defaultValue={a?.label ?? "NONE"} className="field">
-            {Object.entries(PRODUCT_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v ?? "Sin etiqueta"}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Características" hint="Separadas por comas. Se usan como filtros.">
-          <input name="tags" defaultValue={tags.join(", ")} placeholder="Pase élite, Mascotas" className="field" />
-        </Field>
-        <Field label="Descripción" className="sm:col-span-2">
-          <textarea name="description" required rows={5} defaultValue={a?.description} className="field" />
-        </Field>
-        <Field label="Inventario de objetos" hint="Uno por línea. Publica solo lo que se puede comprobar." className="sm:col-span-2">
-          <textarea name="inventoryItems" rows={5} defaultValue={a?.inventoryItems} className="field font-mono text-[13px]" />
-        </Field>
-        <Field label="Condiciones de entrega" className="sm:col-span-2">
-          <textarea name="deliveryConditions" required rows={3} defaultValue={a?.deliveryConditions} className="field" />
-        </Field>
-        <Field label="Información relevante (opcional)" className="sm:col-span-2">
-          <textarea name="extraInfo" rows={2} defaultValue={a?.extraInfo ?? ""} className="field" />
-        </Field>
-      </div>
 
-      <fieldset className="mt-6 rounded-lg border border-white/[0.08] p-4">
-        <legend className="px-1 text-[13px] font-semibold">Procedencia y autorización (interno)</legend>
-        <div className="grid gap-4">
-          <Field label="Origen de la cuenta" hint="Ej. titular original identificado, contrato de consignación n.º…">
-            <input name="provenanceSource" defaultValue={a?.provenanceSource ?? ""} className="field" />
-          </Field>
-          <Field label="Notas de verificación">
-            <textarea name="provenanceNotes" rows={2} defaultValue={a?.provenanceNotes ?? ""} className="field" />
-          </Field>
-          <Check
-            name="authorizationConfirmed"
-            label="Confirmo que el titular autorizó comercialmente la venta y verifiqué su procedencia"
-            hint={a?.provenanceVerifiedAt ? `Verificado el ${formatDate(a.provenanceVerifiedAt)}` : "Obligatorio para publicar."}
-            defaultChecked={a?.authorizationConfirmed}
-          />
-          <Check
-            name="inventoryVerified"
-            label="Verifiqué dentro de la cuenta el inventario, nivel y skins declarados"
-            hint={a?.inventoryVerifiedAt ? `Revisada el ${formatDate(a.inventoryVerifiedAt)}` : "Muestra el sello «Revisada»."}
-            defaultChecked={a?.inventoryVerified ?? true}
-          />
+      <div className="space-y-5">
+        <div>
+          <p className="mb-2 text-[13px] font-medium">{a ? "Agregar fotos" : "Fotos de la cuenta"}</p>
+          <ImagePicker existing={imagesCount} />
         </div>
-      </fieldset>
 
-      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">
-        <Check name="featured" label="Destacada" defaultChecked={a?.featured} />
+        <Field label="Título">
+          <input name="title" required minLength={8} maxLength={140} defaultValue={a?.title} placeholder="Ej. Cuenta nivel 70 con pase élite y 760 skins" className="field" />
+        </Field>
+        <Field label="Descripción de la cuenta" hint="Todo lo que el cliente debe saber: skins destacadas, pase élite, armas, etc.">
+          <textarea name="description" required minLength={30} rows={6} defaultValue={a?.description} className="field" />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Precio (COP)">
+            <input name="price" type="number" min={1000} step={1} required defaultValue={a?.price} placeholder="150000" className="field" />
+          </Field>
+          <Field label="Precio anterior (opcional)" hint="Se muestra tachado como descuento.">
+            <input name="compareAtPrice" type="number" min={0} step={1} defaultValue={a?.compareAtPrice ?? ""} className="field" />
+          </Field>
+        </div>
+
+        <details className="group rounded-[12px] border border-white/[0.08] [&_summary::-webkit-details-marker]:hidden" open={!!a}>
+          <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-semibold">
+            Más detalles <span className="text-[12px] font-normal text-fg-subtle">opcional · nivel, skins, pechos, correo, origen… <span className="ml-1 inline-block transition-transform group-open:rotate-180">▾</span></span>
+          </summary>
+          <div className="grid gap-4 border-t border-white/[0.06] p-4 sm:grid-cols-2">
+            <Field label="Nivel">
+              <input name="level" type="number" min={0} defaultValue={a?.level ?? ""} className="field" />
+            </Field>
+            <Field label="Cantidad de skins">
+              <input name="skinsCount" type="number" min={0} defaultValue={a?.skinsCount ?? ""} className="field" />
+            </Field>
+            <Field label="Cantidad de pechos">
+              <input name="chestsCount" type="number" min={0} defaultValue={a?.chestsCount ?? ""} className="field" />
+            </Field>
+            <Field label="Rango (si aplica)">
+              <select name="rank" defaultValue={a?.rank ?? ""} className="field">
+                <option value="">Sin rango</option>
+                {FF_RANKS.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Correo de la cuenta" className="sm:col-span-2">
+              <EmailStatusPicker defaultValue={a?.emailStatus ?? ""} />
+            </Field>
+            <Field label="Servidor">
+              <select name="region" defaultValue={a?.region ?? "LATAM"} className="field">
+                {FF_REGIONS.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.label} ({r.code})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Etiqueta">
+              <select name="label" defaultValue={a?.label ?? "NONE"} className="field">
+                {Object.entries(PRODUCT_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v ?? "Sin etiqueta"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Características" hint="Separadas por comas. Se usan como filtros." className="sm:col-span-2">
+              <input name="tags" defaultValue={tags.join(", ")} placeholder="Pase élite, Mascotas" className="field" />
+            </Field>
+            <Field label="Origen de la cuenta (interno)" hint="De quién es la cuenta. No se muestra en la tienda." className="sm:col-span-2">
+              <input name="provenanceSource" defaultValue={a?.provenanceSource ?? ""} placeholder="Ej. Juan Pérez · WhatsApp 300…" className="field" />
+            </Field>
+            <Field label="Notas internas" className="sm:col-span-2">
+              <textarea name="provenanceNotes" rows={2} defaultValue={a?.provenanceNotes ?? ""} className="field" />
+            </Field>
+            <div className="flex flex-wrap gap-x-6 gap-y-3 sm:col-span-2">
+              <Check name="inventoryVerified" label="Revisé la cuenta (muestra el sello «Revisada»)" defaultChecked={a?.inventoryVerified ?? true} />
+              <Check name="featured" label="Destacada" defaultChecked={a?.featured} />
+            </div>
+          </div>
+        </details>
       </div>
-      <div className="mt-5">
-        <SubmitButton>{a ? "Guardar cambios" : "Crear borrador"}</SubmitButton>
+
+      <div className="mt-6 flex flex-wrap gap-2 border-t border-white/[0.06] pt-5">
+        {a ? (
+          <SubmitButton>Guardar cambios</SubmitButton>
+        ) : (
+          <>
+            <SubmitButton name="publish" value="1">
+              Crear y publicar
+            </SubmitButton>
+            <SubmitButton variant="secondary">Guardar como borrador</SubmitButton>
+          </>
+        )}
       </div>
     </ActionForm>
   );

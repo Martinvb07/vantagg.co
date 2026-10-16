@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Clock, Images, PackageCheck, Shirt, ShieldCheck } from "lucide-react";
+import { ArrowRight, Box, Clock, Images, PackageCheck, Shirt, ShieldCheck } from "lucide-react";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
 import { RankEmblem } from "@/components/brand/rank-emblem";
 import { DemoBadge } from "@/components/ui/primitives";
@@ -53,13 +53,18 @@ function Cover({ a, className, sizes, priority = false }: { a: AccountCardView; 
   );
 }
 
-/** Datos secundarios en una línea: skins, servidor y revisión. */
+/** Datos secundarios en una línea: skins, pechos, servidor y revisión. */
 function Facts({ a, long, review = true }: { a: AccountCardView; long?: boolean; review?: boolean }) {
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-fg-muted">
       {a.skinsCount != null && (
         <span className="inline-flex items-center gap-1">
           <Shirt className="size-3.5 text-fg-subtle" /> {formatNumber(a.skinsCount)} skins
+        </span>
+      )}
+      {a.chestsCount != null && (
+        <span className="inline-flex items-center gap-1">
+          <Box className="size-3.5 text-fg-subtle" /> {formatNumber(a.chestsCount)} pechos
         </span>
       )}
       <span className="inline-flex items-center gap-1.5" title={regionInfo(a.region)?.label ?? a.region}>

@@ -19,20 +19,12 @@ export const LISTING_STATUS_META = {
 } as const;
 export type ListingStatusValue = keyof typeof LISTING_STATUS_META;
 
-/** Requisitos para que una cuenta pueda pasar a PUBLISHED. */
-export function publishBlockers(l: {
-  authorizationConfirmed: boolean;
-  provenanceSource: string | null;
-  provenanceVerifiedAt: Date | null;
-  inventoryVerified: boolean;
-  imagesCount: number;
-  openClaims: number;
-}): string[] {
+/**
+ * Requisitos para que una cuenta pueda pasar a PUBLISHED: al menos una foto y ningún reclamo abierto.
+ * El origen y la revisión son opcionales (se registran en «Más detalles» del panel).
+ */
+export function publishBlockers(l: { imagesCount: number; openClaims: number }): string[] {
   const out: string[] = [];
-  if (!l.provenanceSource) out.push("Registrar la procedencia de la cuenta.");
-  if (!l.authorizationConfirmed || !l.provenanceVerifiedAt)
-    out.push("Confirmar la autorización comercial del titular para venderla.");
-  if (!l.inventoryVerified) out.push("Verificar el inventario declarado.");
   if (l.imagesCount === 0) out.push("Subir al menos una imagen.");
   if (l.openClaims > 0) out.push("Resolver las reclamaciones abiertas.");
   return out;

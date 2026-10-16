@@ -207,11 +207,10 @@ const accountSchema = z.object({
   compareAtPrice: optInt,
   level: optInt,
   skinsCount: optInt,
+  chestsCount: optInt,
+  emailStatus: z.enum(["CONFIRMED", "PENDING"]).optional(),
   rank: z.enum(FF_RANKS.map((r) => r.id) as [RankId, ...RankId[]]).optional(),
   region: z.enum(FF_REGIONS.map((r) => r.code) as [RegionCode, ...RegionCode[]], { errorMap: () => ({ message: "Selecciona un servidor válido." }) }),
-  inventoryItems: z.string().max(5000),
-  deliveryConditions: z.string().min(20, "Describe las condiciones de entrega (mínimo 20 caracteres).").max(3000),
-  extraInfo: z.string().max(3000).optional(),
   label: z.enum(LABELS),
   provenanceSource: z.string().max(255).optional(),
   provenanceNotes: z.string().max(3000).optional(),
@@ -227,11 +226,10 @@ export async function saveAccountAction(_: ActionResult, form: FormData): Promis
     compareAtPrice: str(form, "compareAtPrice"),
     level: str(form, "level"),
     skinsCount: str(form, "skinsCount"),
+    chestsCount: str(form, "chestsCount"),
+    emailStatus: str(form, "emailStatus") || undefined,
     rank: str(form, "rank") || undefined,
     region: str(form, "region") || "LATAM",
-    inventoryItems: str(form, "inventoryItems"),
-    deliveryConditions: str(form, "deliveryConditions"),
-    extraInfo: str(form, "extraInfo") || undefined,
     label: str(form, "label") || "NONE",
     provenanceSource: str(form, "provenanceSource") || undefined,
     provenanceNotes: str(form, "provenanceNotes") || undefined,
@@ -243,7 +241,6 @@ export async function saveAccountAction(_: ActionResult, form: FormData): Promis
 
   const id = str(form, "id");
   const existing = id ? await db.accountListing.findUnique({ where: { id } }) : null;
-  const authorization = bool(form, "authorizationConfirmed");
   const verified = bool(form, "inventoryVerified");
   const now = new Date();
 
@@ -254,19 +251,15 @@ export async function saveAccountAction(_: ActionResult, form: FormData): Promis
     compareAtPrice: d.compareAtPrice,
     level: d.level,
     skinsCount: d.skinsCount,
+    chestsCount: d.chestsCount,
+    emailStatus: d.emailStatus ?? null,
     rank: d.rank ?? null,
     region: d.region,
-    inventoryItems: d.inventoryItems,
-    deliveryConditions: d.deliveryConditions,
-    extraInfo: d.extraInfo ?? null,
     label: d.label,
     featured: bool(form, "featured"),
     isDemo: bool(form, "isDemo"),
     provenanceSource: d.provenanceSource ?? null,
     provenanceNotes: d.provenanceNotes ?? null,
-    authorizationConfirmed: authorization,
-    provenanceVerifiedAt: authorization ? (existing?.provenanceVerifiedAt ?? now) : null,
-    provenanceVerifiedById: authorization ? (existing?.provenanceVerifiedById ?? user.id) : null,
     inventoryVerified: verified,
     inventoryVerifiedAt: verified ? (existing?.inventoryVerifiedAt ?? now) : null,
   };
@@ -278,20 +271,60 @@ export async function saveAccountAction(_: ActionResult, form: FormData): Promis
       db.accountTag.deleteMany({ where: { accountId: id } }),
       db.accountTag.createMany({ data: d.tags.map((tag) => ({ accountId: id, tag })) }),
     ]);
-    await audit({ actorId: user.id, action: "account.update", entity: "AccountListing", entityId: id, data: { price: d.price, authorization, verified } });
+    await audit({ actorId: user.id, action: "account.update", entity: "AccountListing", entityId: id, data: { price: d.price, verified } });
   } else {
     let slug = slugify(d.title) || "cuenta";
     if (await db.accountListing.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
     const created = await db.accountListing.create({
-      data: { ...(data as Prisma.AccountListingUncheckedCreateInput), slug, status: "DRAFT", tags: { create: d.tags.map((tag) => ({ tag })) } },
+      // Inventario, condiciones e información adicional ya no se piden: se crean vacíos.
+      data: { ...(data as Prisma.AccountListingUncheckedCreateInput), inventoryItems: "", deliveryConditions: "", slug, status: "DRAFT", tags: { create: d.tags.map((tag) => ({ tag })) } },
     });
     accountId = created.id;
     await audit({ actorId: user.id, action: "account.create", entity: "AccountListing", entityId: created.id });
   }
+  // Fotos elegidas en el mismo formulario (ya optimizadas en el navegador).
+  const files = form.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  let photoError: string | null = null;
+  if (files.length) {
+    const r = await saveListingImages(accountId, d.title, files);
+    if (!r.ok) photoError = r.error;
+    else await audit({ actorId: user.id, action: "account.images_upload", entity: "AccountListing", entityId: accountId, data: { count: files.length } });
+  }
+
+  // «Crear y publicar»: se publica si ya cumple los requisitos (al menos una foto).
+  let published = false;
+  if (!existing && str(form, "publish") === "1" && !photoError) {
+    const images = await db.accountImage.count({ where: { accountId } });
+    if (!publishBlockers({ imagesCount: images, openClaims: 0 }).length) {
+      await db.accountListing.update({ where: { id: accountId }, data: { status: "PUBLISHED" } });
+      await audit({ actorId: user.id, action: "account.status", entity: "AccountListing", entityId: accountId, data: { from: "DRAFT", to: "PUBLISHED" } });
+      published = true;
+    }
+  }
+
   revalidatePath("/admin/cuentas");
+  revalidatePath(`/admin/cuentas/${accountId}`);
   revalidatePath("/cuentas");
-  if (!existing) redirect(`/admin/cuentas/${accountId}?creada=1`);
-  return ok("Cambios guardados.");
+  if (!existing) redirect(`/admin/cuentas/${accountId}?creada=${published ? "publicada" : "1"}`);
+  if (photoError) return fail(`Cambios guardados, pero las fotos no se subieron: ${photoError}`);
+  return ok(files.length ? `Cambios guardados y ${files.length} foto(s) agregada(s).` : "Cambios guardados.");
+}
+
+/** Guarda fotos de una cuenta (máximo 15 en total). */
+async function saveListingImages(accountId: string, title: string, files: File[]): Promise<{ ok: true } | { ok: false; error: string }> {
+  const current = await db.accountImage.count({ where: { accountId } });
+  if (current + files.length > 15) return { ok: false, error: "Cada cuenta admite hasta 15 imágenes." };
+  try {
+    for (const [i, file] of files.entries()) {
+      const url = await saveImage(file);
+      await db.accountImage.create({ data: { accountId, url, alt: `${title} — imagen ${current + i + 1}`, sortOrder: current + i + 1 } });
+    }
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof UploadError) return { ok: false, error: err.message };
+    console.error("[upload]", (err as Error).message);
+    return { ok: false, error: "No se pudo guardar la imagen. Revisa la configuración de almacenamiento." };
+  }
 }
 
 const STATUS_FROM: Partial<Record<ListingStatus, ListingStatus[]>> = {
@@ -318,10 +351,6 @@ export async function setListingStatusAction(_: ActionResult, form: FormData): P
 
   if (to === "PUBLISHED") {
     const blockers = publishBlockers({
-      authorizationConfirmed: listing.authorizationConfirmed,
-      provenanceSource: listing.provenanceSource,
-      provenanceVerifiedAt: listing.provenanceVerifiedAt,
-      inventoryVerified: listing.inventoryVerified,
       imagesCount: listing._count.images,
       openClaims: listing._count.claims,
     });

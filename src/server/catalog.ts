@@ -75,6 +75,7 @@ export type AccountCardView = {
   title: string;
   level: number | null;
   skinsCount: number | null;
+  chestsCount: number | null;
   rank: string | null;
   region: string;
   label: AccountListing["label"];
@@ -107,6 +108,7 @@ function toCard(l: ListingWithRels): AccountCardView {
     title: l.title,
     level: l.level,
     skinsCount: l.skinsCount,
+    chestsCount: l.chestsCount,
     rank: l.rank,
     region: l.region,
     label: l.label,
@@ -205,9 +207,7 @@ export async function getAccountBySlug(slug: string) {
   return {
     ...toCard(l),
     description: l.description,
-    inventoryItems: l.inventoryItems.split("\n").map((s) => s.trim()).filter(Boolean),
-    deliveryConditions: l.deliveryConditions,
-    extraInfo: l.extraInfo,
+    emailStatus: l.emailStatus === "CONFIRMED" || l.emailStatus === "PENDING" ? l.emailStatus : null,
     inventoryVerifiedAt: l.inventoryVerifiedAt,
     images: l.images.map((i) => ({ url: i.url, alt: i.alt || l.title })),
     sold: l.status === "SOLD",

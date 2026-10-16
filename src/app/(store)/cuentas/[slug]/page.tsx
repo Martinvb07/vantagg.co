@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, ChevronRight, Clock, Globe, Info, Layers, PackageCheck, ShieldCheck, Swords, Trophy } from "lucide-react";
+import { BadgeCheck, Box, ChevronRight, CircleDashed, Clock, Globe, Info, Layers, Mail, MailCheck, PackageCheck, ShieldCheck, Swords, Trophy } from "lucide-react";
 import { AccountGridCard } from "@/components/store/account-listing";
 import { BannerSlot } from "@/components/store/banner-slot";
 import { AddToCartButton } from "@/components/store/cart-button";
@@ -44,8 +44,21 @@ export default async function AccountPage({ params }: { params: Promise<{ slug: 
   const specs = [
     { icon: Trophy, k: "Nivel", v: a.level != null ? String(a.level) : "No informado" },
     { icon: Swords, k: "Skins", v: a.skinsCount != null ? formatNumber(a.skinsCount) : "No informado" },
+    { icon: Box, k: "Pechos", v: a.chestsCount != null ? formatNumber(a.chestsCount) : "No informado" },
     { icon: Layers, k: "Rango", v: a.rank ? <span className="flex items-center gap-1.5"><RankEmblem rank={a.rank} className="size-5" />{rankLabel(a.rank)}</span> : "No aplica" },
     { icon: Globe, k: "Servidor", v: <span className="flex items-center gap-1.5"><RegionFlag code={a.region} />{regionInfo(a.region)?.label ?? a.region}</span> },
+    {
+      icon: Mail,
+      k: "Correo",
+      v:
+        a.emailStatus === "CONFIRMED" ? (
+          <span className="flex items-center gap-1.5 text-ok-400"><MailCheck className="size-4" />Confirmado</span>
+        ) : a.emailStatus === "PENDING" ? (
+          <span className="flex items-center gap-1.5 text-warn-400"><CircleDashed className="size-4" />En proceso</span>
+        ) : (
+          "No informado"
+        ),
+    },
   ];
 
   return (
@@ -99,60 +112,34 @@ export default async function AccountPage({ params }: { params: Promise<{ slug: 
               <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-fg-muted">{a.description}</p>
             </section>
 
-            <section className="mt-10" aria-labelledby="inventario">
+            <section className="mt-10" aria-labelledby="entrega">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="inventario" className="font-display text-lg font-semibold">
-                  Inventario incluido
+                <h2 id="entrega" className="font-display text-lg font-semibold">
+                  Entrega
                 </h2>
                 {a.inventoryVerified ? (
                   <span className="inline-flex items-center gap-1.5 text-[13px] text-ok-400">
-                    <BadgeCheck className="size-4" /> Revisado por el equipo
+                    <BadgeCheck className="size-4" /> Revisada por el equipo
                     {a.inventoryVerifiedAt ? ` el ${formatDate(a.inventoryVerifiedAt, false)}` : ""}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-subtle">
-                    <Info className="size-4" /> Declarado por el vendedor, pendiente de revisión
+                    <Info className="size-4" /> Pendiente de revisión del equipo
                   </span>
                 )}
               </div>
-              {a.inventoryItems.length ? (
-                <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {a.inventoryItems.map((it) => (
-                    <li key={it} className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-ink-850 px-3 py-2.5 text-sm">
-                      <span className="size-1.5 shrink-0 rounded-full bg-volt-400" aria-hidden /> {it}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-fg-muted">El vendedor no detalló objetos adicionales.</p>
-              )}
+              <ul className="mt-3 space-y-2.5 rounded-[12px] border border-white/[0.07] bg-ink-850 p-5 text-[14px] text-fg-muted">
+                <li className="flex gap-2.5">
+                  <PackageCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> La cuenta se reserva para ti mientras completas el pago.
+                </li>
+                <li className="flex gap-2.5">
+                  <Clock className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Recibes los datos de acceso por el chat seguro de tu pedido apenas se confirme el pago.
+                </li>
+                <li className="flex gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Nunca te pediremos contraseñas de tus redes sociales ni datos bancarios.
+                </li>
+              </ul>
             </section>
-
-            <section className="mt-10" aria-labelledby="entrega">
-              <h2 id="entrega" className="font-display text-lg font-semibold">
-                Condiciones de entrega
-              </h2>
-              <div className="mt-3 rounded-[12px] border border-white/[0.07] bg-ink-850 p-5">
-                <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-fg-muted">{a.deliveryConditions}</p>
-                <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-4 text-[13.5px] text-fg-muted">
-                  <li className="flex gap-2">
-                    <PackageCheck className="size-4 shrink-0 text-volt-300" /> La cuenta se reserva para ti mientras completas el pago.
-                  </li>
-                  <li className="flex gap-2">
-                    <ShieldCheck className="size-4 shrink-0 text-volt-300" /> Nunca te pediremos contraseñas de tus redes sociales ni datos bancarios.
-                  </li>
-                </ul>
-              </div>
-            </section>
-
-            {a.extraInfo && (
-              <section className="mt-10" aria-labelledby="extra">
-                <h2 id="extra" className="font-display text-lg font-semibold">
-                  Información relevante
-                </h2>
-                <p className="mt-3 whitespace-pre-line text-[14.5px] leading-relaxed text-fg-muted">{a.extraInfo}</p>
-              </section>
-            )}
           </div>
 
           {/* Columna de compra */}

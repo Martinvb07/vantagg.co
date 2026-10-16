@@ -199,6 +199,8 @@ model AccountListing {
   currency           String        @default("COP")
   level              Int?
   skinsCount         Int?
+  chestsCount        Int?
+  emailStatus        String?       @db.VarChar(16) // correo de la cuenta: CONFIRMED | PENDING
   inventoryItems     String        @db.Text // un objeto por línea
   rank               String? // id de FF_RANKS (src/domain/freefire.ts)
   region             String        @default("LATAM") // código de FF_REGIONS
