@@ -60,6 +60,13 @@ jobs:
               *) echo "  $v: dominio=$(printf '%s' "$valor" | grep -oE '@[A-Za-z0-9.-]+' | tr '\n' ' ') anterior=$(printf '%s' "$valor" | grep -q storevancolombia && echo si || echo no)" ;;
             esac
           done
+          rk=$(grep -E '^RESEND_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '"' || true)
+          if [ -n "$rk" ]; then
+            echo "  huella RESEND_API_KEY: $(printf '%s' "$rk" | sha256sum | cut -c1-16)"
+            echo "== dominios en Resend"
+            curl -s --max-time 10 -H "Authorization: Bearer $rk" https://api.resend.com/domains \
+              | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);for(const d of j.data??[])console.log(" ",d.name,d.status,d.region??"");if(!j.data)console.log("  respuesta:",j.message??s.slice(0,200))}catch{console.log("  respuesta no válida")}})' || true
+          fi
           echo "== ajustes de correo en la base"
           node --env-file=.env -e 'const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();db.setting.findMany({where:{key:{in:["supportEmail","staffAlertEmail"]}}}).then(r=>{for(const s of r)console.log(" ",s.key,"vacío="+(!s.value),"anterior="+/storevancolombia/.test(s.value));return db.$disconnect()})' || true
           echo "== pm2"
