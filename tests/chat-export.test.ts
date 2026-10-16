@@ -33,7 +33,9 @@ describe("cifrado del chat", () => {
   it("rechaza texto alterado", () => {
     const sealed = sealText("secreto");
     const parts = sealed.split(".");
-    parts[3] = parts[3].slice(0, -2) + (parts[3].endsWith("A") ? "BB" : "AA");
+    // Se cambia un carácter del medio: el último del base64 puede llevar solo bits de relleno.
+    const i = Math.floor(parts[3].length / 2);
+    parts[3] = parts[3].slice(0, i) + (parts[3][i] === "A" ? "B" : "A") + parts[3].slice(i + 1);
     expect(openText(parts.join("."))).toBeNull();
     expect(openText("basura")).toBeNull();
   });

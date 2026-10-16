@@ -80,7 +80,7 @@ if (db) try {
   check(staff.every((u) => !!u.totpEnabledAt), "Verificación en dos pasos activa en todo el equipo", "warn");
   const settings = Object.fromEntries((await db.setting.findMany()).map((s) => [s.key, s.value]));
   check(!!settings.legalName && !!settings.taxId && !!settings.address, "Datos del vendedor: razón social, NIT y dirección (Ley 1480) en Panel → Ajustes", "warn");
-  check(!!settings.supportEmail, "Correo de soporte público en Panel → Ajustes", "warn");
+  check(!!settings.supportEmail || !!settings.whatsapp, "Canal de contacto para clientes (WhatsApp o correo) en Panel → Ajustes");
   check(!!settings.staffAlertEmail || !!settings.supportEmail, "Correo para avisos internos en Panel → Ajustes", "warn");
   check(!!settings.whatsapp, "WhatsApp de soporte en Panel → Ajustes", "warn");
   const packs = await db.diamondPackage.count({ where: { active: true, isDemo: false } });

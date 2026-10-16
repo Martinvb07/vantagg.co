@@ -3,15 +3,16 @@
  * Suficiente para una sola instancia. Con varias réplicas, reemplazar el
  * almacenamiento por Redis/Upstash manteniendo la misma firma.
  */
-type Bucket = { hits: number[] };
+type Bucket = { hits: number[]; windowMs: number };
 const buckets = new Map<string, Bucket>();
 let lastSweep = Date.now();
 
 export type RateLimitResult = { ok: boolean; remaining: number; retryAfterSec: number };
 
 export function rateLimit(key: string, limit: number, windowMs: number, now = Date.now()): RateLimitResult {
-  if (now - lastSweep > 60_000) sweep(now, windowMs);
-  const bucket = buckets.get(key) ?? { hits: [] };
+  if (now - lastSweep > 60_000) sweep(now);
+  const bucket = buckets.get(key) ?? { hits: [], windowMs };
+  bucket.windowMs = Math.max(bucket.windowMs, windowMs);
   bucket.hits = bucket.hits.filter((t) => now - t < windowMs);
   if (bucket.hits.length >= limit) {
     const retryAfterSec = Math.ceil((windowMs - (now - bucket.hits[0])) / 1000);
@@ -23,10 +24,11 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
   return { ok: true, remaining: limit - bucket.hits.length, retryAfterSec: 0 };
 }
 
-function sweep(now: number, windowMs: number) {
+/** Borra solo los contadores cuya ventana ya pasó por completo (cada uno con la suya). */
+function sweep(now: number) {
   lastSweep = now;
   for (const [k, b] of buckets) {
-    if (b.hits.every((t) => now - t > Math.max(windowMs, 15 * 60_000))) buckets.delete(k);
+    if (b.hits.every((t) => now - t >= b.windowMs)) buckets.delete(k);
   }
 }
 

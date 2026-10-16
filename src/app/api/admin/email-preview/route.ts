@@ -12,5 +12,10 @@ export async function GET(req: Request) {
   const preview = EMAIL_PREVIEWS.find((p) => p.key === key);
   if (!preview) return new Response("Plantilla no encontrada", { status: 404 });
   const email = preview.render(await getBrand());
-  return new Response(email.html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+  return new Response(email.html, { headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex",
+      "Content-Security-Policy": "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; frame-ancestors 'self'; sandbox",
+    } });
 }

@@ -14,6 +14,15 @@ describe("rate limit", () => {
     expect(blocked.retryAfterSec).toBeGreaterThan(0);
     expect(rateLimit("k", 3, 1000, t0 + 1500).ok).toBe(true);
   });
+  it("la limpieza periódica no borra contadores de ventanas largas antes de tiempo", () => {
+    const hour = 60 * 60_000;
+    const t0 = Date.now() + 10 * hour; // posterior a la última limpieza real
+    for (let i = 0; i < 3; i++) rateLimit("largo", 3, hour, t0);
+    // 20 minutos después otra clave de ventana corta dispara la limpieza.
+    rateLimit("corto", 5, 60_000, t0 + 20 * 60_000);
+    expect(rateLimit("largo", 3, hour, t0 + 20 * 60_000).ok).toBe(false);
+    expect(rateLimit("largo", 3, hour, t0 + hour + 1).ok).toBe(true);
+  });
   it("aísla claves distintas", () => {
     for (let i = 0; i < 2; i++) rateLimit("a", 2, 1000, 1);
     expect(rateLimit("a", 2, 1000, 2).ok).toBe(false);

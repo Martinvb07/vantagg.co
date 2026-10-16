@@ -101,6 +101,11 @@ function withSecurity(res: NextResponse, csp: string, privateArea: boolean) {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // www.<dominio> → <dominio>: una sola dirección (misma sesión y sin contenido duplicado para buscadores).
+  if (publicOrigin && req.headers.get("host")?.toLowerCase() === `www.${new URL(publicOrigin).host}`) {
+    return NextResponse.redirect(publicUrl(req, `${pathname}${req.nextUrl.search}`), 308);
+  }
   const nonce = btoa(crypto.randomUUID());
   const csp = buildCsp(nonce);
   const requestHeaders = new Headers(req.headers);

@@ -66,6 +66,8 @@ jobs:
           else
             echo "  (no pude leer la configuración de nginx)"
           fi
+          echo "== IP real de los visitantes (límites de intentos por IP)"
+          node --env-file=.env -e 'const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();db.session.findMany({where:{ipHash:{not:null}},select:{ipHash:true},take:500,orderBy:{createdAt:"desc"}}).then(r=>{const n=new Set(r.map(s=>s.ipHash)).size;console.log(r.length<3?"  (pocas sesiones para saberlo: "+r.length+")":n>1?"  ✔ "+n+" IPs distintas en "+r.length+" sesiones":"  ✖ todas las sesiones con la misma IP: nginx no envía X-Forwarded-For");return db.$disconnect()})' || true
           echo "== puertos escuchando en todas las interfaces"
           (ss -ltnH 2>/dev/null || true) | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\*|\[::\]):' | sed 's/^/  /' | sort -u
           echo "== firewall"
