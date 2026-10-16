@@ -44,12 +44,20 @@ export function ThemePicker({ current }: { current: string }) {
   );
 }
 
-export function CopyChip({ value, label, tone = "glass" }: { value: string; label: string; tone?: "glass" | "plain" }) {
+export function CopyChip({ value, label, tone = "glass", compact }: { value: string; label: string; tone?: "glass" | "plain"; compact?: boolean }) {
   const [done, setDone] = useState(false);
+  const copy = () => navigator.clipboard?.writeText(value).then(() => (setDone(true), setTimeout(() => setDone(false), 1500)));
+  if (compact) {
+    return (
+      <button type="button" onClick={copy} title="Copiar" aria-label={`Copiar ${label} ${value}`} className="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-fg-muted ring-1 ring-white/10 transition hover:bg-white/[0.1] hover:text-fg">
+        {done ? <Check className="size-4 text-ok-400" /> : <Copy className="size-4" />}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
-      onClick={() => navigator.clipboard?.writeText(value).then(() => (setDone(true), setTimeout(() => setDone(false), 1500)))}
+      onClick={copy}
       className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[12px] font-semibold tracking-wider ring-1 transition", tone === "glass" ? "bg-black/35 text-white ring-white/15 backdrop-blur hover:bg-black/50" : "bg-white/[0.05] text-fg ring-white/10 hover:bg-white/[0.09]")}
       title="Copiar"
       aria-label={`Copiar ${label} ${value}`}
