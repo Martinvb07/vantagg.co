@@ -13,7 +13,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
 import { FF_RANKS, FF_REGIONS } from "@/domain/freefire";
 import { EmailStatusPicker } from "@/components/admin/email-status-picker";
-import { imageAction, saveAccountAction, setListingStatusAction } from "@/app/actions/admin";
+import { deleteAccountAction, imageAction, saveAccountAction, setListingStatusAction } from "@/app/actions/admin";
 import { ImagePicker } from "@/components/admin/image-picker";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +106,13 @@ export default async function AccountEditor({ params, searchParams }: { params: 
                 ))}
               </div>
               <p className="mt-3 text-[11.5px] text-fg-subtle">Estados: {Object.values(LISTING_STATUS_META).map((m) => m.label).join(" · ")}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
+                <p className="text-[12px] text-fg-subtle">Eliminar la borra de la tienda y del panel. Los pedidos ya hechos conservan sus datos.</p>
+                <ActionForm action={deleteAccountAction}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <ConfirmSubmit confirmText="Sí, eliminar definitivamente">Eliminar cuenta</ConfirmSubmit>
+                </ActionForm>
+              </div>
             </Panel>
           )}
 

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ListingStatus } from "@prisma/client";
-import { CircleCheck, ExternalLink, ImageOff, Pencil, Plus } from "lucide-react";
+import { CircleCheck, ExternalLink, ImageOff, Pencil, Plus, Trash2 } from "lucide-react";
+import { ActionForm, ConfirmSubmit } from "@/components/admin/action-form";
+import { deleteAccountAction } from "@/app/actions/admin";
 import { PageHeader, Table } from "@/components/admin/ui";
 import { LinkButton } from "@/components/ui/button";
 import { DemoBadge } from "@/components/ui/primitives";
@@ -13,7 +15,7 @@ import { formatDate, formatMoney } from "@/lib/money";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cuentas en venta" };
 
-export default async function AccountsAdmin({ searchParams }: { searchParams: Promise<{ estado?: string; q?: string; publicada?: string }> }) {
+export default async function AccountsAdmin({ searchParams }: { searchParams: Promise<{ estado?: string; q?: string; publicada?: string; eliminada?: string }> }) {
   await requireAdmin();
   const sp = await searchParams;
   const status = sp.estado && sp.estado in LISTING_STATUS_META ? (sp.estado as ListingStatus) : undefined;
@@ -51,6 +53,11 @@ export default async function AccountsAdmin({ searchParams }: { searchParams: Pr
             <Plus className="size-4" /> Agregar otra
           </LinkButton>
         </div>
+      )}
+      {sp.eliminada && (
+        <p role="status" className="mb-5 flex items-center gap-2.5 rounded-[14px] border border-white/10 bg-white/[0.03] p-4 text-[13.5px] text-fg-muted">
+          <Trash2 className="size-4 shrink-0 text-fg-subtle" /> Se eliminó <strong className="font-semibold text-fg">«{sp.eliminada.slice(0, 80)}»</strong>.
+        </p>
       )}
       <div className="mb-4 flex flex-wrap gap-1.5">
         <Link href="/admin/cuentas" className={`rounded-md border px-2.5 py-1 text-[12.5px] ${!status ? "border-volt-400/50 text-fg" : "border-white/10 text-fg-muted"}`}>
@@ -126,6 +133,12 @@ export default async function AccountsAdmin({ searchParams }: { searchParams: Pr
                   <Link href={`/admin/cuentas/${a.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 text-[12.5px] font-medium ring-1 ring-white/10 transition-colors hover:bg-white/10">
                     <Pencil className="size-3.5" /> Editar
                   </Link>
+                  <ActionForm action={deleteAccountAction} className="max-w-[220px] text-right">
+                    <input type="hidden" name="id" value={a.id} />
+                    <ConfirmSubmit confirmText="¿Eliminar?">
+                      <Trash2 className="size-3.5" /> <span className="sr-only">Eliminar</span>
+                    </ConfirmSubmit>
+                  </ActionForm>
                 </div>
               </td>
             </tr>

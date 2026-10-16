@@ -367,6 +367,27 @@ export async function setListingStatusAction(_: ActionResult, form: FormData): P
   return ok("Estado actualizado.");
 }
 
+/**
+ * Elimina una cuenta en venta con sus fotos, etiquetas y reclamaciones. Los pedidos conservan su copia
+ * (itemSnapshot) y quedan sin enlace. No se permite si está reservada o tiene un pedido en curso.
+ */
+export async function deleteAccountAction(_: ActionResult, form: FormData): Promise<ActionResult> {
+  const user = await requireAdmin();
+  const id = str(form, "id");
+  const listing = await db.accountListing.findUnique({ where: { id }, select: { id: true, title: true, status: true, reservedUntil: true } });
+  if (!listing) return fail("La cuenta ya no existe.");
+  if (listing.status === "RESERVED" && listing.reservedUntil && listing.reservedUntil > new Date()) {
+    return fail("Está reservada por un cliente que está pagando. Espera a que termine o suspéndela.");
+  }
+  const active = await db.order.count({ where: { accountId: id, status: { in: ["PENDING_PAYMENT", "PAID", "PROCESSING", "DELIVERY_FAILED", "REFUND_REQUESTED"] } } });
+  if (active > 0) return fail("Tiene un pedido en curso. Termina la entrega o el reembolso antes de eliminarla.");
+  await db.accountListing.delete({ where: { id } });
+  await audit({ actorId: user.id, action: "account.delete", entity: "AccountListing", entityId: id, data: { title: listing.title } });
+  revalidatePath("/admin/cuentas");
+  revalidatePath("/cuentas");
+  redirect(`/admin/cuentas?eliminada=${encodeURIComponent(listing.title.slice(0, 80))}`);
+}
+
 export async function uploadAccountImagesAction(_: ActionResult, form: FormData): Promise<ActionResult> {
   const user = await requireAdmin();
   const id = str(form, "id");
