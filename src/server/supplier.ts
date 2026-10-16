@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { compareRegions, DEFAULT_TOPUP_REGION, isFreeFireProductKey, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { cleanNickname, compareRegions, DEFAULT_TOPUP_REGION, isFreeFireProductKey, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { supplierApi } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
 import { getSettings, saveSettings } from "./settings";
@@ -211,7 +211,7 @@ export async function fetchDailyUsdCop(): Promise<number> {
 }
 
 export type PlayerRegionCheck =
-  | { ok: true; playerId: string; region: string; regionSlug: string }
+  | { ok: true; playerId: string; region: string; regionSlug: string; nickname: string | null }
   | { ok: false; error: string; region?: string | null };
 
 /** "Latinoamérica, Brasil o Europa" */
@@ -229,7 +229,6 @@ export async function checkPlayerRegion(provider: TopUpProvider, playerId: strin
   const r = await provider.validatePlayer(playerId);
   if (r.verifiable && !r.valid) return { ok: false, error: r.message ?? "No encontramos ese ID de jugador. Revísalo e intenta de nuevo." };
   if (!r.verifiable) return { ok: false, error: r.message ?? "No pudimos verificar la región de esta cuenta ahora mismo. Intenta de nuevo en unos minutos." };
-  // El apodo que informa el verificador del proveedor puede estar desactualizado o no coincidir: no se muestra.
   const list = regionsText(regions);
   if (!r.region) {
     return { ok: false, error: `Encontramos la cuenta, pero no pudimos confirmar que sea de ${list}. Por ahora solo recargamos cuentas de esas regiones.` };
@@ -238,5 +237,6 @@ export async function checkPlayerRegion(provider: TopUpProvider, playerId: strin
   if (!slug || !regions.includes(slug)) {
     return { ok: false, region: r.region, error: `Esta cuenta es de ${regionLabel(slug, r.region)}. Por ahora solo recargamos cuentas de ${list}.` };
   }
-  return { ok: true, playerId, region: r.region, regionSlug: slug };
+  return { ok: true, playerId, region: r.region, regionSlug: slug, nickname: cleanNickname(r.nickname) };
 }
+

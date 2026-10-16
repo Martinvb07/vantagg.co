@@ -60,7 +60,7 @@ export async function validatePlayerAction(playerId: string, regionSlug?: string
         ok: true,
         playerId: parsed.data,
         verifiable: true,
-        nickname: null, // el apodo del verificador del proveedor no es confiable
+        nickname: c.nickname, // nombre que reporta el juego; el cliente igual confirma que es su cuenta
         region: c.region,
         regionSlug: c.regionSlug,
         regionLabel: regionLabel(c.regionSlug, c.region),

@@ -315,11 +315,24 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
             {player && (
               <div className="mt-3 animate-fade-up rounded-[10px] bg-ink-800 p-3.5 ring-1 ring-white/[0.06]">
+                {player.nickname && (
+                  <div className="mb-2.5 flex items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ok-400/12 text-ok-400 ring-1 ring-ok-400/25">
+                      <BadgeCheck className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11.5px] text-fg-subtle">Nombre de la cuenta</span>
+                      <span className="block truncate text-[16px] font-bold">{player.nickname}</span>
+                    </span>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13.5px]">
-                  <span className="flex items-center gap-1.5 font-semibold">
-                    {player.verifiable ? <BadgeCheck className="size-4 text-ok-400" /> : <CircleAlert className="size-4 text-warn-400" />}
-                    {player.nickname ?? "Cuenta encontrada"}
-                  </span>
+                  {!player.nickname && (
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      {player.verifiable ? <BadgeCheck className="size-4 text-ok-400" /> : <CircleAlert className="size-4 text-warn-400" />}
+                      Cuenta encontrada
+                    </span>
+                  )}
                   <span className="font-mono text-fg-muted">ID {player.playerId}</span>
                   {(player.regionLabel ?? player.region) && (
                     <span className="inline-flex items-center gap-1.5 text-fg-muted">
@@ -337,7 +350,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                   </div>
                 )}
                 {!player.verifiable && <p className="mt-1.5 text-[12px] text-warn-400">{player.message ?? "No fue posible verificar el ID. Revísalo con cuidado."}</p>}
-                <p className="mt-1.5 text-[11.5px] text-fg-subtle">Revisa que el ID sea exactamente el de tu cuenta: la recarga llega a ese ID.</p>
+                <p className="mt-1.5 text-[11.5px] text-fg-subtle">{player.nickname ? "Revisa que el nombre y el ID sean los de tu cuenta: la recarga llega a ese ID." : "Revisa que el ID sea exactamente el de tu cuenta: la recarga llega a ese ID."}</p>
                 <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[13px] text-fg-muted">
                   <input type="checkbox" className="mt-0.5 size-4 accent-[#c8f04f]" checked={confirmedId} onChange={(e) => setConfirmedId(e.target.checked)} />
                   Es mi cuenta. Entiendo que una recarga a un ID equivocado no se puede revertir.

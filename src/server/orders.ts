@@ -116,7 +116,7 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
       const accountRegion = regionLabel(c.regionSlug, c.region);
       return { ok: false, error: `Esta cuenta es de ${accountRegion} y el paquete es de ${regionText}. Elige un paquete de ${accountRegion}.` };
     }
-    nickname = null; // no se guarda el apodo del verificador (puede ser de otra persona o viejo)
+    nickname = c.nickname; // nombre que reportó el verificador al crear el pedido (referencia para soporte)
   } else {
     const player = await topup.validatePlayer(data.playerId);
     if (player.verifiable && !player.valid) return { ok: false, error: player.message ?? "El ID de jugador no existe." };
