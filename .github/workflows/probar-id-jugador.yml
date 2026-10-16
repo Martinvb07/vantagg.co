@@ -20,3 +20,18 @@ jobs:
           [[ "$UID_JUGADOR" =~ ^[0-9]{6,12}$ ]] || { echo "El ID debe tener entre 6 y 12 números"; exit 1; }
           curl -s --max-time 20 "https://api.rechargegame.games/v1/region-check?game=free-fire&uid=$UID_JUGADOR&region=" \
             | python3 -c 'import json,sys; d=json.load(sys.stdin); print("estado:", d.get("status")); print("región:", d.get("region")); print("nombre:", d.get("nickname")); print("campos:", sorted(d.keys()))'
+          echo "== documentación del proveedor"
+          for u in / /docs /v1 /openapi.json /v1/openapi.json; do
+            echo "  $u → $(curl -s -o /dev/null -w '%{http_code} %{content_type}' --max-time 10 "https://api.rechargegame.games$u")"
+          done
+          echo "== verificación oficial de Garena (tienda de recargas)"
+          curl -s --max-time 20 -X POST "https://shop2game.com/api/auth/player_id_login" \
+            -H "Content-Type: application/json" -H "Origin: https://shop2game.com" -H "Referer: https://shop2game.com/app/100067/idlogin" \
+            -H "User-Agent: Mozilla/5.0" \
+            -d "{\"app_id\":100067,\"login_id\":\"$UID_JUGADOR\"}" \
+            | python3 -c 'import json,sys
+          raw=sys.stdin.read()
+          try:
+            d=json.loads(raw); print("  campos:", sorted(d.keys())); print("  nombre:", d.get("nickname")); print("  región:", d.get("region")); print("  error:", d.get("error"))
+          except Exception: print("  respuesta no JSON:", raw[:200])'
+
