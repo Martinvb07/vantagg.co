@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Check, CircleAlert, Lock, MapPin, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Check, CircleAlert, Info, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { DiamondCover, tierFor } from "@/components/brand/covers";
 import { Button } from "@/components/ui/button";
 import { Alert, DemoBadge } from "@/components/ui/primitives";
@@ -330,7 +330,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                   {!player.nickname && (
                     <span className="flex items-center gap-1.5 font-semibold">
                       {player.verifiable ? <BadgeCheck className="size-4 text-ok-400" /> : <CircleAlert className="size-4 text-warn-400" />}
-                      Cuenta encontrada
+                      {player.verifiable ? "ID verificado" : "Cuenta encontrada"}
                     </span>
                   )}
                   <span className="font-mono text-fg-muted">ID {player.playerId}</span>
@@ -350,6 +350,14 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                   </div>
                 )}
                 {!player.verifiable && <p className="mt-1.5 text-[12px] text-warn-400">{player.message ?? "No fue posible verificar el ID. Revísalo con cuidado."}</p>}
+                {!player.nickname && player.verifiable && (
+                  <p className="mt-2.5 flex gap-2 rounded-lg bg-sky-400/[0.06] px-3 py-2 text-[12.5px] leading-relaxed text-fg-muted ring-1 ring-sky-400/20">
+                    <Info className="mt-0.5 size-4 shrink-0 text-sky-300" />
+                    <span>
+                      <strong className="font-semibold text-fg">¿Por qué no aparece tu nombre?</strong> El sistema del juego no nos entrega el apodo actualizado, así que no lo mostramos para no confundirte. Lo importante ya está confirmado: <strong className="font-semibold text-fg">el ID existe y es de {player.regionLabel ?? player.region ?? "una región disponible"}</strong>. Si el ID es el tuyo, los diamantes llegan a tu cuenta.
+                    </span>
+                  </p>
+                )}
                 <p className="mt-1.5 text-[11.5px] text-fg-subtle">{player.nickname ? "Revisa que el nombre y el ID sean los de tu cuenta: la recarga llega a ese ID." : "Revisa que el ID sea exactamente el de tu cuenta: la recarga llega a ese ID."}</p>
                 <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[13px] text-fg-muted">
                   <input type="checkbox" className="mt-0.5 size-4 accent-[#c8f04f]" checked={confirmedId} onChange={(e) => setConfirmedId(e.target.checked)} />
