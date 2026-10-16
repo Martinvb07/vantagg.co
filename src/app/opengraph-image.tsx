@@ -1,10 +1,15 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 
 export const alt = "Recargas de diamantes y cuentas Free Fire en Colombia";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OgImage() {
+const asset = async (f: string) => `data:image/png;base64,${(await readFile(path.join(process.cwd(), "public", "brand", f))).toString("base64")}`;
+
+export default async function OgImage() {
+  const [mark, word] = await Promise.all([asset("vanta-v.png"), asset("vantagg.png")]);
   return new ImageResponse(
     (
       <div
@@ -21,8 +26,10 @@ export default function OgImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: "#c8f04f", display: "flex", alignItems: "center", justifyContent: "center", color: "#10140a", fontSize: 34, fontWeight: 800 }}>V</div>
-          <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: 6 }}>VANTA</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={mark} width={84} height={84} alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={word} width={300} height={48} alt="VANTAGG" />
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>Diamantes a tu ID,</div>

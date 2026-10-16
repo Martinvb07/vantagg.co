@@ -31,10 +31,11 @@ export default async function StaffAccess({ searchParams }: { searchParams: Prom
       <section className="relative flex min-h-dvh flex-col px-5 py-6 sm:px-10 lg:px-14 xl:px-20">
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(500px_220px_at_30%_0%,rgba(200,240,79,0.09),transparent)] lg:hidden" />
         <header className="relative flex items-center gap-2.5">
-          <LogoMark className="size-9" />
+          <LogoMark className="size-10" />
           <div className="leading-tight">
-            <p className="font-display text-[15px] font-semibold tracking-wide">VANTA</p>
-            <p className="text-[11.5px] text-fg-subtle">Panel de control</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/vantagg.png" alt="VANTAGG" width={358} height={57} className="h-[17px] w-auto" />
+            <p className="mt-1 text-[11.5px] text-fg-subtle">Panel de control</p>
           </div>
         </header>
 
