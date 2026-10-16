@@ -1,0 +1,60 @@
+name: Diagnóstico del VPS
+
+# Manual y de solo lectura: versión de Node, variables presentes (solo si existen y su largo, nunca su valor)
+# y los últimos errores de la tienda en PM2. El repositorio es público: correos, IPs y tokens se tapan.
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnostico:
+    name: Revisar errores de la tienda
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Leer estado y errores
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/<ip>/g' \
+              -e 's/[A-Za-z0-9_-]{24,}/<token>/g' \
+              -e 's#/gestion-[A-Za-z0-9]+#/<ADMIN_PATH>#g'
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== node $(node -v) | commit $(git rev-parse --short HEAD)"
+          echo "== variables en .env (largo del valor):"
+          for v in NODE_ENV APP_URL AUTH_SECRET ADMIN_PATH DATABASE_URL DATA_ENCRYPTION_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET TRUSTED_IP_HEADER; do
+            linea=$(grep -E "^$v=" .env | tail -n1 || true)
+            valor=${linea#*=}; valor=${valor%\"}; valor=${valor#\"}
+            [ -n "$linea" ] && echo "  $v: ${#valor}" || echo "  $v: (falta)"
+          done
+          echo "== pm2"
+          pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const p of JSON.parse(s))console.log(" ",p.name,p.pm2_env.status,"reinicios:",p.pm2_env.restart_time)})' || true
+          echo "== últimos errores"
+          tail -n 120 logs/vanta.err.log 2>/dev/null || echo "(sin log de errores)"
+          echo "== prueba local de la entrada"
+          a=$(grep -E '^ADMIN_PATH=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          curl -s -o /dev/null -w "  /<ADMIN_PATH> -> %{http_code}\n" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" "http://127.0.0.1:3020/$a"
+          tail -n 25 logs/vanta.err.log 2>/dev/null | tail -n 25
+          ENDSSH
