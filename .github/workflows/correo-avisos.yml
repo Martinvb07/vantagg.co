@@ -1,0 +1,66 @@
+name: Correo de avisos de respaldo
+
+# Manual: cambia ALERT_EMAIL en el .env del VPS (adonde llegan los avisos de error si la base de datos
+# no responde) y reinicia la tienda para que lo tome. El correo normal de avisos se cambia en Panel → Ajustes.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Correo para ALERT_EMAIL
+        required: true
+        default: jesusartunduaga6@gmail.com
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  avisos:
+    name: Cambiar ALERT_EMAIL
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Cambiar y reiniciar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          EMAIL: ${{ inputs.email }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "Correo inválido"; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' EMAIL='$EMAIL' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          cp -p .env .env.antes-avisos
+          if grep -qE '^ALERT_EMAIL=' .env; then
+            sed -i -E "s/^ALERT_EMAIL=.*/ALERT_EMAIL=$EMAIL/" .env
+          else
+            printf '\nALERT_EMAIL=%s\n' "$EMAIL" >> .env
+          fi
+          chmod 600 .env .env.antes-avisos
+          pm2 restart vanta >/dev/null
+          for i in $(seq 1 25); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3020/api/health || true)" = "200" ] && { echo "ALERT_EMAIL actualizado; tienda en línea."; exit 0; }
+            sleep 3
+          done
+          echo "!! La tienda no respondió tras reiniciar"; exit 1
+          ENDSSH
