@@ -1,13 +1,43 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
 
+/** Errores de carga en el navegador (p. ej. archivos de una versión anterior justo después de actualizar la tienda). */
+const isLoadError = (e: Error) => /ChunkLoadError|Loading (CSS )?chunk|dynamically imported module|Failed to fetch|NetworkError|Load failed/i.test(`${e.name} ${e.message}`);
+const RELOAD_KEY = "vx_error_reload";
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+
   useEffect(() => {
     console.error(error);
+    // Un error de carga se arregla recargando con la versión actual; solo una vez por minuto para no entrar en bucle.
+    if (!error.digest && isLoadError(error)) {
+      try {
+        const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+        if (Date.now() - last > 60_000) {
+          sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {
+        /* sin sessionStorage: se queda el botón de reintentar */
+      }
+    }
   }, [error]);
+
+  // Reintentar vuelve a pedir la página al servidor (reset() solo, repetiría el mismo fallo).
+  const retry = () => {
+    if (!error.digest) return window.location.reload();
+    start(() => {
+      router.refresh();
+      reset();
+    });
+  };
+
   return (
     <main className="grid min-h-[70vh] place-items-center px-4">
       <div className="max-w-md text-center">
@@ -24,7 +54,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           .
         </p>
         <div className="mt-8 flex justify-center gap-2">
-          <Button onClick={reset}>
+          <Button onClick={retry} loading={pending}>
             <RefreshCw className="size-4" /> Reintentar
           </Button>
           <LinkButton href="/" variant="outline">

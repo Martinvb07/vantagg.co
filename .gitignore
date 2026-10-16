@@ -21,6 +21,9 @@ client_secret*.json
 
 # Copia de producción para pruebas locales (NEXT_DIST_DIR=.next-prod)
 .next-prod/
+# Build del deploy (se construye aparte y reemplaza a .next al reiniciar)
+.next-nuevo/
+.next-viejo/
 
 # Exportaciones de configuración (contienen correos de contacto de la tienda)
 exportacion/

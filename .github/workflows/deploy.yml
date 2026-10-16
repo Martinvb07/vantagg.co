@@ -112,11 +112,24 @@ jobs:
           ANTERIOR="$(git rev-parse HEAD)"
 
           # Las migraciones leen DATABASE_URL de .env (Prisma lo carga solo).
+          # La tienda sigue atendiendo mientras se construye: las dependencias solo se reinstalan si cambió
+          # package-lock.json y el build va a una carpeta aparte que reemplaza a .next justo antes de reiniciar.
           construir() {
-            npm ci
+            local huella
+            huella="$(sha256sum package-lock.json | cut -d' ' -f1)"
+            if [ "$(cat node_modules/.huella-lock 2>/dev/null)" != "$huella" ]; then
+              npm ci
+              echo "$huella" > node_modules/.huella-lock
+            else
+              echo "Dependencias sin cambios: se omite npm ci"
+            fi
             npx prisma migrate deploy
+            rm -rf .next-nuevo
             # next/font descarga las fuentes de Google al compilar y a veces Google responde mal: un reintento.
-            npm run build || { echo "Reintentando el build en 20 s..."; sleep 20; npm run build; }
+            NEXT_DIST_DIR=.next-nuevo npm run build || { echo "Reintentando el build en 20 s..."; sleep 20; NEXT_DIST_DIR=.next-nuevo npm run build; }
+            rm -rf .next-viejo
+            if [ -d .next ]; then mv .next .next-viejo; fi
+            mv .next-nuevo .next
           }
 
           # Se recrea desde ecosystem.config.js para que siempre use su carpeta y variables.

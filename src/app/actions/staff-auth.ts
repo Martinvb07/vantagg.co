@@ -9,13 +9,13 @@ import { audit } from "@/lib/audit";
 import { createSession, getCurrentUser, isStaff, STAFF_SESSION_TTL_MS } from "@/lib/auth";
 import { hmacSha256Hex } from "@/lib/crypto";
 import { getAuthSecret } from "@/lib/env";
-import { verifyPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 import { safeNext } from "@/lib/safe-next";
 import { openText, sealText } from "@/lib/secure-box";
 import { generateRecoveryCodes, generateTotpSecret, normalizeRecovery, otpauthUri, verifyTotp } from "@/lib/totp";
-import { loginSchema } from "@/lib/validation";
+import { loginSchema, passwordSchema } from "@/lib/validation";
 import { clearMfaTicket, readMfaTicket, setMfaTicket } from "@/server/admin-gate";
 import { getSettings } from "@/server/settings";
 import { notifyStaffSecurity } from "@/server/notifications";
@@ -160,4 +160,36 @@ export async function regenerateRecoveryCodesAction(_: { error?: string; codes?:
   void notifyStaffSecurity(me.id, "recovery_regenerated", { userAgent: (await headers()).get("user-agent") }).catch(() => {});
   revalidatePath("/admin/seguridad");
   return { codes };
+}
+
+/**
+ * Panel → Mi seguridad: cambiar la contraseña del equipo. Exige la contraseña actual y un código actual
+ * de la app de autenticación; cierra las demás sesiones y avisa por correo.
+ */
+export async function staffChangePasswordAction(_: { error?: string; ok?: string } | null, form: FormData): Promise<{ error?: string; ok?: string } | null> {
+  const me = await getCurrentUser();
+  if (!me || !isStaff(me.role) || !me.totpEnabledAt) return { error: "Sesión expirada." };
+  if (!rateLimit(`staff-pw:${me.id}`, 5, 15 * 60_000).ok) return { error: "Demasiados intentos. Espera unos minutos." };
+  const next = passwordSchema.safeParse(form.get("next"));
+  if (!next.success) return { error: next.error.issues[0]?.message ?? "Contraseña no válida." };
+  if (form.get("next") !== form.get("confirm")) return { error: "Las contraseñas nuevas no coinciden." };
+
+  const user = await db.user.findUniqueOrThrow({ where: { id: me.id } });
+  if (!(await verifyPassword(String(form.get("current") ?? ""), user.passwordHash))) {
+    await audit({ actorId: me.id, action: "auth.staff_password_failed", entity: "User", entityId: me.id });
+    return { error: "La contraseña actual o el código no son correctos." };
+  }
+  const secret = user.totpSecret ? openText(user.totpSecret, "totp:v1") : null;
+  const r = secret ? verifyTotp(secret, String(form.get("code") ?? "").replace(/\s/g, ""), user.totpLastStep) : { ok: false as const };
+  if (!r.ok) return { error: "La contraseña actual o el código no son correctos." };
+  if (await verifyPassword(next.data, user.passwordHash)) return { error: "La nueva contraseña debe ser distinta de la actual." };
+
+  await db.user.update({ where: { id: me.id }, data: { passwordHash: await hashPassword(next.data), hasPassword: true, totpLastStep: r.step } });
+  const ua = (await headers()).get("user-agent");
+  await db.session.deleteMany({ where: { userId: me.id } });
+  await createSession(me.id, ua, STAFF_SESSION_TTL_MS);
+  await audit({ actorId: me.id, action: "auth.staff_password_changed", entity: "User", entityId: me.id });
+  void notifyStaffSecurity(me.id, "password_changed", { userAgent: ua }).catch(() => {});
+  revalidatePath("/admin/seguridad");
+  return { ok: "Contraseña actualizada. Se cerraron las demás sesiones." };
 }

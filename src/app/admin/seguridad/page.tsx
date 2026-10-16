@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/money";
 import { adminEntryUrl } from "@/server/admin-gate";
+import { ChangePassword } from "./change-password";
 import { RegenerateCodes } from "./regenerate-codes";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,10 @@ export default async function StaffSecurity() {
         </Panel>
 
         <div className="space-y-6">
+          <Panel title="Contraseña">
+            <ChangePassword />
+          </Panel>
+
           <Panel title="Dirección secreta del panel">
             <p className="flex items-start gap-2 text-[13px] text-fg-muted">
               <Link2 className="mt-0.5 size-4 shrink-0 text-fg-subtle" /> Guárdala en tus marcadores y compártela solo con tu equipo. Quien entre a /admin sin pasar por aquí verá «página no encontrada».

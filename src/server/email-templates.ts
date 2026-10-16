@@ -402,7 +402,7 @@ export function staffDeliveryIssueEmail(b: Brand, p: { number: string; item: str
   });
 }
 
-export type StaffSecurityEvent = "login" | "2fa_enabled" | "2fa_reset" | "recovery_regenerated";
+export type StaffSecurityEvent = "login" | "2fa_enabled" | "2fa_reset" | "recovery_regenerated" | "password_changed";
 
 export function staffSecurityEmail(b: Brand, p: { event: StaffSecurityEvent; when: string; device: string; method?: string }): Email {
   const T: Record<StaffSecurityEvent, { subject: string; title: string; intro: string }> = {
@@ -410,6 +410,7 @@ export function staffSecurityEmail(b: Brand, p: { event: StaffSecurityEvent; whe
     "2fa_enabled": { subject: "Verificación en dos pasos activada", title: "Verificación en dos pasos activada", intro: "Activaste la verificación en dos pasos de tu cuenta del equipo." },
     "2fa_reset": { subject: "Tu verificación en dos pasos fue restablecida", title: "Verificación en dos pasos restablecida", intro: "Un administrador restableció tu verificación en dos pasos. En tu próximo ingreso tendrás que configurarla de nuevo." },
     recovery_regenerated: { subject: "Códigos de recuperación nuevos", title: "Generaste códigos de recuperación nuevos", intro: "Los códigos anteriores ya no sirven." },
+    password_changed: { subject: "Cambiaste la contraseña del panel", title: "Cambiaste la contraseña del panel", intro: "Se cerraron las demás sesiones abiertas con tu cuenta del equipo." },
   };
   const t = T[p.event];
   const rows: Row[] = [["Fecha", p.when], ["Dispositivo", p.device]];
