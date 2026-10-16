@@ -72,6 +72,21 @@ jobs:
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const u=new URL(s.trim());const p=u.searchParams;console.log("  destino:",u.origin+u.pathname);console.log("  redirect_uri:",p.get("redirect_uri"));console.log("  client_id termina en:",(p.get("client_id")||"").split("-")[0].slice(-4),"…",(p.get("client_id")||"").split(".").slice(-3).join("."))}catch{console.log("  sin redirección:",s.slice(0,120))}})' || true
           echo "== ajustes de correo en la base"
           node --env-file=.env -e 'const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();db.setting.findMany({where:{key:{in:["supportEmail","staffAlertEmail"]}}}).then(r=>{for(const s of r)console.log(" ",s.key,"vacío="+(!s.value),"anterior="+/storevancolombia/.test(s.value));return db.$disconnect()})' || true
+          echo "== códigos promocionales (código tapado)"
+          node --env-file=.env -e '
+            const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
+            (async()=>{
+              const now=new Date();
+              for (const c of await db.promoCode.findMany({orderBy:{createdAt:"desc"},take:15})) {
+                const motivo=!c.active?"inactivo":c.startsAt&&c.startsAt>now?"aún no empieza":c.endsAt&&c.endsAt<=now?"vencido":c.maxUses!=null&&c.uses>=c.maxUses?"agotado":"vigente";
+                console.log("  "+c.code.slice(0,2)+"*** largo="+c.code.length+" "+c.discountType+" "+c.value+" alcance="+c.scope+" min="+(c.minSubtotal??"-")+" usos="+c.uses+"/"+(c.maxUses??"∞")+" porCorreo="+c.maxUsesPerEmail+" demo="+c.isDemo+" desde="+(c.startsAt?.toISOString()??"-")+" hasta="+(c.endsAt?.toISOString()??"-")+" → "+motivo);
+              }
+              const r=await db.promoRedemption.groupBy({by:["status"],_count:true}).catch(()=>[]);
+              console.log("  redenciones:",JSON.stringify(r.map(x=>[x.status,x._count])));
+              const ips=await db.auditLog.findMany({where:{ipHash:{not:null}},select:{ipHash:true},orderBy:{createdAt:"desc"},take:300});
+              console.log("  IPs distintas en el historial:",new Set(ips.map(x=>x.ipHash)).size,"de",ips.length,"registros");
+              await db.$disconnect();
+            })()' || true
           echo "== pm2"
           pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const p of JSON.parse(s))console.log(" ",p.name,p.pm2_env.status,"reinicios:",p.pm2_env.restart_time)})' || true
           echo "== prueba local de la entrada"
