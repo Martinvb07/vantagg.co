@@ -188,8 +188,9 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
           role="listbox"
           aria-label="Resultados"
           className={cn(
-            "absolute z-50 mt-2 max-h-[min(70vh,560px)] overflow-y-auto rounded-[18px] bg-ink-850 p-2 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 animate-fade-up",
-            desktop ? "right-0 w-[440px]" : "inset-x-0",
+            "absolute z-50 mt-2 overflow-y-auto overscroll-contain rounded-[18px] bg-ink-850 p-2 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 animate-fade-up",
+            // En celular cabe en lo que queda de pantalla bajo el encabezado y se desliza por dentro.
+            desktop ? "right-0 max-h-[min(70vh,560px)] w-[440px]" : "inset-x-0 max-h-[calc(100dvh-200px)]",
           )}
         >
           {groups === null ? (

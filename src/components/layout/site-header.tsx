@@ -75,9 +75,29 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
     };
   }, [open]);
 
+  // Búsqueda del celular: se enfoca al abrir y se cierra al tocar fuera del encabezado.
   useEffect(() => {
-    if (searchOpen) mobileSearchRef.current?.focus();
+    if (!searchOpen) return;
+    mobileSearchRef.current?.focus();
+    const onDown = (e: PointerEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) setSearchOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
   }, [searchOpen]);
+
+  // Si la pantalla pasa a tamaño escritorio (girar la tablet), se cierran el menú y la búsqueda móviles.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (mq.matches) {
+        setOpen(false);
+        setSearchOpen(false);
+      }
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -88,7 +108,10 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
       if (e.key === "/" && !(e.target as HTMLElement)?.closest("input,textarea,select")) {
         e.preventDefault();
         if (window.matchMedia("(min-width: 768px)").matches) searchRef.current?.focus();
-        else setSearchOpen(true);
+        else {
+          setOpen(false);
+          setSearchOpen(true);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -145,7 +168,10 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
             className="grid size-10 place-items-center rounded-full text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg md:hidden"
             aria-label="Buscar"
             aria-expanded={searchOpen}
-            onClick={() => setSearchOpen((v) => !v)}
+            onClick={() => {
+              setOpen(false);
+              setSearchOpen((v) => !v);
+            }}
           >
             <Search className="size-[18px]" />
           </button>
@@ -195,7 +221,10 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={open}
             aria-controls="mobile-menu"
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => {
+              setSearchOpen(false);
+              setOpen((v) => !v);
+            }}
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -212,6 +241,10 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
+                onClick={() => {
+                  setOpen(false);
+                  setSearchOpen(false);
+                }}
                 className={cn(
                   "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 transition-colors",
                   active ? "bg-volt-400/12 text-volt-300 ring-volt-400/35" : "text-fg-muted ring-white/[0.08] active:bg-white/[0.06]",
