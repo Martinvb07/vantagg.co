@@ -48,6 +48,8 @@
   --animate-navprogress: navprogress 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
   --animate-sheet-up: sheet-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-pop-in: pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop-out: pop-out 0.14s ease-in both;
 
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(8px); }
@@ -72,6 +74,14 @@
   @keyframes sheet-up {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes pop-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(-4px) scale(0.98); }
   }
   @keyframes fade-in {
     from { opacity: 0; }
@@ -247,3 +257,18 @@
   body:has([data-paybar]) .wa-float { bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
   body:has([aria-label="Chat de entrega"]) .wa-float { display: none; }
 }
+
+/* Scroll fino con los colores de la tienda (listas de los filtros y paneles). */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+}
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.14);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover { background-color: var(--color-volt-500); }

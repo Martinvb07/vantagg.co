@@ -44,7 +44,9 @@ function Panel({ title, onBack, children, width = "w-[300px]" }: { title: string
         )}
         <p className={cn("flex-1 text-[15px] font-semibold", !onBack && "text-center")}>{title}</p>
       </div>
-      {children}
+      <div key={title} className="animate-fade-in">
+        {children}
+      </div>
     </div>
   );
 }
@@ -63,38 +65,62 @@ function Dropdown({
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Al cerrar, el panel se queda un instante para animar la salida.
+  const [leaving, setLeaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const close = () => {
+    setLeaving(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => (setOpen(false), setLeaving(false)), 140);
+  };
+  const toggleOpen = () => {
+    if (open && !leaving) return close();
+    clearTimeout(timer.current);
+    setLeaving(false);
+    setOpen(true);
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    if (!open || leaving) return;
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && close();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, leaving]);
+  const shown = open && !leaving;
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+        onClick={toggleOpen}
+        aria-expanded={shown}
         aria-haspopup="dialog"
         className={cn(
           "inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3.5 text-[14px] font-medium transition-colors",
-          count > 0 || open ? "border-volt-400/60 bg-volt-400/[0.07]" : "border-white/[0.09] bg-ink-850 hover:border-white/20",
+          count > 0 || shown ? "border-volt-400/60 bg-volt-400/[0.07]" : "border-white/[0.09] bg-ink-850 hover:border-white/20",
         )}
       >
         <span className="text-fg-muted">{icon}</span>
         {label}
         {count > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-volt-400 px-1 text-[11px] font-bold leading-5 text-volt-ink">{count}</span>}
-        <ChevronDown className={cn("size-4 text-fg-subtle transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("size-4 text-fg-subtle transition-transform duration-200", shown && "rotate-180")} />
       </button>
       {open && (
-        <div role="dialog" aria-label={label} className={cn("absolute top-[calc(100%+8px)] z-40 max-w-[calc(100vw-2rem)]", align === "right" ? "right-0" : "left-0")}>
-          {children(() => setOpen(false))}
+        <div
+          role="dialog"
+          aria-label={label}
+          className={cn(
+            "absolute top-[calc(100%+8px)] z-40 max-w-[calc(100vw-2rem)]",
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
+            leaving ? "pointer-events-none animate-pop-out" : "animate-pop-in",
+          )}
+        >
+          {children(close)}
         </div>
       )}
     </div>
@@ -103,7 +129,7 @@ function Dropdown({
 
 function CheckRow({ checked, onToggle, icon, label, hint, count }: { checked: boolean; onToggle: () => void; icon?: ReactNode; label: string; hint?: string; count?: number }) {
   return (
-    <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/[0.04]">
+    <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.04]">
       {icon}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14px]">{label}</span>
@@ -436,7 +462,7 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
           <Dropdown label="Servidor" icon={<Globe className="size-4" />} count={servers.length}>
             {() => (
               <Panel title="Servidor">
-                <div className="max-h-[340px] overflow-y-auto py-1.5">
+                <div className="scroll-thin max-h-[340px] overflow-y-auto py-1.5">
                   {FF_REGIONS.map((r) => (
                     <CheckRow
                       key={r.code}
@@ -457,7 +483,7 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
           <Dropdown label="Rango" icon={<Trophy className="size-4" />} count={ranks.length}>
             {() => (
               <Panel title="Rango" width="w-[280px]">
-                <div className="max-h-[360px] overflow-y-auto py-1.5">
+                <div className="scroll-thin max-h-[360px] overflow-y-auto py-1.5">
                   {FF_RANKS.map((r) => (
                     <CheckRow key={r.id} checked={ranks.includes(r.id)} onToggle={() => toggle("rango", r.id)} icon={<RankEmblem rank={r.id} className="size-8" />} label={r.label} count={facets.rankCounts[r.id]} />
                   ))}
@@ -516,7 +542,7 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
                 </Panel>
               ) : moreView === "caract" ? (
                 <Panel title="Características" onBack={() => setMoreView("menu")}>
-                  <div className="max-h-[320px] overflow-y-auto py-1.5">
+                  <div className="scroll-thin max-h-[320px] overflow-y-auto py-1.5">
                     {facets.tags.map((t) => (
                       <CheckRow key={t} checked={caract.includes(t)} onToggle={() => toggle("caract", t)} label={t} count={facets.tagCounts[t]} />
                     ))}
@@ -610,7 +636,7 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
                 </button>
               </div>
 
-              <div id="filters-sheet-body" className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4">
+              <div id="filters-sheet-body" className="scroll-thin flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4">
                 <SheetCard title="Ordenar por" icon={<ArrowDownUp className="size-4" />}>
                   <div className="flex flex-wrap gap-2">
                     {SORTS.map((s) => (
