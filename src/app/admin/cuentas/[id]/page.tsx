@@ -207,8 +207,12 @@ function AccountForm({ a, tags, imagesCount }: { a: AccountListing | null; tags:
         </div>
 
         <details className="group rounded-[12px] border border-white/[0.08] [&_summary::-webkit-details-marker]:hidden" open={!!a}>
-          <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-semibold">
-            Más detalles <span className="text-[12px] font-normal text-fg-subtle">opcional · nivel, skins, pechos, correo, origen… <span className="ml-1 inline-block transition-transform group-open:rotate-180">▾</span></span>
+          <summary className="flex cursor-pointer select-none items-center justify-between gap-3 px-4 py-3">
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold">Más detalles</span>
+              <span className="block text-[12px] text-fg-subtle">Opcional · nivel, skins, pechos, correo, origen…</span>
+            </span>
+            <span className="shrink-0 text-fg-subtle transition-transform group-open:rotate-180" aria-hidden>▾</span>
           </summary>
           <div className="grid gap-4 border-t border-white/[0.06] p-4 sm:grid-cols-2">
             <Field label="Nivel">

@@ -60,7 +60,9 @@ export async function validatePlayerAction(playerId: string, regionSlug?: string
         ok: true,
         playerId: parsed.data,
         verifiable: true,
-        nickname: c.nickname, // nombre que reporta el juego; el cliente igual confirma que es su cuenta
+        // El nombre que devuelve el verificador del proveedor está desactualizado (probado: muestra apodos viejos)
+        // y el proveedor no ofrece otra consulta; Garena no permite consultarlo. No se muestra.
+        nickname: null,
         region: c.region,
         regionSlug: c.regionSlug,
         regionLabel: regionLabel(c.regionSlug, c.region),

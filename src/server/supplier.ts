@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { cleanNickname, compareRegions, DEFAULT_TOPUP_REGION, isFreeFireProductKey, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { compareRegions, DEFAULT_TOPUP_REGION, isFreeFireProductKey, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { supplierApi } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
 import { getSettings, saveSettings } from "./settings";
@@ -211,7 +211,7 @@ export async function fetchDailyUsdCop(): Promise<number> {
 }
 
 export type PlayerRegionCheck =
-  | { ok: true; playerId: string; region: string; regionSlug: string; nickname: string | null }
+  | { ok: true; playerId: string; region: string; regionSlug: string }
   | { ok: false; error: string; region?: string | null };
 
 /** "Latinoamérica, Brasil o Europa" */
@@ -237,6 +237,6 @@ export async function checkPlayerRegion(provider: TopUpProvider, playerId: strin
   if (!slug || !regions.includes(slug)) {
     return { ok: false, region: r.region, error: `Esta cuenta es de ${regionLabel(slug, r.region)}. Por ahora solo recargamos cuentas de ${list}.` };
   }
-  return { ok: true, playerId, region: r.region, regionSlug: slug, nickname: cleanNickname(r.nickname) };
+  return { ok: true, playerId, region: r.region, regionSlug: slug };
 }
 

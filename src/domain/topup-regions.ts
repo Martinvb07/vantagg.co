@@ -132,9 +132,3 @@ export function regionalPrice(input: { amount: number; costCents: number; usdtCo
   price = charmPrice(Math.max(500, price));
   return { price, ref: { amount: ref.amount, price: ref.price }, exact: !!exact, ceiling, aboveLatam, marginPct: Math.round(((price - cost) / price) * 1000) / 10 };
 }
-
-/** Nombre de la cuenta según el verificador del proveedor: sin caracteres de control y con largo acotado. */
-export function cleanNickname(v: string | null | undefined): string | null {
-  const s = (v ?? "").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 40);
-  return s || null;
-}

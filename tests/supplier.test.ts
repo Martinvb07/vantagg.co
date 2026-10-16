@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { charmPrice, cleanNickname, costInCop, isFreeFireProductKey, marginOf, MIN_MARGIN_PCT, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { charmPrice, costInCop, isFreeFireProductKey, marginOf, MIN_MARGIN_PCT, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { verifyStandardWebhook } from "@/server/integrations/payments/signatures";
 
 describe("precios por región", () => {
@@ -112,15 +112,5 @@ describe("precio regional con la lógica de LATAM", () => {
     expect(r.aboveLatam).toBe(true);
     expect(r.marginPct).toBeGreaterThanOrEqual(MIN_MARGIN_PCT);
     expect(r.price).toBe(10999);
-  });
-});
-
-describe("nombre de la cuenta del verificador", () => {
-  it("limpia caracteres invisibles, recorta y acota el largo", () => {
-    expect(cleanNickname("  ŦřØ『Ł』ĐÊR  ")).toBe("ŦřØ『Ł』ĐÊR");
-    expect(cleanNickname("abc\u202edef\u0007")).toBe("abcdef");
-    expect(cleanNickname("x".repeat(60))).toHaveLength(40);
-    expect(cleanNickname("   ")).toBeNull();
-    expect(cleanNickname(null)).toBeNull();
   });
 });

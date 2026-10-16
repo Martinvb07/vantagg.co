@@ -16,7 +16,7 @@ export function EmailStatusPicker({ defaultValue }: { defaultValue: string }) {
           <input type="radio" name="emailStatus" value={v} defaultChecked={defaultValue === v} className="peer sr-only" />
           <span
             className={cn(
-              "flex h-10 items-center justify-center gap-1.5 rounded-[var(--radius-ctl)] bg-ink-850 px-2 text-[12.5px] font-medium text-fg-muted ring-1 ring-white/[0.09] transition-colors hover:text-fg peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-volt-400",
+              "flex min-h-10 flex-col items-center justify-center gap-1 rounded-[var(--radius-ctl)] bg-ink-850 px-2 py-2 text-center text-[12px] font-medium leading-tight sm:flex-row sm:gap-1.5 sm:py-0 sm:text-[12.5px] text-fg-muted ring-1 ring-white/[0.09] transition-colors hover:text-fg peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-volt-400",
               on,
             )}
           >

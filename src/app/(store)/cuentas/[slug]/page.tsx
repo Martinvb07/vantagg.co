@@ -101,49 +101,14 @@ export default async function AccountPage({ params }: { params: Promise<{ slug: 
           </Alert>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr] lg:gap-10">
-          <div className="min-w-0">
+        <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr] lg:gap-x-10 lg:gap-y-10">
+          {/* En celular: fotos, compra y luego detalles. En escritorio: fotos y detalles a la izquierda, compra fija a la derecha. */}
+          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             <Gallery images={a.images} title={a.title} />
-
-            <section className="mt-10" aria-labelledby="descripcion">
-              <h2 id="descripcion" className="font-display text-lg font-semibold">
-                Descripción
-              </h2>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-fg-muted">{a.description}</p>
-            </section>
-
-            <section className="mt-10" aria-labelledby="entrega">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="entrega" className="font-display text-lg font-semibold">
-                  Entrega
-                </h2>
-                {a.inventoryVerified ? (
-                  <span className="inline-flex items-center gap-1.5 text-[13px] text-ok-400">
-                    <BadgeCheck className="size-4" /> Revisada por el equipo
-                    {a.inventoryVerifiedAt ? ` el ${formatDate(a.inventoryVerifiedAt, false)}` : ""}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-subtle">
-                    <Info className="size-4" /> Pendiente de revisión del equipo
-                  </span>
-                )}
-              </div>
-              <ul className="mt-3 space-y-2.5 rounded-[12px] border border-white/[0.07] bg-ink-850 p-5 text-[14px] text-fg-muted">
-                <li className="flex gap-2.5">
-                  <PackageCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> La cuenta se reserva para ti mientras completas el pago.
-                </li>
-                <li className="flex gap-2.5">
-                  <Clock className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Recibes los datos de acceso por el chat seguro de tu pedido apenas se confirme el pago.
-                </li>
-                <li className="flex gap-2.5">
-                  <ShieldCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Nunca te pediremos contraseñas de tus redes sociales ni datos bancarios.
-                </li>
-              </ul>
-            </section>
           </div>
 
           {/* Columna de compra */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
             <div className="surface p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
                 <ProductLabelTag label={a.label} />
@@ -206,6 +171,45 @@ export default async function AccountPage({ params }: { params: Promise<{ slug: 
               <ClaimForm accountId={a.id} />
             </details>
           </aside>
+
+          <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+
+            <section aria-labelledby="descripcion">
+              <h2 id="descripcion" className="font-display text-lg font-semibold">
+                Descripción
+              </h2>
+              <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-fg-muted">{a.description}</p>
+            </section>
+
+            <section className="mt-10" aria-labelledby="entrega">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="entrega" className="font-display text-lg font-semibold">
+                  Entrega
+                </h2>
+                {a.inventoryVerified ? (
+                  <span className="inline-flex items-center gap-1.5 text-[13px] text-ok-400">
+                    <BadgeCheck className="size-4" /> Revisada por el equipo
+                    {a.inventoryVerifiedAt ? ` el ${formatDate(a.inventoryVerifiedAt, false)}` : ""}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[13px] text-fg-subtle">
+                    <Info className="size-4" /> Pendiente de revisión del equipo
+                  </span>
+                )}
+              </div>
+              <ul className="mt-3 space-y-2.5 rounded-[12px] border border-white/[0.07] bg-ink-850 p-5 text-[14px] text-fg-muted">
+                <li className="flex gap-2.5">
+                  <PackageCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> La cuenta se reserva para ti mientras completas el pago.
+                </li>
+                <li className="flex gap-2.5">
+                  <Clock className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Recibes los datos de acceso por el chat seguro de tu pedido apenas se confirme el pago.
+                </li>
+                <li className="flex gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0 translate-y-0.5 text-volt-300" /> Nunca te pediremos contraseñas de tus redes sociales ni datos bancarios.
+                </li>
+              </ul>
+            </section>
+          </div>
         </div>
 
         {related.length > 0 && (
