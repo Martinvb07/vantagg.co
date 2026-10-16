@@ -1,0 +1,40 @@
+name: Probar IP real de los visitantes
+
+# Manual. Comprueba que la tienda distingue a los visitantes por su IP (los límites de intentos dependen de eso).
+# Una máquina agota el límite del buscador (120/min) y otra, con otra IP, busca enseguida:
+# si la segunda también queda bloqueada, nginx no le pasa la IP real a la tienda.
+on:
+  workflow_dispatch:
+
+jobs:
+  agotar:
+    name: Máquina A agota el límite
+    runs-on: ubuntu-latest
+    outputs:
+      ip: ${{ steps.r.outputs.ip }}
+    steps:
+      - id: r
+        run: |
+          echo "ip=$(curl -s https://api.ipify.org)" >> "$GITHUB_OUTPUT"
+          bloqueado=0
+          for i in $(seq 1 130); do
+            c=$(curl -s -o /dev/null -w '%{http_code}' "https://vantagg.co/api/search?q=diamantes")
+            [ "$c" = "429" ] && bloqueado=$((bloqueado + 1))
+          done
+          echo "Respuestas 429 en la máquina A: $bloqueado"
+          date +%s > /tmp/fin
+
+  comprobar:
+    name: Máquina B busca enseguida
+    needs: agotar
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          ipb=$(curl -s https://api.ipify.org)
+          [ "$ipb" = "${{ needs.agotar.outputs.ip }}" ] && { echo "Misma IP en ambas máquinas; la prueba no sirve, repítela"; exit 0; }
+          c=$(curl -s -o /dev/null -w '%{http_code}' "https://vantagg.co/api/search?q=diamantes")
+          if [ "$c" = "429" ]; then
+            echo "✖ La máquina B quedó bloqueada sin haber buscado: la tienda ve a todos los visitantes con la misma IP."
+            exit 1
+          fi
+          echo "✔ La máquina B pudo buscar ($c): la tienda distingue a los visitantes por IP."
