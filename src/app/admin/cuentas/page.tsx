@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ListingStatus } from "@prisma/client";
-import { CircleCheck, Plus } from "lucide-react";
+import { CircleCheck, ExternalLink, ImageOff, Pencil, Plus } from "lucide-react";
 import { PageHeader, Table } from "@/components/admin/ui";
 import { LinkButton } from "@/components/ui/button";
 import { DemoBadge } from "@/components/ui/primitives";
@@ -20,7 +20,10 @@ export default async function AccountsAdmin({ searchParams }: { searchParams: Pr
   const accounts = await db.accountListing.findMany({
     where: { ...(status ? { status } : {}), ...(sp.q ? { title: { contains: sp.q.slice(0, 80) } } : {}) },
     orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { images: true, claims: { where: { status: { in: ["OPEN", "REVIEWING"] } } } } } },
+    include: {
+      images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+      _count: { select: { images: true, claims: { where: { status: { in: ["OPEN", "REVIEWING"] } } } } },
+    },
     take: 200,
   });
   const counts = await db.accountListing.groupBy({ by: ["status"], _count: true });
@@ -68,38 +71,63 @@ export default async function AccountsAdmin({ searchParams }: { searchParams: Pr
             <th>Publicación</th>
             <th>Precio</th>
             <th>Estado</th>
-            <th>Verificación</th>
+            <th>Origen</th>
             <th>Actualizada</th>
+            <th className="w-px" />
           </tr>
         </thead>
         <tbody>
           {accounts.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-10 text-center text-fg-muted">
+              <td colSpan={6} className="py-10 text-center text-fg-muted">
                 No hay publicaciones.
               </td>
             </tr>
           )}
           {accounts.map((a) => (
-            <tr key={a.id}>
+            // Toda la fila abre el editor (el enlace del título se extiende sobre la fila).
+            <tr key={a.id} className="relative cursor-pointer">
               <td>
-                <Link href={`/admin/cuentas/${a.id}`} className="flex items-center gap-2 font-medium hover:text-volt-300">
-                  <span className="max-w-[340px] truncate">{a.title}</span> {a.isDemo && <DemoBadge />}
-                </Link>
-                <span className="text-[11.5px] text-fg-subtle">
-                  {a._count.images} imagen(es){a._count.claims ? ` · ${a._count.claims} reclamación(es) abierta(s)` : ""}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-ink-750 ring-1 ring-white/[0.08]">
+                    {a.images[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.images[0].url} alt="" className="size-full object-cover" />
+                    ) : (
+                      <ImageOff className="size-4 text-fg-subtle" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <Link href={`/admin/cuentas/${a.id}`} className="flex items-center gap-2 font-medium after:absolute after:inset-0 hover:text-volt-300">
+                      <span className="max-w-[320px] truncate">{a.title}</span> {a.isDemo && <DemoBadge />}
+                    </Link>
+                    <span className="text-[11.5px] text-fg-subtle">
+                      {a._count.images} foto(s){a._count.claims ? ` · ${a._count.claims} reclamación(es) abierta(s)` : ""}
+                    </span>
+                  </span>
+                </div>
               </td>
               <td className="tabular-nums">{formatMoney(a.price)}</td>
               <td>
                 <ListingStatusBadge status={a.status} />
               </td>
-              <td className="text-[12px]">
-                <span className={a.authorizationConfirmed ? "text-ok-400" : "text-warn-400"}>{a.authorizationConfirmed ? "Procedencia ✓" : "Procedencia pendiente"}</span>
-                <br />
-                <span className={a.inventoryVerified ? "text-ok-400" : "text-fg-subtle"}>{a.inventoryVerified ? "Revisada ✓" : "Sin revisar"}</span>
+              <td className="max-w-[200px] truncate text-[12.5px]" title={a.provenanceSource ?? undefined}>
+                {a.provenanceSource ? <span className="text-fg-muted">{a.provenanceSource}</span> : <span className="text-fg-subtle">Sin anotar</span>}
               </td>
               <td className="whitespace-nowrap text-fg-muted">{formatDate(a.updatedAt)}</td>
+              <td>
+                <div className="relative z-10 flex items-center justify-end gap-1.5">
+                  {["PUBLISHED", "RESERVED", "SOLD"].includes(a.status) && (
+                    <Link href={`/cuentas/${a.slug}`} target="_blank" title="Ver en la tienda" className="grid size-8 place-items-center rounded-lg text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg">
+                      <ExternalLink className="size-4" />
+                      <span className="sr-only">Ver en la tienda</span>
+                    </Link>
+                  )}
+                  <Link href={`/admin/cuentas/${a.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 text-[12.5px] font-medium ring-1 ring-white/10 transition-colors hover:bg-white/10">
+                    <Pencil className="size-3.5" /> Editar
+                  </Link>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
