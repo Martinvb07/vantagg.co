@@ -86,30 +86,34 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
       ref={headerRef}
       className={cn(
         "sticky top-0 z-40 transition-[background,box-shadow,backdrop-filter] duration-300",
-        scrolled || open ? "bg-ink-900/80 shadow-[0_1px_0_0_rgb(255_255_255/0.06),0_12px_30px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl backdrop-saturate-150" : "bg-transparent",
+        scrolled || open ? "bg-ink-950/75 shadow-[0_1px_0_0_rgb(255_255_255/0.06),0_16px_40px_-24px_rgb(0_0_0/0.9)] backdrop-blur-xl backdrop-saturate-150" : "bg-transparent",
       )}
     >
-      <div className="mx-auto flex h-[60px] max-w-[1240px] sm:h-[68px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="shrink-0 rounded-lg" aria-label={`${storeName} — inicio`}>
+      <div className="mx-auto flex h-[60px] max-w-[1240px] items-center gap-3 px-4 sm:h-[72px] sm:px-6 lg:px-8">
+        <Link href="/" className="-ml-1 shrink-0 rounded-lg transition-opacity hover:opacity-90" aria-label={`${storeName} — inicio`}>
           <Logo name={storeName} logoUrl={logoUrl} />
         </Link>
 
-        {/* Navegación principal en cápsula */}
-        <nav className="ml-4 hidden items-center gap-0.5 rounded-full bg-white/[0.035] p-1 ring-1 ring-white/[0.07] lg:flex" aria-label="Principal">
-          {nav.map(({ href, label, icon: Icon }) => {
+        {/* Navegación principal: texto limpio; la sección activa se marca con una línea verde en el borde inferior. */}
+        <span aria-hidden className="ml-5 hidden h-6 w-px bg-white/[0.08] lg:block" />
+        <nav className="ml-3 hidden h-full items-stretch gap-1 lg:flex" aria-label="Principal">
+          {nav.map(({ href, label }) => {
             const active = isActive(href);
             return (
               <Link
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-[13.5px] font-medium transition-[background,color,box-shadow] duration-200",
-                  active ? "bg-white/[0.09] text-fg shadow-[0_1px_0_0_rgb(255_255_255/0.08)_inset]" : "text-fg-muted hover:bg-white/[0.05] hover:text-fg",
-                )}
+                className={cn("group relative inline-flex items-center px-3 text-[14px] font-medium transition-colors duration-200", active ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
-                <Icon className={cn("size-4 transition-colors", active ? "text-volt-300" : "text-fg-subtle group-hover:text-fg-muted")} />
                 {label}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-3 bottom-0 h-[2px] rounded-full transition-all duration-300",
+                    active ? "bg-volt-400 opacity-100 shadow-[0_0_14px_1px_rgb(200_240_79/0.65)]" : "bg-white/40 opacity-0 group-hover:opacity-40",
+                  )}
+                />
               </Link>
             );
           })}
@@ -133,8 +137,8 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           <Link
             href="/carrito"
             className={cn(
-              "relative hidden size-10 place-items-center rounded-full ring-1 transition-colors lg:grid",
-              isActive("/carrito") ? "bg-white/[0.09] text-fg ring-white/15" : "text-fg-muted ring-white/[0.08] hover:bg-white/[0.06] hover:text-fg",
+              "relative hidden size-10 place-items-center rounded-full transition-colors lg:grid",
+              isActive("/carrito") ? "bg-white/[0.08] text-fg" : "text-fg-muted hover:bg-white/[0.06] hover:text-fg",
             )}
             aria-label={`Carrito (${count})`}
           >
@@ -147,14 +151,15 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           {user?.staff && (
             <Link
               href="/admin"
-              className="hidden h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium text-fg-muted ring-1 ring-white/[0.08] transition-colors hover:bg-white/[0.06] hover:text-fg sm:inline-flex"
+              title="Panel de administración"
+              className="hidden h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg sm:inline-flex"
             >
-              <LayoutDashboard className="size-4" /> Panel
+              <LayoutDashboard className="size-[18px]" /> <span className="hidden xl:inline">Panel</span>
             </Link>
           )}
 
           {user ? (
-            <Link href="/cuenta" className="hidden h-10 items-center gap-2 rounded-full bg-white/[0.06] pl-1 pr-3.5 text-[13px] font-medium ring-1 ring-white/10 transition-colors hover:bg-white/10 sm:inline-flex">
+            <Link href="/cuenta" className="ml-1 hidden h-10 items-center gap-2 rounded-full pl-1 pr-3 text-[13px] font-medium ring-1 ring-white/[0.08] transition-colors hover:bg-white/[0.06] sm:inline-flex">
               <UserAvatar user={user} size={32} ring={false} />
               <span className="max-w-28 truncate">{user.name && user.name !== "No Name" ? user.name.split(" ")[0] : "Mi cuenta"}</span>
             </Link>

@@ -16,9 +16,10 @@ export function Logo({ name, logoUrl, className }: { name: string; logoUrl?: str
     );
   }
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
-      <LogoMark className="size-9" />
-      <Image src="/brand/vantagg.png" alt={name} width={358} height={57} priority className="h-[19px] w-auto sm:h-[21px]" />
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
+      {/* La V trae brillo alrededor: un poco más grande para que pese igual que la palabra. */}
+      <LogoMark className="size-10 drop-shadow-[0_0_10px_rgb(200_240_79/0.25)] sm:size-11" />
+      <Image src="/brand/vantagg.png" alt={name} width={358} height={57} priority className="h-[20px] w-auto sm:h-[23px]" />
     </span>
   );
 }

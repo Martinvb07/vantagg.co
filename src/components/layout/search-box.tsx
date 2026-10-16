@@ -148,7 +148,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
         type="search"
         autoComplete="off"
         spellCheck={false}
-        placeholder={desktop ? "Buscar en la tienda" : "Diamantes, cuentas, rango, Nequi…"}
+        placeholder={desktop ? "Buscar…" : "Diamantes, cuentas, rango, Nequi…"}
         aria-label="Buscar en la tienda"
         role="combobox"
         aria-expanded={open}
@@ -158,7 +158,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
         className={cn(
           "text-fg placeholder:text-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden",
           desktop
-            ? "h-10 w-56 rounded-full border border-white/[0.08] bg-white/[0.035] pl-10 pr-10 text-[13px] transition-[width,border-color,background] duration-300 focus:w-80 focus:border-volt-400/50 focus:bg-ink-850 xl:w-64"
+            ? "h-10 w-48 rounded-full border border-transparent bg-white/[0.05] pl-10 pr-10 text-[13px] transition-[width,border-color,background] duration-300 hover:bg-white/[0.07] focus:w-72 focus:border-volt-400/50 focus:bg-ink-850 xl:w-60"
             : "h-11 w-full rounded-full border border-white/10 bg-ink-850 pl-10 pr-10 text-[14px] focus:border-volt-400/50",
         )}
       />
@@ -176,7 +176,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
         </button>
       ) : (
         desktop && (
-          <kbd className="pointer-events-none absolute right-3 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md border border-white/10 bg-white/[0.04] font-mono text-[10.5px] text-fg-subtle transition-opacity group-focus-within:opacity-0">
+          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden size-5 xl:grid -translate-y-1/2 place-items-center rounded-md border border-white/10 bg-white/[0.04] font-mono text-[10.5px] text-fg-subtle transition-opacity group-focus-within:opacity-0">
             /
           </kbd>
         )
