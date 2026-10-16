@@ -1,0 +1,65 @@
+name: Dejar un único administrador
+
+# Manual (GitHub → Actions → «Dejar un único administrador» → Run workflow).
+# Deja SOLO al correo indicado como ADMIN y BORRA a todos los demás usuarios (equipo y clientes).
+# Los pedidos se conservan sin usuario asociado. No se puede deshacer.
+# La contraseña sale del secreto NUEVO_ADMIN_PASSWORD (12+ caracteres) y viaja por la entrada
+# estándar del SSH: nunca aparece en el log. Bórralo de los secretos después de usarlo.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Correo del único administrador
+        required: true
+        default: jesusartunduaga6@gmail.com
+      confirmar:
+        description: Escribe BORRAR para confirmar que se eliminan los demás usuarios
+        required: true
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  admin:
+    name: Dejar único administrador
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Revisar confirmación y secreto
+        env:
+          CONFIRMAR: ${{ inputs.confirmar }}
+          NUEVO_ADMIN_PASSWORD: ${{ secrets.NUEVO_ADMIN_PASSWORD }}
+        run: |
+          [ "$CONFIRMAR" = "BORRAR" ] || { echo "Escribe BORRAR en «confirmar» para continuar."; exit 1; }
+          [ "${#NUEVO_ADMIN_PASSWORD}" -ge 12 ] || { echo "Falta el secreto NUEVO_ADMIN_PASSWORD (12+ caracteres)."; exit 1; }
+
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Ejecutar en el VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          EMAIL: ${{ inputs.email }}
+          NUEVO_ADMIN_PASSWORD: ${{ secrets.NUEVO_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "Correo inválido"; exit 1; }
+          printf '%s' "$NUEVO_ADMIN_PASSWORD" | ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 \
+            "$VPS_USER@$VPS_HOST" \
+            "export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; cd '$VPS_PATH' && node --env-file=.env scripts/admin-unico.mjs '$EMAIL' --confirmar"
