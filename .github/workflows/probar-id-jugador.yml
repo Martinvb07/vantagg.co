@@ -1,0 +1,22 @@
+name: Probar verificación de ID de jugador
+
+# Manual: consulta al verificador público del proveedor (sin llaves) qué devuelve para un ID de Free Fire:
+# estado, región y nombre de la cuenta. Sirve para revisar qué verá el cliente al pulsar «Verificar».
+on:
+  workflow_dispatch:
+    inputs:
+      uid:
+        description: ID de jugador de Free Fire (solo números)
+        required: true
+
+jobs:
+  probar:
+    name: Consultar ID
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          UID_JUGADOR: ${{ inputs.uid }}
+        run: |
+          [[ "$UID_JUGADOR" =~ ^[0-9]{6,12}$ ]] || { echo "El ID debe tener entre 6 y 12 números"; exit 1; }
+          curl -s --max-time 20 "https://api.rechargegame.games/v1/region-check?game=free-fire&uid=$UID_JUGADOR&region=" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print("estado:", d.get("status")); print("región:", d.get("region")); print("nombre:", d.get("nickname")); print("campos:", sorted(d.keys()))'
