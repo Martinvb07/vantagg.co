@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { getCurrentUser, isStaff } from "@/lib/auth";
 import { whatsappLink } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
@@ -29,6 +30,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       />
       <main id="contenido">{children}</main>
       <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />
+      <MobileTabBar loggedIn={!!user} />
       {wa && (
         <aside aria-label="Contacto por WhatsApp">
           <a
@@ -37,7 +39,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             rel="noopener noreferrer"
             aria-label="Escribir por WhatsApp"
             title={`WhatsApp ${settings.whatsapp}`}
-            className="wa-float fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-30 grid size-12 place-items-center rounded-full border border-white/10 bg-ink-800 text-ok-400 shadow-[var(--shadow-lift)] transition-[transform,bottom] hover:scale-105"
+            className="wa-float fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 lg:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] lg:right-5 z-30 grid size-12 place-items-center rounded-full border border-white/10 bg-ink-800 text-ok-400 shadow-[var(--shadow-lift)] transition-[transform,bottom] hover:scale-105"
           >
             <MessageCircle className="size-5" />
           </a>

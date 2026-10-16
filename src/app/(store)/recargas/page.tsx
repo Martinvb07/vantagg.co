@@ -53,7 +53,7 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
           }}
         />
       )}
-      <Container className="pb-28 pt-5 lg:pb-14">
+      <Container className="pb-4 pt-5 lg:pb-14 [body:has([data-paybar])_&]:pb-28 lg:[body:has([data-paybar])_&]:pb-14">
         <nav aria-label="Ruta" className="mb-5 flex items-center gap-1 text-[12.5px] text-fg-subtle">
           <Link href="/" className="hover:text-fg">
             Inicio

@@ -89,7 +89,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
         scrolled || open ? "bg-ink-900/80 shadow-[0_1px_0_0_rgb(255_255_255/0.06),0_12px_30px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl backdrop-saturate-150" : "bg-transparent",
       )}
     >
-      <div className="mx-auto flex h-[68px] max-w-[1240px] items-center gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[60px] max-w-[1240px] sm:h-[68px] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="shrink-0 rounded-lg" aria-label={`${storeName} — inicio`}>
           <Logo name={storeName} logoUrl={logoUrl} />
         </Link>
@@ -133,7 +133,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           <Link
             href="/carrito"
             className={cn(
-              "relative grid size-10 place-items-center rounded-full ring-1 transition-colors",
+              "relative hidden size-10 place-items-center rounded-full ring-1 transition-colors lg:grid",
               isActive("/carrito") ? "bg-white/[0.09] text-fg ring-white/15" : "text-fg-muted ring-white/[0.08] hover:bg-white/[0.06] hover:text-fg",
             )}
             aria-label={`Carrito (${count})`}

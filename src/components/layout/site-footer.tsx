@@ -74,28 +74,28 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
   ].filter(Boolean) as Array<{ href: string; label: string; icon: React.ReactNode; tint: string }>;
 
   return (
-    <footer className="relative mt-14 overflow-hidden sm:mt-16 border-t border-white/[0.06] bg-ink-950">
+    <footer className="relative mt-10 overflow-hidden border-t sm:mt-16 border-white/[0.06] bg-ink-950">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-volt-400/40 to-transparent" aria-hidden />
       <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(108,180,255,0.10),transparent)]" aria-hidden />
 
       <Container className="relative">
         {/* Llamado a la acción */}
-        <div className="relative -mb-2 mt-12 overflow-hidden rounded-[22px] bg-[linear-gradient(115deg,#0a2a5e_0%,#1167d8_55%,#4cc3ff_120%)] p-6 ring-1 ring-white/10 sm:p-8">
+        <div className="relative -mb-2 mt-8 overflow-hidden rounded-[22px] sm:mt-12 bg-[linear-gradient(115deg,#0a2a5e_0%,#1167d8_55%,#4cc3ff_120%)] p-6 ring-1 ring-white/10 sm:p-8">
           <div className="pointer-events-none absolute inset-0 opacity-25" style={{ background: "repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,.08) 46px 48px)" }} aria-hidden />
-          <Gem className="pointer-events-none absolute -right-6 top-1/2 hidden w-40 -translate-y-1/2 rotate-[-12deg] opacity-90 sm:block drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)] sm:right-10 sm:w-48" />
+          <Gem className="pointer-events-none absolute -right-8 -top-6 w-28 rotate-[-12deg] opacity-80 sm:top-1/2 sm:-translate-y-1/2 sm:opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)] sm:right-10 sm:w-48" />
           <div className="relative max-w-xl">
-            <p className="text-[26px] font-extrabold italic leading-tight tracking-tight text-white sm:text-[34px]">¿LISTO PARA RECARGAR?</p>
+            <p className="max-w-[75%] text-[26px] font-extrabold italic leading-tight tracking-tight text-white sm:max-w-none sm:text-[34px]">¿LISTO PARA RECARGAR?</p>
             <p className="mt-1.5 text-[14.5px] font-medium text-white/80">Pon tu ID, elige tu paquete con bonus y paga en pesos.</p>
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              <Link href="/recargas" className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-bold text-ink-950 transition hover:bg-volt-300">
+            <div className="mt-5 grid gap-2.5 sm:flex sm:flex-wrap">
+              <Link href="/recargas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 sm:h-11 text-[14px] font-bold text-ink-950 transition hover:bg-volt-300">
                 Recargar diamantes <ArrowRight className="size-4" />
               </Link>
               {showAccounts ? (
-                <Link href="/cuentas" className="inline-flex h-11 items-center gap-2 rounded-full bg-white/15 px-5 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
+                <Link href="/cuentas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 sm:h-11 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
                   Ver cuentas
                 </Link>
               ) : (
-                <Link href="/pedido" className="inline-flex h-11 items-center gap-2 rounded-full bg-white/15 px-5 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
+                <Link href="/pedido" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 sm:h-11 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
                   Rastrear pedido
                 </Link>
               )}
@@ -104,7 +104,7 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
         </div>
 
         {/* Cuerpo */}
-        <div className="grid gap-12 pb-10 pt-16 lg:grid-cols-[1.15fr_2fr]">
+        <div className="grid gap-10 pb-8 pt-12 sm:gap-12 sm:pb-10 sm:pt-16 lg:grid-cols-[1.15fr_2fr]">
           <div className="max-w-sm">
             <Logo name={settings.storeName} logoUrl={settings.logoUrl || undefined} />
             <p className="mt-4 text-[14px] leading-relaxed text-fg-muted">
@@ -134,11 +134,11 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 sm:gap-8">
             {columns.map((col) => (
               <nav key={col.title} aria-label={col.title}>
-                <p className="mb-4 text-[13px] font-bold text-fg">{col.title}</p>
-                <ul className="space-y-3">
+                <p className="mb-3 text-[13px] font-bold text-fg sm:mb-4">{col.title}</p>
+                <ul className="space-y-2.5 sm:space-y-3">
                   {col.links.map((l) => (
                     <li key={l.href}>
                       <Link href={l.href} className="group inline-flex items-center gap-1 text-[14px] text-fg-muted transition-colors hover:text-fg">
@@ -156,7 +156,7 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
         {/* Garantías */}
         <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-[16px] bg-white/[0.06] ring-1 ring-white/[0.06] sm:grid-cols-4">
           {GUARANTEES.map(({ icon: Icon, label }) => (
-            <li key={label} className="flex items-center justify-center gap-2.5 bg-ink-900 px-3 py-4 text-[13px] font-semibold">
+            <li key={label} className="flex items-center justify-center gap-2 bg-ink-900 px-2 py-3.5 text-[12.5px] font-semibold sm:gap-2.5 sm:px-3 sm:py-4 sm:text-[13px]">
               <Icon className="size-4 text-volt-300" /> {label}
             </li>
           ))}

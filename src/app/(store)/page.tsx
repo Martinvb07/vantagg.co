@@ -25,9 +25,9 @@ export const dynamic = "force-dynamic";
 
 function RowHead({ title, sub, href, cta }: { title: string; sub?: string; href?: string; cta?: string }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4">
+    <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
       <div>
-        <h2 className="text-[22px] font-extrabold tracking-tight sm:text-[26px]">{title}</h2>
+        <h2 className="text-[20px] font-extrabold leading-tight tracking-tight sm:text-[26px]">{title}</h2>
         {sub && <p className="mt-0.5 text-[13px] text-fg-subtle">{sub}</p>}
       </div>
       {href && (
@@ -71,16 +71,29 @@ export default async function HomePage() {
       />
       <h1 className="sr-only">{showAccounts ? "Diamantes y cuentas de Free Fire en Colombia" : "Recarga de diamantes de Free Fire en Colombia"}</h1>
 
-      <Container className="space-y-10 pb-6 pt-5 sm:space-y-12 sm:pt-7">
+      <Container className="space-y-8 pb-2 pt-4 sm:space-y-12 sm:pb-6 sm:pt-7">
         <div className="space-y-5">
           {heroBanners.length > 0 && <HeroCarousel banners={heroBanners} />}
 
           {/* Accesos rápidos */}
-          <nav aria-label="Accesos rápidos" className={cn("grid gap-2.5 sm:gap-3", shortcuts.length === 6 ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-2 sm:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1")}>
+          {/* Celular: fila deslizable de íconos tipo app. Escritorio: rejilla de tarjetas. */}
+          <nav
+            aria-label="Accesos rápidos"
+            className={cn(
+              "-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0",
+              shortcuts.length === 6 ? "sm:grid-cols-6" : "sm:grid-cols-5",
+            )}
+          >
             {shortcuts.map(({ href, icon: Icon, label }) => (
-              <Link key={label} href={href} className="group flex flex-col items-center justify-center gap-2 rounded-[14px] bg-ink-850 px-2 py-4 text-center ring-1 ring-white/[0.06] transition hover:bg-ink-800 hover:ring-white/15">
-                <Icon className="size-6 text-volt-300 transition-transform group-hover:-translate-y-0.5" strokeWidth={2.2} />
-                <span className="text-[13px] font-medium leading-tight">{label}</span>
+              <Link
+                key={label}
+                href={href}
+                className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-2 text-center sm:w-auto sm:justify-center sm:rounded-[14px] sm:bg-ink-850 sm:px-2 sm:py-4 sm:ring-1 sm:ring-white/[0.06] sm:transition sm:hover:bg-ink-800 sm:hover:ring-white/15"
+              >
+                <span className="grid size-14 place-items-center rounded-[18px] bg-gradient-to-b from-ink-750 to-ink-850 shadow-[0_1px_0_0_rgb(255_255_255/0.06)_inset] ring-1 ring-white/[0.07] transition active:scale-95 sm:size-auto sm:bg-none sm:shadow-none sm:ring-0">
+                  <Icon className="size-6 text-volt-300 transition-transform group-hover:-translate-y-0.5" strokeWidth={2.2} />
+                </span>
+                <span className="text-[12px] font-medium leading-tight text-fg-muted sm:text-[13px] sm:text-fg">{label}</span>
               </Link>
             ))}
           </nav>
@@ -90,7 +103,7 @@ export default async function HomePage() {
         {packages.length > 0 && (
           <section id="diamantes" className="scroll-mt-24">
             <RowHead title="Recargas de diamantes" sub={bonusPct ? `Todos con +${bonusPct}% de bonus · precio final en pesos` : "Precio final en pesos"} href="/recargas" cta="Ver todo" />
-            <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-6 lg:gap-x-4">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 lg:gap-x-4">
               {packages.map((p) => (
                 <ProductTile
                   key={p.id}
