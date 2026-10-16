@@ -55,7 +55,8 @@ jobs:
         run: npm test
 
       - name: Build
-        run: npm run build
+        # next/font descarga las fuentes de Google al compilar y a veces Google responde mal: un reintento.
+        run: npm run build || { echo "Reintentando el build en 20 s..."; sleep 20; npm run build; }
 
   desplegar:
     name: Desplegar en VPS
@@ -114,7 +115,8 @@ jobs:
           construir() {
             npm ci
             npx prisma migrate deploy
-            npm run build
+            # next/font descarga las fuentes de Google al compilar y a veces Google responde mal: un reintento.
+            npm run build || { echo "Reintentando el build en 20 s..."; sleep 20; npm run build; }
           }
 
           # Se recrea desde ecosystem.config.js para que siempre use su carpeta y variables.
