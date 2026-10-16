@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, Menu, Radar, Search, ShoppingBag, Users, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { useCart } from "@/components/cart/cart-context";
@@ -80,7 +80,9 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
     if (!searchOpen) return;
     mobileSearchRef.current?.focus();
     const onDown = (e: PointerEvent) => {
-      if (!headerRef.current?.contains(e.target as Node)) setSearchOpen(false);
+      if (headerRef.current?.contains(e.target as Node)) return;
+      (document.activeElement as HTMLElement | null)?.blur();
+      setSearchOpen(false);
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
@@ -117,6 +119,26 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // En iPhone, si el campo enfocado desaparece el teclado se queda abierto encima del menú: se suelta antes.
+  const releaseKeyboard = () => {
+    const el = document.activeElement as HTMLElement | null;
+    if (el?.closest("input,textarea")) el.blur();
+  };
+  // Abrir la búsqueda y enfocar dentro del mismo toque: Safari solo saca el teclado si el foco
+  // llega durante el gesto, no después en un efecto.
+  const toggleSearch = () => {
+    if (searchOpen) {
+      releaseKeyboard();
+      setSearchOpen(false);
+      return;
+    }
+    flushSync(() => {
+      setOpen(false);
+      setSearchOpen(true);
+    });
+    mobileSearchRef.current?.focus();
+  };
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const count = ready ? items.length : 0;
@@ -168,10 +190,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
             className="grid size-10 place-items-center rounded-full text-fg-muted transition-colors hover:bg-white/[0.06] hover:text-fg md:hidden"
             aria-label="Buscar"
             aria-expanded={searchOpen}
-            onClick={() => {
-              setOpen(false);
-              setSearchOpen((v) => !v);
-            }}
+            onClick={toggleSearch}
           >
             <Search className="size-[18px]" />
           </button>
@@ -222,6 +241,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
             aria-expanded={open}
             aria-controls="mobile-menu"
             onClick={() => {
+              releaseKeyboard();
               setSearchOpen(false);
               setOpen((v) => !v);
             }}
@@ -242,6 +262,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
                 href={href}
                 aria-current={active ? "page" : undefined}
                 onClick={() => {
+                  releaseKeyboard();
                   setOpen(false);
                   setSearchOpen(false);
                 }}
