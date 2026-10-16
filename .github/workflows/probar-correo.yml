@@ -1,0 +1,58 @@
+name: Probar envío de correo
+
+# Manual: envía un correo de prueba con la configuración del VPS (Resend + NOTIFY_FROM_EMAIL) al correo
+# de avisos internos (Panel → Ajustes) y muestra solo el código y el mensaje de Resend.
+on:
+  workflow_dispatch:
+
+jobs:
+  probar:
+    name: Enviar correo de prueba
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Enviar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g'
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          node --env-file=.env -e '
+            const { PrismaClient } = require("@prisma/client");
+            (async () => {
+              const db = new PrismaClient();
+              const s = await db.setting.findUnique({ where: { key: "staffAlertEmail" } });
+              await db.$disconnect();
+              const to = s?.value || process.env.ALERT_EMAIL;
+              if (!to) return console.log("No hay correo de avisos configurado");
+              const res = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ from: process.env.NOTIFY_FROM_EMAIL, to, subject: "Prueba de correo · VANTA", text: "Si te llegó este correo, los avisos de la tienda funcionan." }),
+              });
+              const body = await res.json().catch(() => ({}));
+              console.log("Resend", res.status, res.ok ? "enviado" : (body.message ?? ""));
+            })();
+          '
+          ENDSSH
