@@ -78,8 +78,11 @@ jobs:
           a=$(grep -E '^ADMIN_PATH=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
           curl -s -o /dev/null -w "  /<ADMIN_PATH> -> %{http_code}\n" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" "http://127.0.0.1:3020/$a"
           sleep 2
-          echo "== últimos errores de PM2 (vanta)"
-          pm2 logs vanta --err --nostream --lines 80 2>&1 | tail -n 80
+          echo "== últimos errores de la tienda (también de reinicios anteriores)"
+          for f in $(ls -t logs/vanta.err*.log 2>/dev/null | head -n 4); do
+            echo "-- $f"
+            grep -v "Server Reference ID\|server-action\|^\s*$" "$f" | tail -n 40
+          done
           echo "== última salida de PM2 (vanta)"
           pm2 logs vanta --out --nostream --lines 30 2>&1 | tail -n 30
           ENDSSH
