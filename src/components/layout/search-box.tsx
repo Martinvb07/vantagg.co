@@ -21,12 +21,6 @@ const ICONS: Record<SearchIcon, { icon: typeof Gem; tint: string }> = {
   sparkles: { icon: Sparkles, tint: "bg-volt-400/12 text-volt-300" },
 };
 
-const QUICK: SearchHit[] = [
-  { key: "s:/recargas", title: "Recargar diamantes", subtitle: "Directo a tu ID · bonus en todos los paquetes", href: "/recargas", icon: "gem" },
-  { key: "s:/cuentas", title: "Cuentas Free Fire", subtitle: "Rango, nivel y skins a la vista", href: "/cuentas", icon: "users" },
-  { key: "s:/pedido", title: "Rastrear pedido", subtitle: "Estado del pago y la entrega", href: "/pedido", icon: "radar" },
-  { key: "s:/medios-de-pago", title: "Medios de pago", subtitle: "Bold: tarjeta, Nequi, PSE y Bancolombia", href: "/medios-de-pago", icon: "card" },
-];
 const POPULAR = ["520", "5.600", "Heroico", "Gran Maestro", "Mascotas", "Nequi", "Reembolso"];
 const POPULAR_TOPUP = ["100", "520", "1.060", "5.600", "Nequi", "Bonus", "Reembolso"];
 
@@ -52,7 +46,6 @@ function HitIcon({ hit }: { hit: SearchHit }) {
  * se escribe. Flechas para moverse, Enter para abrir, Esc para cerrar.
  */
 export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }: { variant: "desktop" | "mobile"; inputRef?: RefObject<HTMLInputElement | null>; onNavigate?: () => void; showAccounts?: boolean }) {
-  const quick = showAccounts ? QUICK : QUICK.filter((h) => h.href !== "/cuentas");
   const popular = showAccounts ? POPULAR : POPULAR_TOPUP;
   const router = useRouter();
   const listId = useId();
@@ -65,7 +58,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
 
   const term = q.trim();
   // Mientras llega la nueva consulta se mantienen los resultados anteriores (sin parpadeo).
-  const groups = useMemo(() => (term.length >= 2 ? (result ? result.groups : null) : [{ label: "Accesos rápidos", hits: quick }]), [term, result, quick]);
+  const groups = useMemo(() => (term.length >= 2 ? (result ? result.groups : null) : []), [term, result]);
   const flat = useMemo(() => groups?.flatMap((g) => g.hits) ?? [], [groups]);
 
   // Consulta con espera corta y cancelación de la anterior.
@@ -197,7 +190,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
             <p className="flex items-center gap-2 px-3 py-6 text-[13px] text-fg-muted">
               <Loader2 className="size-4 animate-spin" /> Buscando «{term}»…
             </p>
-          ) : flat.length === 0 && !loading ? (
+          ) : term.length >= 2 && flat.length === 0 && !loading ? (
             <div className="px-3 py-5">
               <p className="text-[14px] font-semibold">No encontramos «{term}»</p>
               <p className="mt-0.5 text-[12.5px] text-fg-muted">Prueba con una cantidad de diamantes, un rango o un medio de pago.</p>
@@ -242,8 +235,9 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
           )}
 
           {(term.length < 2 || flat.length === 0) && (
-            <div className="border-t border-white/[0.06] px-3 pb-2 pt-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">Búsquedas populares</p>
+            // Sin texto: solo unas sugerencias cortas (las secciones ya están en la barra del encabezado).
+            <div className={cn("px-2 py-1.5", term.length >= 2 && "border-t border-white/[0.06] pt-3")}>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">Prueba con</p>
               <div className="flex flex-wrap gap-1.5">
                 {popular.map((p) => (
                   <button
