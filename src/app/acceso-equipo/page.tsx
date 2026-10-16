@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Clock, MessagesSquare, Receipt, ShieldCheck, Warehouse } from "lucide-react";
 import { Gem } from "@/components/brand/gem";
 import { LogoMark } from "@/components/brand/logo";
 import { getCurrentUser, isStaff } from "@/lib/auth";
 import { safeNext } from "@/lib/safe-next";
+import { hasGate } from "@/server/admin-gate";
 import { StaffLogin } from "./staff-login";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +17,9 @@ const FEATURES = [
   { icon: Warehouse, title: "Proveedor y precios", text: "Saldo, regiones, costos y márgenes de cada paquete." },
 ] as const;
 
-/** Inicio de sesión del equipo (contraseña + 2FA). Solo se llega aquí por la dirección secreta (ADMIN_PATH). */
+/** Inicio de sesión del equipo (contraseña + 2FA). Sin la cookie de la dirección secreta (ADMIN_PATH) responde 404. */
 export default async function StaffAccess({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  if (!(await hasGate())) notFound();
   const raw = safeNext((await searchParams).next, "/admin");
   const next = raw.startsWith("/admin") ? raw : "/admin";
   const user = await getCurrentUser();

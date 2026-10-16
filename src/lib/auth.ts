@@ -78,12 +78,11 @@ export async function requireUser(next = "/cuenta"): Promise<SessionUser> {
  * responde «no encontrado» para no revelar que el panel existe.
  */
 export async function requireStaff(roles: Role[] = ["ADMIN", "SUPPORT"]): Promise<SessionUser> {
+  const { hasGate } = await import("@/server/admin-gate");
+  // Sin la cookie de la entrada secreta el panel no existe, aunque haya sesión del equipo.
+  if (!(await hasGate())) notFound();
   const user = await getCurrentUser();
-  if (!user || !isStaff(user.role) || !user.totpEnabledAt) {
-    const { hasGate, adminEntry } = await import("@/server/admin-gate");
-    if (await hasGate()) redirect(adminEntry("/admin"));
-    notFound();
-  }
+  if (!user || !isStaff(user.role) || !user.totpEnabledAt) redirect("/acceso-equipo?next=%2Fadmin");
   if (!roles.includes(user.role)) redirect("/admin");
   return user;
 }
