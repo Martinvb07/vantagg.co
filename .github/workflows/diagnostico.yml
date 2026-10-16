@@ -49,6 +49,19 @@ jobs:
             valor=${linea#*=}; valor=${valor%\"}; valor=${valor#\"}
             [ -n "$linea" ] && echo "  $v: ${#valor}" || echo "  $v: (falta)"
           done
+          echo "== correos (solo dominio o si es el correo anterior de la tienda)"
+          for v in NOTIFY_PROVIDER NOTIFY_FROM_EMAIL NOTIFY_FROM_NAME NOTIFY_ONLY_TO ALERT_EMAIL SEED_ADMIN_EMAIL RESEND_API_KEY SMTP_HOST SMTP_USER; do
+            linea=$(grep -E "^$v=" .env | tail -n1 || true)
+            valor=${linea#*=}; valor=${valor%\"}; valor=${valor#\"}
+            if [ -z "$linea" ]; then echo "  $v: (falta)"; continue; fi
+            case "$v" in
+              NOTIFY_PROVIDER|SMTP_HOST) echo "  $v: $valor" ;;
+              RESEND_API_KEY) echo "  $v: definida (${#valor})" ;;
+              *) echo "  $v: dominio=$(printf '%s' "$valor" | grep -oE '@[A-Za-z0-9.-]+' | tr '\n' ' ') anterior=$(printf '%s' "$valor" | grep -q storevancolombia && echo si || echo no)" ;;
+            esac
+          done
+          echo "== ajustes de correo en la base"
+          node --env-file=.env -e 'const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();db.setting.findMany({where:{key:{in:["supportEmail","staffAlertEmail"]}}}).then(r=>{for(const s of r)console.log(" ",s.key,"vacío="+(!s.value),"anterior="+/storevancolombia/.test(s.value));return db.$disconnect()})' || true
           echo "== pm2"
           pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const p of JSON.parse(s))console.log(" ",p.name,p.pm2_env.status,"reinicios:",p.pm2_env.restart_time)})' || true
           echo "== prueba local de la entrada"
