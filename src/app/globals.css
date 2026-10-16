@@ -46,6 +46,8 @@
   --animate-float: float 6s ease-in-out infinite;
   --animate-twinkle: twinkle 3s ease-in-out infinite;
   --animate-navprogress: navprogress 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+  --animate-sheet-up: sheet-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade-in: fade-in 0.2s ease-out both;
 
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(8px); }
@@ -66,6 +68,14 @@
   @keyframes navprogress {
     from { transform: scaleX(0.04); }
     to { transform: scaleX(0.94); }
+  }
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @keyframes streak {
     0% { transform: translateX(-120%); opacity: 0; }
