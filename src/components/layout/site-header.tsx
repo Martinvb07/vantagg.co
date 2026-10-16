@@ -50,11 +50,28 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
     setSearchOpen(false);
   }, [pathname]);
 
+  // Menú abierto: la página de atrás no se mueve. En iPhone `overflow: hidden` en el body no basta
+  // (Safari deja deslizar igual), así que también se bloquea el gesto fuera del menú y el panel
+  // se recoloca bajo el encabezado si el navegador cambia de tamaño (barras de Safari).
   useEffect(() => {
-    if (open && headerRef.current) setMenuTop(Math.max(0, headerRef.current.getBoundingClientRect().bottom));
-    document.body.style.overflow = open ? "hidden" : "";
+    if (!open) return;
+    const place = () => headerRef.current && setMenuTop(Math.max(0, headerRef.current.getBoundingClientRect().bottom));
+    place();
+    const root = document.documentElement;
+    // Solo en <html>: si el body también lleva overflow, se vuelve su propio contenedor de scroll y el
+    // encabezado fijo (sticky) se va hacia arriba, dejando ver la página entre él y el menú.
+    root.style.overflow = "hidden";
+    const blockTouch = (e: TouchEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest("#mobile-menu")) e.preventDefault();
+    };
+    document.addEventListener("touchmove", blockTouch, { passive: false });
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, { passive: true });
     return () => {
-      document.body.style.overflow = "";
+      root.style.overflow = "";
+      document.removeEventListener("touchmove", blockTouch);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place);
     };
   }, [open]);
 
@@ -219,7 +236,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
       {open &&
         typeof document !== "undefined" &&
         createPortal(
-        <div id="mobile-menu" style={{ top: menuTop }} className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto border-t border-white/[0.06] bg-ink-900 pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <div id="mobile-menu" style={{ top: menuTop }} className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto overscroll-contain border-t border-white/[0.06] bg-ink-900 pb-[env(safe-area-inset-bottom)] lg:hidden">
           <nav className="flex flex-col gap-1.5 px-4 py-4" aria-label="Menú móvil">
             {[{ href: "/", label: "Inicio", icon: Home }, ...nav].map(({ href, label, icon: Icon }, i) => {
               const active = isActive(href);
