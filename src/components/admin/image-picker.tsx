@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MAX_SIDE = 1600;
-const QUALITY = 0.82;
+const MAX_SIDE = 2048;
+const QUALITY = 0.9;
 
-/** Reduce la foto en el navegador (máx. 1600 px, JPEG): una captura de 4 MB queda en ~300 KB. */
+/** Reduce la foto en el navegador (máx. 2048 px, JPEG de alta calidad): una captura de 8 MB queda en ~0,5–1 MB. */
 async function compress(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   try {
@@ -39,6 +39,7 @@ export function ImagePicker({ name = "images", max = 15, existing = 0 }: { name?
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const room = Math.max(0, max - existing);
+  const totalMb = items.reduce((n, i) => n + i.file.size, 0) / 1024 / 1024;
 
   // El input real lleva siempre las imágenes elegidas (ya comprimidas).
   useEffect(() => {
@@ -125,6 +126,7 @@ export function ImagePicker({ name = "images", max = 15, existing = 0 }: { name?
         {items.length ? `${items.length} lista(s) para subir. ` : ""}Arrástralas o elígelas desde el celular. Se optimizan solas antes de subir.
       </p>
       {note && <p className="mt-1 text-[12px] text-warn-400">{note}</p>}
+      {totalMb > 7 && <p className="mt-1 text-[12px] text-warn-400">Estas fotos pesan {totalMb.toFixed(1)} MB en total: guarda con menos fotos y agrega el resto después (máximo ~7 MB por vez).</p>}
     </div>
   );
 }

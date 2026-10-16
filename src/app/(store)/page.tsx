@@ -171,8 +171,8 @@ export default async function HomePage() {
                 ))}
               </nav>
             )}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleAccounts.slice(0, 4).map((a) => (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleAccounts.slice(0, 3).map((a) => (
                 <AccountGridCard key={a.id} a={a} />
               ))}
             </div>

@@ -305,7 +305,7 @@ export async function saveAccountAction(_: ActionResult, form: FormData): Promis
   revalidatePath("/admin/cuentas");
   revalidatePath(`/admin/cuentas/${accountId}`);
   revalidatePath("/cuentas");
-  if (!existing) redirect(`/admin/cuentas/${accountId}?creada=${published ? "publicada" : "1"}`);
+  if (!existing) redirect(published ? `/admin/cuentas?publicada=${encodeURIComponent(d.title.slice(0, 80))}` : `/admin/cuentas/${accountId}?creada=1`);
   if (photoError) return fail(`Cambios guardados, pero las fotos no se subieron: ${photoError}`);
   return ok(files.length ? `Cambios guardados y ${files.length} foto(s) agregada(s).` : "Cambios guardados.");
 }

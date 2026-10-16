@@ -15,7 +15,11 @@ function Cover({ a, className, sizes, priority = false }: { a: AccountCardView; 
   return (
     <Link href={`/cuentas/${a.slug}`} className={cn("relative block overflow-hidden bg-ink-750", className)} tabIndex={-1} aria-hidden>
       {a.image ? (
-        <Image src={a.image.url} alt="" fill sizes={sizes} priority={priority} unoptimized={a.image.url.endsWith(".svg")} className="object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+        <>
+          {/* Fondo difuminado de la misma foto: rellena los bordes sin recortar el edit. */}
+          <Image src={a.image.url} alt="" fill sizes="64px" quality={40} unoptimized={a.image.url.endsWith(".svg")} className="scale-110 object-cover opacity-60 blur-xl" />
+          <Image src={a.image.url} alt="" fill sizes={sizes} quality={90} priority={priority} unoptimized={a.image.url.endsWith(".svg")} className="object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+        </>
       ) : (
         <AccountPlaceholder />
       )}
@@ -105,7 +109,7 @@ function BuyButton({ a }: { a: AccountCardView }) {
 export function AccountGridCard({ a, priority }: { a: AccountCardView; priority?: boolean }) {
   return (
     <article className={cn("group flex flex-col overflow-hidden rounded-[16px] bg-ink-850 ring-1 ring-white/[0.07] transition duration-300 hover:-translate-y-0.5 hover:ring-white/20", !a.available && "opacity-80")}>
-      <Cover a={a} priority={priority} className="aspect-[4/3]" sizes="(min-width:1280px) 300px, (min-width:640px) 45vw, 100vw" />
+      <Cover a={a} priority={priority} className="aspect-video" sizes="(min-width:1024px) 420px, (min-width:640px) 50vw, 100vw" />
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-center justify-between gap-2">
           <Facts a={a} review={false} />
@@ -132,7 +136,7 @@ export function AccountListRow({ a, priority }: { a: AccountCardView; priority?:
   return (
     <article className={cn("group overflow-hidden rounded-[16px] bg-ink-850 ring-1 ring-white/[0.07] transition hover:ring-white/20", !a.available && "opacity-80")}>
       <div className="flex flex-col sm:flex-row">
-        <Cover a={a} priority={priority} className="aspect-[16/10] w-full shrink-0 sm:aspect-auto sm:min-h-[150px] sm:w-72" sizes="(min-width:640px) 288px, 100vw" />
+        <Cover a={a} priority={priority} className="aspect-video w-full shrink-0 sm:w-80" sizes="(min-width:640px) 320px, 100vw" />
         <div className="flex min-w-0 flex-1 flex-col gap-4 p-4 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <Link href={`/cuentas/${a.slug}`} className="line-clamp-2 text-[15.5px] font-semibold leading-snug hover:text-volt-300">

@@ -19,7 +19,7 @@ export function Gallery({ images, title }: { images: Array<{ url: string; alt: s
   return (
     <div>
       <div
-        className="surface group relative aspect-[16/10] overflow-hidden"
+        className="surface group relative aspect-video overflow-hidden"
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft") go(-1);
           if (e.key === "ArrowRight") go(1);
@@ -29,15 +29,17 @@ export function Gallery({ images, title }: { images: Array<{ url: string; alt: s
         aria-roledescription="carrusel"
         aria-label={`Imágenes de ${title}`}
       >
+        <Image src={images[i].url} alt="" aria-hidden fill sizes="64px" quality={40} unoptimized={images[i].url.endsWith(".svg")} className="scale-110 object-cover opacity-50 blur-2xl" />
         <Image
           key={images[i].url}
           src={images[i].url}
           alt={images[i].alt}
           fill
           priority
-          sizes="(min-width:1024px) 720px, 100vw"
+          quality={92}
+          sizes="(min-width:1024px) 760px, 100vw"
           unoptimized={images[i].url.endsWith(".svg")}
-          className="animate-fade-up object-cover"
+          className="animate-fade-up object-contain"
         />
         {images.length > 1 && (
           <>
@@ -73,7 +75,7 @@ export function Gallery({ images, title }: { images: Array<{ url: string; alt: s
               aria-label={`Ver imagen ${idx + 1}`}
               aria-current={idx === i}
               className={cn(
-                "relative aspect-[16/10] overflow-hidden rounded-md border transition-[border-color,opacity]",
+                "relative aspect-video overflow-hidden rounded-md border transition-[border-color,opacity]",
                 idx === i ? "border-volt-400/80" : "border-white/[0.08] opacity-60 hover:opacity-100",
               )}
             >

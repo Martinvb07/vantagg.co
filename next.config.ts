@@ -35,7 +35,8 @@ const nextConfig: NextConfig = {
     remotePatterns: storageHost ? [{ protocol: "https", hostname: storageHost }] : [],
   },
   experimental: {
-    serverActions: { bodySizeLimit: "6mb" },
+    // Fotos de cuentas: el panel las comprime antes de subir; nginx de la tienda acepta 8 MB por envío.
+    serverActions: { bodySizeLimit: "8mb" },
   },
   async redirects() {
     return [{ source: "/ofertas", destination: "/recargas", permanent: false }];
