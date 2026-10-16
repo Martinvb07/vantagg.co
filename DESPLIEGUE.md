@@ -27,7 +27,7 @@ El archivo **`deploy/.env.production`** ya está generado en tu PC y no se sube 
 - Secretos nuevos: sesión, cifrado, tarea programada, dirección secreta del panel y contraseñas de MySQL.
 - Llaves de **Bold de producción** (con `BOLD_TEST_MODE` vacío: cobros reales).
 - Llaves de RechargeGame, Resend y Google.
-- Administrador inicial: **storevancolombia@gmail.com**, con una contraseña temporal (`SEED_ADMIN_PASSWORD`). La dirección secreta del panel está en `ADMIN_PATH`.
+- Administrador inicial: **jesusartunduaga6@gmail.com**, con una contraseña temporal (`SEED_ADMIN_PASSWORD`). La dirección secreta del panel está en `ADMIN_PATH`.
 
 Ya está configurado para **vantagg.co** (`APP_URL=https://vantagg.co`, remitente `VANTA <pedidos@vantagg.co>`). Solo queda, opcional, `TOPUP_WEBHOOK_SECRET` (paso 4).
 
@@ -131,12 +131,12 @@ gunzip -c db-AAAAMMDD-HHMM.sql.gz | docker compose --env-file .env.production ex
 
 ## 7. Panel y datos de la tienda
 
-1. Entra por `https://vantagg.co/<ADMIN_PATH>` con **storevancolombia@gmail.com** y la contraseña temporal de `SEED_ADMIN_PASSWORD`.
+1. Entra por `https://vantagg.co/<ADMIN_PATH>` con **jesusartunduaga6@gmail.com** y la contraseña temporal de `SEED_ADMIN_PASSWORD`.
 2. Activa la verificación en dos pasos y guarda los códigos de respaldo.
 3. Cambia la contraseña en Panel → Mi seguridad y **borra `SEED_ADMIN_PASSWORD`** de `deploy/.env.production`.
 4. **Panel → Ajustes:**
    - Razón social, NIT y dirección: el Estatuto del Consumidor exige mostrarlos.
-   - Correo de soporte y de avisos internos: ya vienen con storevancolombia@gmail.com (puedes cambiarlos por uno de tu dominio).
+   - Correo de soporte y de avisos internos: quedan con jesusartunduaga6@gmail.com (puedes cambiarlos por uno de tu dominio).
    - «Sección de cuentas»: en *Automático* aparece sola cuando publicas la primera cuenta.
 5. Comprueba:
 

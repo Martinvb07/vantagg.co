@@ -2,6 +2,7 @@ name: Dejar un único administrador
 
 # Manual (GitHub → Actions → «Dejar un único administrador» → Run workflow).
 # Deja SOLO al correo indicado como ADMIN y BORRA a todos los demás usuarios (equipo y clientes).
+# Ese correo pasa a ser también el de soporte y avisos internos (Ajustes) y SEED_ADMIN_EMAIL / ALERT_EMAIL del .env.
 # Los pedidos se conservan sin usuario asociado. No se puede deshacer.
 # La contraseña sale del secreto NUEVO_ADMIN_PASSWORD (12+ caracteres) y viaja por la entrada
 # estándar del SSH: nunca aparece en el log. Bórralo de los secretos después de usarlo.
@@ -62,4 +63,4 @@ jobs:
           [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "Correo inválido"; exit 1; }
           printf '%s' "$NUEVO_ADMIN_PASSWORD" | ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 \
             "$VPS_USER@$VPS_HOST" \
-            "export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; cd '$VPS_PATH' && node --env-file=.env scripts/admin-unico.mjs '$EMAIL' --confirmar"
+            "export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; cd '$VPS_PATH' && node --env-file=.env scripts/admin-unico.mjs '$EMAIL' --confirmar && sed -i.bak -E 's/^(SEED_ADMIN_EMAIL|ALERT_EMAIL)=.*/\\1=$EMAIL/' .env && chmod 600 .env"

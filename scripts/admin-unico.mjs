@@ -1,6 +1,7 @@
 /**
  * Deja UN solo usuario en la tienda: el administrador indicado. Borra a todos los demás
  * (equipo y clientes). Los pedidos y tickets se conservan, sin usuario asociado.
+ * Además pone ese correo como correo de soporte y de avisos internos (Panel → Ajustes).
  * Se ejecuta en el servidor con acceso a la base de datos; la contraseña llega por la
  * entrada estándar (nunca como argumento, para que no quede en el historial ni en logs):
  *   printf '%s' 'contraseña-larga' | node scripts/admin-unico.mjs correo@ejemplo.com --confirmar
@@ -57,10 +58,13 @@ try {
     await tx.adminNote.updateMany({ where: { author: others }, data: { authorId: admin.id } });
     const deleted = await tx.user.deleteMany({ where: others });
     await tx.session.deleteMany({ where: { userId: admin.id } });
+    for (const key of ["staffAlertEmail", "supportEmail"]) {
+      await tx.setting.upsert({ where: { key }, create: { key, value: email }, update: { value: email } });
+    }
     await tx.auditLog.create({ data: { actorId: null, action: "auth.single_admin_cli", entity: "User", entityId: admin.id } });
     return deleted.count;
   });
-  console.log(`Listo: ${email} es el único administrador. Usuarios borrados: ${result}.`);
+  console.log(`Listo: ${email} es el único administrador y recibe los avisos. Usuarios borrados: ${result}.`);
 } finally {
   await db.$disconnect();
 }
