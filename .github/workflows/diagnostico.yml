@@ -51,10 +51,12 @@ jobs:
           done
           echo "== pm2"
           pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const p of JSON.parse(s))console.log(" ",p.name,p.pm2_env.status,"reinicios:",p.pm2_env.restart_time)})' || true
-          echo "== últimos errores"
-          tail -n 120 logs/vanta.err.log 2>/dev/null || echo "(sin log de errores)"
           echo "== prueba local de la entrada"
           a=$(grep -E '^ADMIN_PATH=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
           curl -s -o /dev/null -w "  /<ADMIN_PATH> -> %{http_code}\n" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" "http://127.0.0.1:3020/$a"
-          tail -n 25 logs/vanta.err.log 2>/dev/null | tail -n 25
+          sleep 2
+          echo "== últimos errores de PM2 (vanta)"
+          pm2 logs vanta --err --nostream --lines 80 2>&1 | tail -n 80
+          echo "== última salida de PM2 (vanta)"
+          pm2 logs vanta --out --nostream --lines 30 2>&1 | tail -n 30
           ENDSSH
