@@ -1,0 +1,128 @@
+name: Verificar producción
+
+# Manual y de solo lectura. Revisa la tienda desde dentro del VPS (configuración, tarea programada, respaldos,
+# nginx, puertos, permisos) y desde internet (páginas, rutas ocultas, cabeceras de seguridad, puertos cerrados).
+# El repositorio es público: no se imprimen secretos; correos, IPs y tokens se tapan.
+on:
+  workflow_dispatch:
+
+jobs:
+  vps:
+    name: Dentro del VPS
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/<ip>/g' \
+              -e 's/(Bearer|Authorization:)[^"]*/\1 <oculto>/g' \
+              -e 's/[A-Za-z0-9_-]{24,}/<token>/g' \
+              -e 's#/gestion-[A-Za-z0-9]+#/<ADMIN_PATH>#g'
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD) · node $(node -v)"
+          echo "== verificación de la tienda"
+          npm run -s verificar:produccion 2>&1 || true
+          echo "== tarea programada (mantenimiento y respaldos)"
+          c=$(crontab -l 2>/dev/null || true)
+          printf '%s\n' "$c" | grep -q "api/cron/maintenance" && echo "  ✔ mantenimiento programado: $(printf '%s\n' "$c" | grep 'api/cron/maintenance' | awk '{print $1,$2,$3,$4,$5}')" || echo "  ✖ NO hay tarea de mantenimiento (pedidos sin pago no vencen, pagos y entregas no se reconsultan)"
+          printf '%s\n' "$c" | grep -q "respaldo" && echo "  ✔ respaldo programado: $(printf '%s\n' "$c" | grep respaldo | awk '{print $1,$2,$3,$4,$5}')" || echo "  ✖ NO hay respaldo programado"
+          d="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"
+          if [ -d "$d" ]; then echo "  último respaldo: $(ls -t "$d" 2>/dev/null | head -n1 | sed 's/[^0-9-]//g' || echo ninguno) · copias: $(ls "$d" | wc -l)"; else echo "  ✖ no existe la carpeta de respaldos"; fi
+          if grep -qE '^CRON_SECRET=.{24,}' .env; then
+            s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+            r=$(curl -s --max-time 60 -H "Authorization: Bearer $s" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" http://127.0.0.1:3020/api/cron/maintenance || true)
+            echo "  prueba de mantenimiento: $(printf '%s' "$r" | head -c 200)"
+          fi
+          echo "== nginx (cabeceras hacia la tienda)"
+          f=$(grep -rlE "server_name[^;]*vantagg\.co" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null | head -n1 || true)
+          if [ -n "$f" ]; then
+            grep -hoE "proxy_set_header +(X-Forwarded-For|X-Real-IP|X-Forwarded-Proto|Host) +[^;]+" "$f" | sort -u | sed 's/^/  /'
+            grep -qE "client_max_body_size" "$f" && echo "  $(grep -hoE 'client_max_body_size +[^;]+' "$f" | head -n1)" || echo "  ⚠ sin client_max_body_size (nginx limita subidas a 1 MB)"
+          else
+            echo "  (no pude leer la configuración de nginx)"
+          fi
+          echo "== puertos escuchando en todas las interfaces"
+          (ss -ltnH 2>/dev/null || true) | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\*|\[::\]):' | sed 's/^/  /' | sort -u
+          echo "== firewall"
+          (sudo -n ufw status 2>/dev/null || ufw status 2>/dev/null || echo "  (sin acceso a ufw)") | head -n 20 | sed 's/^/  /'
+          echo "== permisos"
+          stat -c '  %a %n' .env 2>/dev/null || true
+          ls -1a | grep -E '^\.env\.' | while read -r x; do stat -c '  ⚠ copia de .env: %a %n' "$x"; done
+          stat -c '  %a %U %n' "${UPLOADS_DIR:-/var/lib/vanta/uploads}" 2>/dev/null || true
+          echo "== certificado HTTPS"
+          echo | openssl s_client -servername vantagg.co -connect 127.0.0.1:443 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | sed 's/^/  /' || echo "  (no se pudo leer)"
+          echo "== errores recientes de la tienda"
+          pm2 logs vanta --err --nostream --lines 30 2>&1 | grep -v TAILING | tail -n 30
+          ENDSSH
+
+  internet:
+    name: Desde internet
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -uo pipefail
+          B=https://vantagg.co
+          estado() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@"; }
+          revisar() { # ruta código-esperado descripción
+            c=$(estado "$B$1"); [ "$c" = "$2" ] && echo "  ✔ $1 → $c" || echo "  ✖ $1 → $c (esperado $2) $3"
+          }
+          echo "== páginas públicas"
+          for p in / /recargas /pedido /ayuda /ingresar /registro /carrito /buscar /medios-de-pago /legal/terminos /legal/privacidad /legal/reembolsos /recuperar /robots.txt /sitemap.xml /api/health /icon.svg; do revisar "$p" 200; done
+          echo "== rutas ocultas o privadas"
+          revisar /admin 404 "(el panel no debe existir sin la dirección secreta)"
+          revisar /acceso-equipo 404
+          revisar /api/admin/pulse 404
+          revisar /pagina-que-no-existe 404
+          for p in /.env /.git/config /.env.production /package.json /prisma/schema.prisma /deploy/ecosystem.config.js /.next/server/app/page.js; do revisar "$p" 404 "(no debe exponerse)"; done
+          c=$(estado -o /dev/null -w '%{redirect_url}' "$B/cuenta"); echo "  /cuenta sin sesión → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/cuenta")"
+          echo "  /api/cron/maintenance sin llave → $(estado "$B/api/cron/maintenance")"
+          echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
+          echo "== redirecciones"
+          echo "  http://vantagg.co → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' http://vantagg.co/)"
+          echo "  https://www.vantagg.co → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://www.vantagg.co/ || echo 'sin respuesta')"
+          echo "== cabeceras de seguridad (/)"
+          h=$(curl -sI --max-time 20 "$B/")
+          for k in strict-transport-security content-security-policy x-frame-options x-content-type-options referrer-policy permissions-policy cross-origin-opener-policy; do
+            printf '%s\n' "$h" | grep -qi "^$k:" && echo "  ✔ $k" || echo "  ✖ falta $k"
+          done
+          printf '%s\n' "$h" | grep -qi '^x-powered-by' && echo "  ⚠ expone x-powered-by" || echo "  ✔ sin x-powered-by"
+          printf '%s\n' "$h" | grep -i '^server:' | sed 's/^/  /'
+          echo "== cookies de sesión"
+          curl -s -D - -o /dev/null "$B/api/auth/google" | grep -i '^set-cookie' | sed -E 's/=[^;]*/=<valor>/' | sed 's/^/  /'
+          echo "== TLS"
+          echo | openssl s_client -servername vantagg.co -connect vantagg.co:443 2>/dev/null | openssl x509 -noout -enddate | sed 's/^/  /'
+          for v in tls1 tls1_1; do echo | openssl s_client -$v -servername vantagg.co -connect vantagg.co:443 >/dev/null 2>&1 && echo "  ⚠ acepta $v (viejo)" || echo "  ✔ rechaza $v"; done
+          echo "== puertos internos desde fuera (deben estar cerrados)"
+          for port in 3020 3306 3001 3000 6379 5432 8080; do
+            timeout 6 bash -c "echo > /dev/tcp/$VPS_HOST/$port" 2>/dev/null && echo "  ⚠ $port ABIERTO" || echo "  ✔ $port cerrado"
+          done
