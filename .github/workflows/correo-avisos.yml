@@ -50,13 +50,13 @@ jobs:
           set -euo pipefail
           export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           cd "$VPS_PATH"
-          cp -p .env .env.antes-avisos
           if grep -qE '^ALERT_EMAIL=' .env; then
             sed -i -E "s/^ALERT_EMAIL=.*/ALERT_EMAIL=$EMAIL/" .env
           else
             printf '\nALERT_EMAIL=%s\n' "$EMAIL" >> .env
           fi
-          chmod 600 .env .env.antes-avisos
+          rm -f .env.antes-avisos
+          chmod 600 .env
           pm2 restart vanta >/dev/null
           for i in $(seq 1 25); do
             [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3020/api/health || true)" = "200" ] && { echo "ALERT_EMAIL actualizado; tienda en línea."; exit 0; }
