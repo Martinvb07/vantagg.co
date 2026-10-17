@@ -19,7 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-dvh bg-ink-950">
       <AdminPulse initial={counts} />
       <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-white/[0.06] bg-ink-950/90 px-4 backdrop-blur lg:hidden">
-        <AdminNav isAdmin={user.role === "ADMIN"} badges={counts} />
+        <AdminNav isAdmin={user.role === "ADMIN"} badges={counts} email={user.email} />
         <LogoMark className="size-7" />
         <span className="text-sm font-semibold">Panel</span>
       </header>

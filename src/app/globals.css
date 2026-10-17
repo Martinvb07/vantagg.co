@@ -312,3 +312,11 @@
   .admin-table td:empty { display: none; }
 }
 
+
+/* iPhone hace zoom al enfocar un campo con letra de menos de 16 px y la pantalla queda descuadrada.
+   En pantallas táctiles los campos usan 16 px (fuera de capas, así gana a las clases text-[13px]). */
+@media (max-width: 1023px) and (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea { font-size: 16px; }
+}
