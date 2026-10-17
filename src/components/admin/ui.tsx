@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ResponsiveTable } from "./responsive-table";
 
 export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
@@ -39,12 +40,11 @@ export function Stat({ label, value, hint, tone }: { label: string; value: React
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    // tabIndex: en pantallas angostas la tabla se desplaza y debe poder hacerse con el teclado.
-    <div tabIndex={0} className="overflow-x-auto rounded-[12px] border border-white/[0.07] bg-ink-850 outline-none focus-visible:ring-2 focus-visible:ring-volt-400">
+    <ResponsiveTable className="admin-table overflow-x-auto rounded-[12px] border border-white/[0.07] bg-ink-850 outline-none focus-visible:ring-2 focus-visible:ring-volt-400">
       <table className="w-full min-w-[720px] text-left text-[13px] [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-2.5 [&_th]:text-[11.5px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-fg-subtle [&_thead]:border-b [&_thead]:border-white/[0.06] [&_tbody_tr]:border-b [&_tbody_tr]:border-white/[0.04] [&_tbody_tr:last-child]:border-0 [&_tbody_tr:hover]:bg-white/[0.02]">
         {children}
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }
 
