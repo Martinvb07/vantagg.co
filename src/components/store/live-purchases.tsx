@@ -16,36 +16,67 @@ const gemTone = (d: number) => GEM_TONES[[200, 450, 800, 1800, 4000].filter((t) 
 
 /** Esquinas tipo visor (HUD) del juego. */
 function HudCorners() {
-  const c = "pointer-events-none absolute size-5 border-volt-400/70";
+  const c = "pointer-events-none absolute size-4 border-volt-400/70 sm:size-5";
   return (
     <>
-      <span aria-hidden className={cn(c, "left-3 top-3 border-l-2 border-t-2")} />
-      <span aria-hidden className={cn(c, "right-3 top-3 border-r-2 border-t-2")} />
-      <span aria-hidden className={cn(c, "bottom-3 left-3 border-b-2 border-l-2")} />
-      <span aria-hidden className={cn(c, "bottom-3 right-3 border-b-2 border-r-2")} />
+      <span aria-hidden className={cn(c, "left-2.5 top-2.5 border-l-2 border-t-2 sm:left-3 sm:top-3")} />
+      <span aria-hidden className={cn(c, "right-2.5 top-2.5 border-r-2 border-t-2 sm:right-3 sm:top-3")} />
+      <span aria-hidden className={cn(c, "bottom-2.5 left-2.5 border-b-2 border-l-2 sm:bottom-3 sm:left-3")} />
+      <span aria-hidden className={cn(c, "bottom-2.5 right-2.5 border-b-2 border-r-2 sm:bottom-3 sm:right-3")} />
     </>
   );
 }
 
 /** Una línea del feed, como el registro de bajas del juego: tienda ▸ botín ▸ jugador. */
 function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchase; latest: boolean; fresh: boolean; now: Date; fade: number; mobileHidden?: boolean }) {
+  const when = timeAgo(new Date(p.at), now).replace("hace ", "");
+  const amount = p.diamonds != null ? num.format(p.diamonds) : null;
   return (
-    <li className={cn("flex lg:justify-end", mobileHidden && "max-lg:hidden", fresh && "animate-feed-in")} style={{ opacity: latest ? 1 : fade }}>
+    <li className={cn("lg:flex lg:justify-end", mobileHidden && "max-lg:hidden", fresh && "animate-feed-in")} style={{ opacity: latest ? 1 : fade }}>
+      {/* Celular: tarjeta de dos líneas con aire */}
       <div
         className={cn(
-          // Celular: barra a todo el ancho; escritorio: alineada a la derecha como el registro del juego.
-          "flex w-full -skew-x-[10deg] items-center border-r-[3px] py-2.5 pl-4 pr-3 lg:w-auto lg:max-w-full lg:-skew-x-[14deg] lg:py-1.5 lg:pl-8",
+          "flex items-center gap-3.5 rounded-[14px] border-l-[3px] px-4 py-3.5 lg:hidden",
+          latest ? "border-volt-400 bg-gradient-to-r from-volt-400/20 via-volt-400/[0.07] to-ink-950/40" : "border-white/20 bg-ink-950/55",
+        )}
+      >
+        <span className={cn("grid size-11 shrink-0 place-items-center rounded-[12px] bg-white/[0.06] ring-1 ring-white/10", latest && "bg-volt-400/15 ring-volt-400/30")}>
+          {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : <Users className="size-5 text-violet-300" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-1.5">
+            <span className="font-display text-[17px] font-extrabold tabular-nums leading-none">{amount ?? "Cuenta"}</span>
+            <span className="text-[12.5px] text-fg-muted">{amount ? "diamantes" : "Free Fire"}</span>
+          </span>
+          <span className="mt-1.5 block truncate font-mono text-[12px] text-sky-100/70">{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
+        </span>
+        <span className="shrink-0 text-right">
+          {latest ? (
+            <span className="font-display text-[12px] font-black italic tracking-wide text-volt-300">BOOYAH!</span>
+          ) : (
+            <BadgeCheck className="ml-auto size-4 text-ok-400" aria-label="Entregado" />
+          )}
+          <span className="mt-1 block text-[11.5px] text-white/45" suppressHydrationWarning>
+            {when}
+          </span>
+        </span>
+      </div>
+
+      {/* Escritorio: barra inclinada alineada a la derecha, como el registro del juego */}
+      <div
+        className={cn(
+          "hidden max-w-full -skew-x-[14deg] items-center border-r-[3px] py-1.5 pl-8 pr-3 lg:flex",
           latest ? "border-volt-400 bg-gradient-to-l from-volt-400/25 via-volt-400/10 to-transparent" : "border-white/25 bg-gradient-to-l from-black/70 via-black/45 to-transparent",
         )}
       >
-        <div className="flex w-full min-w-0 skew-x-[10deg] items-center gap-2 text-[13px] sm:gap-2.5 sm:text-[13.5px] lg:w-auto lg:skew-x-[14deg]">
-          {latest && <span className="hidden shrink-0 font-display text-[12px] font-black italic tracking-wide text-volt-300 lg:inline">BOOYAH!</span>}
+        <div className="flex min-w-0 skew-x-[14deg] items-center gap-2.5 text-[13.5px]">
+          {latest && <span className="shrink-0 font-display text-[12px] font-black italic tracking-wide text-volt-300">BOOYAH!</span>}
           <LogoMark className="size-5 shrink-0" />
-          <ChevronsRight className="hidden size-3.5 shrink-0 text-white/35 min-[400px]:block" />
-          {p.diamonds != null ? (
-            <span className="flex min-w-[4.6rem] shrink-0 items-center gap-1 font-display font-extrabold tabular-nums lg:min-w-0">
-              <Gem className={cn("size-4", gemTone(p.diamonds))} strokeWidth={2.3} />
-              {num.format(p.diamonds)}
+          <ChevronsRight className="size-3.5 shrink-0 text-white/35" />
+          {amount ? (
+            <span className="flex shrink-0 items-center gap-1 font-display font-extrabold tabular-nums">
+              <Gem className={cn("size-4", gemTone(p.diamonds!))} strokeWidth={2.3} />
+              {amount}
             </span>
           ) : (
             <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">
@@ -53,9 +84,9 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
             </span>
           )}
           <ChevronsRight className="size-3.5 shrink-0 text-white/35" />
-          <span className={cn("min-w-0 flex-1 truncate font-mono font-semibold lg:flex-none", latest ? "text-white" : "text-sky-100/85")}>{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
+          <span className={cn("truncate font-mono font-semibold", latest ? "text-white" : "text-sky-100/85")}>{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
           <span className="shrink-0 text-[11px] text-white/40" suppressHydrationWarning>
-            {timeAgo(new Date(p.at), now).replace("hace ", "")}
+            {when}
           </span>
         </div>
       </div>
@@ -237,7 +268,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
   const hud = [
     stats.today > 0 && { icon: BadgeCheck, value: num.format(stats.today), label: stats.today === 1 ? "Entrega hoy" : "Entregas hoy" },
     stats.diamonds30d > 0 && { icon: Gem, value: num.format(stats.diamonds30d), label: "Diamantes en 30 días" },
-    { icon: Zap, value: "Al instante", label: "Tiempo de entrega" },
+    { icon: Zap, value: "Al instante", label: "Entrega" },
   ].filter(Boolean) as Array<{ icon: typeof Gem; value: string; label: string }>;
 
   return (
@@ -250,7 +281,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent max-lg:bg-gradient-to-b max-lg:from-ink-950/80 max-lg:via-ink-950/50 max-lg:to-ink-950/70" />
       <HudCorners />
 
-      <div className="relative grid gap-5 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
+      <div className="relative grid gap-7 px-5 pb-7 pt-8 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
         <div>
           <p className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
             <span className="relative flex size-2">
@@ -259,7 +290,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
             </span>
             Transmisión en vivo
           </p>
-          <h2 id="entregas-en-vivo" className="mt-2 flex flex-wrap items-baseline gap-x-2.5 font-display font-black uppercase italic leading-[0.9] tracking-tight sm:mt-3 sm:block">
+          <h2 id="entregas-en-vivo" className="mt-3 flex flex-wrap items-baseline gap-x-2.5 font-display font-black uppercase italic leading-[0.9] tracking-tight sm:mt-3 sm:block">
             <span className="text-[34px] text-volt-400 drop-shadow-[0_0_24px_rgb(200_240_79/0.35)] sm:text-[52px]">Booyah</span>
             <br className="hidden sm:block" />
             <span className="text-[18px] sm:text-[30px]">en tiempo real</span>
@@ -267,9 +298,9 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
           <p className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-fg-muted sm:mt-3 sm:text-[13.5px]">Recargas reales que ya llegaron al ID del jugador.</p>
 
           {hud.length > 0 && (
-            <dl className={cn("mt-4 grid gap-2 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+            <dl className={cn("mt-5 grid gap-2.5 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
               {hud.map(({ icon: Icon, value, label }) => (
-                <div key={label} className="-skew-x-[10deg] rounded-[6px] bg-ink-950/60 px-2.5 py-2.5 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
+                <div key={label} className="-skew-x-[10deg] rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
                   <div className="flex skew-x-[10deg] flex-col-reverse">
                     <dt className="mt-1.5 flex items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
                       <Icon className="mt-px size-3 shrink-0 text-volt-300" />
@@ -285,10 +316,10 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
 
         {/* Registro de entregas: la más reciente arriba; las anteriores se van apagando como en partida */}
         <div>
-          <p className="mb-2.5 flex items-center gap-2 font-mono lg:justify-end text-[10.5px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
+          <p className="mb-3.5 flex items-center gap-2 font-mono lg:mb-2.5 lg:justify-end text-[10.5px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
             Registro de entregas <span className="h-px w-8 bg-white/15" />
           </p>
-          <ol className="space-y-1.5 overflow-hidden" aria-live="polite">
+          <ol className="space-y-2.5 lg:space-y-1.5 lg:overflow-hidden" aria-live="polite">
             {items.map((p, i) => (
               <FeedRow key={p.key} p={p} latest={i === 0} fresh={fresh.has(p.key)} now={now} fade={Math.max(0.35, 1 - i * 0.08)} mobileHidden={i >= 6} />
             ))}
