@@ -243,13 +243,13 @@ export type LivePurchase = {
   deliverySec: number | null; // del pago a la entrega
 };
 export type LiveStats = { today: number; diamonds30d: number; avgDeliverySec: number | null };
-export type LiveData = { items: LivePurchase[]; podium: LivePurchase[]; stats: LiveStats };
+export type LiveData = { items: LivePurchase[]; stats: LiveStats };
 
-/** «12****89»: solo los dos primeros y los dos últimos dígitos del ID de jugador. */
+/** «12****89»: solo los dos primeros y los dos últimos dígitos del ID de jugador (largo fijo, no revela cuántos tiene). */
 function maskPlayerId(id: string | null): string | null {
   const d = (id ?? "").replace(/\D/g, "");
   if (d.length < 6) return null;
-  return `${d.slice(0, 2)}${"*".repeat(Math.min(6, d.length - 4))}${d.slice(-2)}`;
+  return `${d.slice(0, 2)}****${d.slice(-2)}`;
 }
 
 type Snap = { diamonds?: number; bonusDiamonds?: number };
@@ -272,11 +272,11 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       where: { ...DELIVERED, type: "TOPUP", deliveredAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
       orderBy: { deliveredAt: "desc" },
       take: 5000,
-      select: { number: true, type: true, itemSnapshot: true, playerId: true, paidAt: true, deliveredAt: true },
+      select: { itemSnapshot: true, paidAt: true, deliveredAt: true },
     }),
   ]);
   const secs = (paid: Date | null, done: Date | null) => (paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null);
-  const toPublic = (r: (typeof rows)[number]): LivePurchase => {
+  const items = rows.map((r): LivePurchase => {
     const snap = (r.itemSnapshot ?? {}) as Snap;
     const topup = r.type === "TOPUP" && typeof snap.diamonds === "number";
     return {
@@ -289,16 +289,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       at: r.deliveredAt!.toISOString(),
       deliverySec: secs(r.paidAt, r.deliveredAt),
     };
-  };
-  const items = rows.map(toPublic);
-  // Podio: las 3 recargas más grandes entregadas en los últimos 7 días.
-  const weekAgo = Date.now() - 7 * 86400_000;
-  const podium = month
-    .filter((o) => o.deliveredAt!.getTime() >= weekAgo)
-    .map(toPublic)
-    .filter((p) => p.diamonds != null)
-    .sort((a, b) => b.diamonds! - a.diamonds! || b.at.localeCompare(a.at))
-    .slice(0, 3);
+  });
   const diamonds30d = month.reduce((n, o) => {
     const s = (o.itemSnapshot ?? {}) as Snap;
     return n + (s.diamonds ?? 0) + (s.bonusDiamonds ?? 0);
@@ -306,7 +297,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
   // Tiempo típico (mediana) de las últimas 50 recargas: no lo distorsiona un caso raro.
   const times = month.slice(0, 50).map((o) => secs(o.paidAt, o.deliveredAt)).filter((x): x is number => x != null).sort((a, b) => a - b);
   const avgDeliverySec = times.length >= 3 ? times[Math.floor(times.length / 2)] : null;
-  return { items, podium, stats: { today, diamonds30d, avgDeliverySec } };
+  return { items, stats: { today, diamonds30d, avgDeliverySec } };
 }
 
 /**
