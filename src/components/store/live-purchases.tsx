@@ -69,6 +69,88 @@ function FeedRow({ p, latest, fresh, now, fade }: { p: LivePurchase; latest: boo
   );
 }
 
+/** Curva cerrada irregular (curva de nivel) alrededor de un punto; determinista, igual en servidor y navegador. */
+function contour(cx: number, cy: number, r: number, seed: number) {
+  const pts: string[] = [];
+  for (let i = 0; i <= 72; i++) {
+    const a = (i / 72) * Math.PI * 2;
+    const k = r * (1 + 0.16 * Math.sin(3 * a + seed) + 0.09 * Math.sin(5 * a + seed * 2.3) + 0.05 * Math.cos(7 * a + seed));
+    pts.push(`${(cx + Math.cos(a) * k * 1.35).toFixed(1)},${(cy + Math.sin(a) * k).toFixed(1)}`);
+  }
+  return `M${pts.join("L")}Z`;
+}
+
+// Relieve del mapa: tres «cerros» con varias curvas de nivel cada uno.
+const CONTOURS = [
+  [230, 120, 1.1],
+  [1010, 470, 2.4],
+  [600, 330, 4.2],
+].flatMap(([cx, cy, seed]) => [40, 80, 125, 175, 230].map((r, i) => ({ d: contour(cx, cy, r, seed + i * 0.35), strong: i === 0 })));
+
+// Zona segura (círculo blanco) y posición de cada entrega dentro de ella, sacada de su clave.
+const ZONE = { cx: 610, cy: 330, r: 205 };
+function pinFor(key: string) {
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const a = ((h % 360) * Math.PI) / 180;
+  const d = 30 + ((h >>> 9) % 1000) / 1000 * (ZONE.r - 60);
+  return { x: ZONE.cx + Math.cos(a) * d, y: ZONE.cy + Math.sin(a) * d };
+}
+
+/**
+ * Fondo: mapa de battle royale. Curvas de nivel, la zona azul afuera del círculo seguro, la ruta del
+ * avión y un marcador por cada entrega (el más reciente late).
+ */
+function MapBackdrop({ items }: { items: LivePurchase[] }) {
+  return (
+    <svg aria-hidden viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" className="pointer-events-none absolute inset-0 size-full">
+      <defs>
+        <radialGradient id="lp-land" cx="35%" cy="30%" r="90%">
+          <stop offset="0" stopColor="#13201a" />
+          <stop offset="0.55" stopColor="#0d1414" />
+          <stop offset="1" stopColor="#0a0e16" />
+        </radialGradient>
+        <mask id="lp-outside">
+          <rect width="1200" height="600" fill="#fff" />
+          <circle cx={ZONE.cx} cy={ZONE.cy} r={ZONE.r} fill="#000" />
+        </mask>
+        <pattern id="lp-storm" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+          <rect width="14" height="14" fill="#1d4ed8" fillOpacity="0.07" />
+          <rect width="2" height="14" fill="#60a5fa" fillOpacity="0.07" />
+        </pattern>
+      </defs>
+      <rect width="1200" height="600" fill="url(#lp-land)" />
+      {CONTOURS.map((c, i) => (
+        <path key={i} d={c.d} fill="none" stroke="#d6f5c8" strokeOpacity={c.strong ? 0.16 : 0.08} strokeWidth={c.strong ? 1.6 : 1.1} />
+      ))}
+      {/* Zona: afuera azul con trama, borde blanco */}
+      <rect width="1200" height="600" fill="url(#lp-storm)" mask="url(#lp-outside)" />
+      <circle cx={ZONE.cx} cy={ZONE.cy} r={ZONE.r} fill="none" stroke="#e0f2fe" strokeOpacity="0.45" strokeWidth="2" />
+      <circle cx={ZONE.cx} cy={ZONE.cy} r={ZONE.r + 7} fill="none" stroke="#3b82f6" strokeOpacity="0.35" strokeWidth="10" />
+      {/* Ruta del avión */}
+      <path d="M-20 60 L1220 560" stroke="#fff" strokeOpacity="0.16" strokeWidth="2" strokeDasharray="10 12" />
+      <path d="M1188 547 l14 6 l-12 9" fill="none" stroke="#fff" strokeOpacity="0.3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Un marcador por entrega (solo en pantallas anchas: en celular quedarían bajo el texto) */}
+      <g className="max-lg:hidden">
+      {items.map((p, i) => {
+        const { x, y } = pinFor(p.key);
+        return (
+          <g key={p.key} opacity={i === 0 ? 1 : Math.max(0.3, 0.85 - i * 0.07)}>
+            {i === 0 && (
+              <circle cx={x} cy={y} r="8" fill="none" stroke="#c8f04f" strokeWidth="2">
+                <animate attributeName="r" from="8" to="34" dur="1.8s" repeatCount="indefinite" />
+                <animate attributeName="stroke-opacity" from="0.8" to="0" dur="1.8s" repeatCount="indefinite" />
+              </circle>
+            )}
+            <circle cx={x} cy={y} r={i === 0 ? 7 : 4.5} fill={i === 0 ? "#c8f04f" : "#e2e8f0"} stroke="#0a0e16" strokeWidth="2" />
+          </g>
+        );
+      })}
+      </g>
+    </svg>
+  );
+}
+
 /**
  * «Entregas en vivo» con el lenguaje del juego: un registro tipo kill feed con las últimas 10 entregas
  * completadas (pedidos reales) y contadores estilo HUD. Se actualiza sola cada 15 s con la pestaña a
@@ -120,10 +202,11 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
   return (
     <section
       aria-labelledby="entregas-en-vivo"
-      className="relative overflow-hidden rounded-[22px] bg-ink-900 bg-[linear-gradient(rgb(255_255_255/0.025)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.025)_1px,transparent_1px)] bg-[size:26px_26px] ring-1 ring-white/[0.07]"
+      className="relative overflow-hidden rounded-[22px] bg-ink-900 ring-1 ring-white/[0.07]"
     >
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-28 size-80 rounded-full bg-volt-400/[0.09] blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 size-80 rounded-full bg-sky-500/[0.08] blur-3xl" />
+      <MapBackdrop items={items} />
+      {/* Oscurece debajo del texto para que se lea sobre el mapa */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent max-lg:bg-gradient-to-b max-lg:from-ink-950/80 max-lg:via-ink-950/50 max-lg:to-ink-950/70" />
       <HudCorners />
 
       <div className="relative grid gap-7 px-5 py-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
