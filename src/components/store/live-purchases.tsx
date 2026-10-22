@@ -14,13 +14,6 @@ const num = new Intl.NumberFormat("es-CO");
 const GEM_TONES = ["text-sky-300", "text-cyan-300", "text-indigo-300", "text-violet-300", "text-fuchsia-300", "text-amber-300"];
 const gemTone = (d: number) => GEM_TONES[[200, 450, 800, 1800, 4000].filter((t) => d >= t).length];
 
-function speed(sec: number | null) {
-  if (sec == null) return null;
-  if (sec < 60) return "<1 min";
-  const m = Math.round(sec / 60);
-  return m < 60 ? `${m} min` : `${Math.round(m / 60)} h`;
-}
-
 /** Esquinas tipo visor (HUD) del juego. */
 function HudCorners() {
   const c = "pointer-events-none absolute size-5 border-volt-400/70";
@@ -69,23 +62,45 @@ function FeedRow({ p, latest, fresh, now, fade }: { p: LivePurchase; latest: boo
   );
 }
 
-/** Curva cerrada irregular (curva de nivel) alrededor de un punto; determinista, igual en servidor y navegador. */
-function contour(cx: number, cy: number, r: number, seed: number) {
+/** Contorno irregular cerrado (costa o curva de nivel); determinista, igual en servidor y navegador. */
+function blob(cx: number, cy: number, rx: number, ry: number, seed: number, amp = 1) {
   const pts: string[] = [];
-  for (let i = 0; i <= 72; i++) {
-    const a = (i / 72) * Math.PI * 2;
-    const k = r * (1 + 0.16 * Math.sin(3 * a + seed) + 0.09 * Math.sin(5 * a + seed * 2.3) + 0.05 * Math.cos(7 * a + seed));
-    pts.push(`${(cx + Math.cos(a) * k * 1.35).toFixed(1)},${(cy + Math.sin(a) * k).toFixed(1)}`);
+  for (let i = 0; i <= 96; i++) {
+    const a = (i / 96) * Math.PI * 2;
+    const k = 1 + amp * (0.13 * Math.sin(3 * a + seed) + 0.08 * Math.sin(5 * a + seed * 2.1) + 0.05 * Math.cos(9 * a + seed * 0.7) + 0.03 * Math.sin(14 * a + seed));
+    pts.push(`${(cx + Math.cos(a) * rx * k).toFixed(1)},${(cy + Math.sin(a) * ry * k).toFixed(1)}`);
   }
   return `M${pts.join("L")}Z`;
 }
 
-// Relieve del mapa: tres «cerros» con varias curvas de nivel cada uno.
-const CONTOURS = [
-  [230, 120, 1.1],
-  [1010, 470, 2.4],
-  [600, 330, 4.2],
-].flatMap(([cx, cy, seed]) => [40, 80, 125, 175, 230].map((r, i) => ({ d: contour(cx, cy, r, seed + i * 0.35), strong: i === 0 })));
+// Bermuda (versión dibujada): isla grande, dos islotes, relieve, carreteras y sus lugares conocidos.
+const ISLAND = blob(600, 300, 470, 255, 0.8);
+const ISLETS = [blob(1105, 95, 42, 30, 2.2, 1.4), blob(140, 520, 36, 24, 3.4, 1.4)];
+const RELIEF = [
+  ...[150, 105, 62, 28].map((r, i) => blob(560, 250, r * 1.4, r, 1.7 + i * 0.4, 0.8)), // cerro central (Peak)
+  ...[95, 60, 30].map((r, i) => blob(860, 360, r * 1.3, r, 4.1 + i * 0.5, 0.9)),
+  ...[80, 48].map((r, i) => blob(300, 210, r * 1.3, r, 2.9 + i * 0.5, 0.9)),
+];
+const ROADS = [
+  "M210 330 C300 300 360 360 450 330 S600 250 700 290 S860 360 990 300",
+  "M560 90 C540 170 600 220 570 300 S520 430 600 520",
+  "M330 160 C420 200 470 160 540 200",
+  "M720 420 C800 400 860 450 930 430",
+];
+const PLACES: Array<[string, number, number]> = [
+  ["Rim Nam", 430, 120],
+  ["Bimasakti", 690, 105],
+  ["Mars Electric", 900, 170],
+  ["Hangar", 225, 250],
+  ["Clock Tower", 395, 300],
+  ["Peak", 560, 245],
+  ["Factory", 790, 285],
+  ["Pochinok", 300, 420],
+  ["Kota Tua", 520, 410],
+  ["Mill", 990, 330],
+  ["Shipyard", 860, 470],
+  ["Cape Town", 190, 380],
+];
 
 // Zona segura (círculo blanco) y posición de cada entrega dentro de ella, sacada de su clave.
 const ZONE = { cx: 610, cy: 330, r: 205 };
@@ -105,11 +120,15 @@ function MapBackdrop({ items }: { items: LivePurchase[] }) {
   return (
     <svg aria-hidden viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" className="pointer-events-none absolute inset-0 size-full">
       <defs>
-        <radialGradient id="lp-land" cx="35%" cy="30%" r="90%">
-          <stop offset="0" stopColor="#13201a" />
-          <stop offset="0.55" stopColor="#0d1414" />
-          <stop offset="1" stopColor="#0a0e16" />
+        <radialGradient id="lp-sea" cx="50%" cy="50%" r="75%">
+          <stop offset="0" stopColor="#0c2a35" />
+          <stop offset="1" stopColor="#081019" />
         </radialGradient>
+        <linearGradient id="lp-land" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3d5a35" />
+          <stop offset="0.6" stopColor="#2c4430" />
+          <stop offset="1" stopColor="#2a3a2e" />
+        </linearGradient>
         <mask id="lp-outside">
           <rect width="1200" height="600" fill="#fff" />
           <circle cx={ZONE.cx} cy={ZONE.cy} r={ZONE.r} fill="#000" />
@@ -119,10 +138,31 @@ function MapBackdrop({ items }: { items: LivePurchase[] }) {
           <rect width="2" height="14" fill="#60a5fa" fillOpacity="0.07" />
         </pattern>
       </defs>
-      <rect width="1200" height="600" fill="url(#lp-land)" />
-      {CONTOURS.map((c, i) => (
-        <path key={i} d={c.d} fill="none" stroke="#d6f5c8" strokeOpacity={c.strong ? 0.16 : 0.08} strokeWidth={c.strong ? 1.6 : 1.1} />
-      ))}
+      <rect width="1200" height="600" fill="url(#lp-sea)" />
+      {/* Bermuda, traslúcido */}
+      <g opacity="0.5">
+        {[ISLAND, ...ISLETS].map((d, i) => (
+          <g key={i}>
+            <path d={d} fill="none" stroke="#7dd3fc" strokeOpacity="0.25" strokeWidth="14" />
+            <path d={d} fill="url(#lp-land)" stroke="#e8d9a0" strokeOpacity="0.55" strokeWidth="3" />
+          </g>
+        ))}
+        {RELIEF.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke="#d9f99d" strokeOpacity="0.22" strokeWidth="1.3" />
+        ))}
+        {ROADS.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke="#f1f5f9" strokeOpacity="0.28" strokeWidth={i < 2 ? 4 : 2.5} strokeLinecap="round" />
+        ))}
+        {/* Nombres de lugares solo en pantallas anchas (en celular el mapa se agranda y tapan el texto) */}
+        {PLACES.map(([name, x, y]) => (
+          <g key={name} className="max-lg:hidden">
+            <rect x={x - 4} y={y - 4} width="8" height="8" fill="#f8fafc" fillOpacity="0.7" transform={`rotate(45 ${x} ${y})`} />
+            <text x={x} y={y - 12} textAnchor="middle" fill="#f8fafc" fillOpacity="0.7" fontSize="15" fontWeight="700" letterSpacing="1.5" style={{ textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>
+              {name}
+            </text>
+          </g>
+        ))}
+      </g>
       {/* Zona: afuera azul con trama, borde blanco */}
       <rect width="1200" height="600" fill="url(#lp-storm)" mask="url(#lp-outside)" />
       <circle cx={ZONE.cx} cy={ZONE.cy} r={ZONE.r} fill="none" stroke="#e0f2fe" strokeOpacity="0.45" strokeWidth="2" />
@@ -196,7 +236,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
   const hud = [
     stats.today > 0 && { icon: BadgeCheck, value: num.format(stats.today), label: stats.today === 1 ? "Entrega hoy" : "Entregas hoy" },
     stats.diamonds30d > 0 && { icon: Gem, value: num.format(stats.diamonds30d), label: "Diamantes en 30 días" },
-    stats.avgDeliverySec != null && { icon: Zap, value: speed(stats.avgDeliverySec)!, label: "Tiempo de entrega" },
+    { icon: Zap, value: "Al instante", label: "Tiempo de entrega" },
   ].filter(Boolean) as Array<{ icon: typeof Gem; value: string; label: string }>;
 
   return (
@@ -226,15 +266,15 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
           <p className="mt-3 max-w-[360px] text-[13.5px] leading-relaxed text-fg-muted">Cada línea es una recarga real que ya llegó al ID del jugador. Así se ve una entrega en VANTAGG.</p>
 
           {hud.length > 0 && (
-            <dl className="mt-6 grid grid-cols-3 gap-2 lg:max-w-[400px]">
+            <dl className="mt-6 grid grid-cols-3 gap-2 lg:max-w-[440px]">
               {hud.map(({ icon: Icon, value, label }) => (
-                <div key={label} className="-skew-x-[10deg] rounded-[6px] bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.08]">
-                  <div className="skew-x-[10deg]">
-                    <dd className="flex items-center gap-1.5 font-display text-[18px] font-black italic tabular-nums leading-none sm:text-[22px]">
-                      <Icon className="size-4 shrink-0 text-volt-300" />
-                      {value}
-                    </dd>
-                    <dt className="mt-1.5 text-[10.5px] font-medium uppercase leading-tight tracking-[0.06em] text-fg-subtle">{label}</dt>
+                <div key={label} className="-skew-x-[10deg] rounded-[6px] bg-ink-950/60 px-2.5 py-2.5 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
+                  <div className="flex skew-x-[10deg] flex-col-reverse">
+                    <dt className="mt-1.5 flex items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
+                      <Icon className="mt-px size-3 shrink-0 text-volt-300" />
+                      {label}
+                    </dt>
+                    <dd className="whitespace-nowrap font-display text-[15px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px]">{value}</dd>
                   </div>
                 </div>
               ))}

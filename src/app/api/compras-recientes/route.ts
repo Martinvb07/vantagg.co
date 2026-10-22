@@ -13,6 +13,6 @@ export async function GET() {
     if (!memo || Date.now() - memo.at > 10_000) memo = { at: Date.now(), data: await getLiveDeliveries(10) };
     return NextResponse.json(memo.data, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return NextResponse.json(memo?.data ?? { items: [], stats: { today: 0, diamonds30d: 0, avgDeliverySec: null } }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(memo?.data ?? { items: [], stats: { today: 0, diamonds30d: 0 } }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }

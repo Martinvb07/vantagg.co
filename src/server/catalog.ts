@@ -242,7 +242,7 @@ export type LivePurchase = {
   at: string; // momento de la entrega (ISO)
   deliverySec: number | null; // del pago a la entrega
 };
-export type LiveStats = { today: number; diamonds30d: number; avgDeliverySec: number | null };
+export type LiveStats = { today: number; diamonds30d: number };
 export type LiveData = { items: LivePurchase[]; stats: LiveStats };
 
 /** «12****89»: solo los dos primeros y los dos últimos dígitos del ID de jugador (largo fijo, no revela cuántos tiene). */
@@ -272,7 +272,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       where: { ...DELIVERED, type: "TOPUP", deliveredAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
       orderBy: { deliveredAt: "desc" },
       take: 5000,
-      select: { itemSnapshot: true, paidAt: true, deliveredAt: true },
+      select: { itemSnapshot: true },
     }),
   ]);
   const secs = (paid: Date | null, done: Date | null) => (paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null);
@@ -294,10 +294,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
     const s = (o.itemSnapshot ?? {}) as Snap;
     return n + (s.diamonds ?? 0) + (s.bonusDiamonds ?? 0);
   }, 0);
-  // Tiempo típico (mediana) de las últimas 50 recargas: no lo distorsiona un caso raro.
-  const times = month.slice(0, 50).map((o) => secs(o.paidAt, o.deliveredAt)).filter((x): x is number => x != null).sort((a, b) => a - b);
-  const avgDeliverySec = times.length >= 3 ? times[Math.floor(times.length / 2)] : null;
-  return { items, stats: { today, diamonds30d, avgDeliverySec } };
+  return { items, stats: { today, diamonds30d } };
 }
 
 /**
