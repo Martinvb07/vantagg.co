@@ -1,9 +1,11 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { cache } from "react";
 import type { AccountListing, AccountImage, AccountTag, DiamondPackage, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { quotePrice, type PriceQuote } from "@/domain/pricing";
 import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
+import { formatNumber } from "@/lib/money";
 import { getSettings } from "./settings";
 
 // ---------------------------------------------------------------------
@@ -230,21 +232,71 @@ export async function getRelatedAccounts(excludeId: string, take = 3) {
  * Últimas entregas confirmadas. Solo se muestra el producto, el ID de jugador
  * enmascarado y el tiempo transcurrido. Nunca incluye pedidos de prueba.
  */
-export async function getRecentDeliveries(take = 10) {
-  const rows = await db.order.findMany({
-    where: { status: "DELIVERED", deliveredAt: { not: null }, isTest: false },
-    orderBy: { deliveredAt: "desc" },
-    take,
-    select: { id: true, type: true, itemSnapshot: true, playerId: true, deliveredAt: true, isTest: true },
+/** Entrega pública de «Entregas en vivo»: sin datos personales (ID de jugador enmascarado). */
+export type LivePurchase = {
+  key: string;
+  kind: "TOPUP" | "ACCOUNT";
+  diamonds: number | null; // total recibido (base + bonus); null en cuentas
+  bonus: number | null;
+  player: string | null;
+  at: string; // momento de la entrega (ISO)
+  deliverySec: number | null; // del pago a la entrega
+};
+export type LiveStats = { today: number; diamonds30d: number; avgDeliverySec: number | null };
+
+/** «12****89»: solo los dos primeros y los dos últimos dígitos del ID de jugador. */
+function maskPlayerId(id: string | null): string | null {
+  const d = (id ?? "").replace(/\D/g, "");
+  if (d.length < 6) return null;
+  return `${d.slice(0, 2)}${"*".repeat(Math.min(6, d.length - 4))}${d.slice(-2)}`;
+}
+
+type Snap = { diamonds?: number; bonusDiamonds?: number };
+const DELIVERED = { status: "DELIVERED", isTest: false, deliveredAt: { not: null } } as const;
+
+/** Últimas entregas completadas (reales, no de prueba) y cifras de confianza para la tienda. */
+export async function getLiveDeliveries(take = 10): Promise<{ items: LivePurchase[]; stats: LiveStats }> {
+  // Inicio del día en Colombia (UTC−5, sin horario de verano).
+  const bogotaNow = new Date(Date.now() - 5 * 3600_000);
+  const todayStart = new Date(Date.UTC(bogotaNow.getUTCFullYear(), bogotaNow.getUTCMonth(), bogotaNow.getUTCDate()) + 5 * 3600_000);
+  const [rows, today, month] = await Promise.all([
+    db.order.findMany({
+      where: DELIVERED,
+      orderBy: { deliveredAt: "desc" },
+      take,
+      select: { number: true, type: true, itemSnapshot: true, playerId: true, paidAt: true, deliveredAt: true },
+    }),
+    db.order.count({ where: { ...DELIVERED, deliveredAt: { gte: todayStart } } }),
+    db.order.findMany({
+      where: { ...DELIVERED, type: "TOPUP", deliveredAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
+      orderBy: { deliveredAt: "desc" },
+      take: 5000,
+      select: { itemSnapshot: true, paidAt: true, deliveredAt: true },
+    }),
+  ]);
+  const secs = (paid: Date | null, done: Date | null) => (paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null);
+  const items = rows.map((r): LivePurchase => {
+    const snap = (r.itemSnapshot ?? {}) as Snap;
+    const topup = r.type === "TOPUP" && typeof snap.diamonds === "number";
+    return {
+      // Clave estable para la lista sin exponer el número de pedido.
+      key: createHash("sha256").update(`entrega:${r.number}`).digest("base64url").slice(0, 12),
+      kind: r.type,
+      diamonds: topup ? snap.diamonds! + (snap.bonusDiamonds ?? 0) : null,
+      bonus: topup ? (snap.bonusDiamonds ?? 0) : null,
+      player: maskPlayerId(r.playerId),
+      at: r.deliveredAt!.toISOString(),
+      deliverySec: secs(r.paidAt, r.deliveredAt),
+    };
   });
-  return rows.map((r) => ({
-    id: r.id,
-    type: r.type,
-    name: (r.itemSnapshot as { name?: string }).name ?? "Producto digital",
-    player: r.playerId ? `ID •••${r.playerId.slice(-3)}` : null,
-    at: r.deliveredAt!,
-    isTest: r.isTest,
-  }));
+  const diamonds30d = month.reduce((n, o) => {
+    const s = (o.itemSnapshot ?? {}) as Snap;
+    return n + (s.diamonds ?? 0) + (s.bonusDiamonds ?? 0);
+  }, 0);
+  // Tiempo típico (mediana) de las últimas 50 recargas: no lo distorsiona un caso raro.
+  const times = month.slice(0, 50).map((o) => secs(o.paidAt, o.deliveredAt)).filter((x): x is number => x != null).sort((a, b) => a - b);
+  const avgDeliverySec = times.length >= 3 ? times[Math.floor(times.length / 2)] : null;
+  return { items, stats: { today, diamonds30d, avgDeliverySec } };
 }
 
 /**

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, CircleCheck, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Radar, Users } from "lucide-react";
+import { ChevronRight, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Radar, Users } from "lucide-react";
 import { JsonLd } from "@/components/seo/json-ld";
 import { AccountGridCard } from "@/components/store/account-listing";
 import { HeroCarousel } from "@/components/store/hero-carousel";
@@ -10,11 +10,11 @@ import { FF_RANKS } from "@/domain/freefire";
 import { formatNumber, packageTitle } from "@/lib/money";
 import { db } from "@/lib/db";
 import { BannerSlot } from "@/components/store/banner-slot";
-import { timeAgo } from "@/components/store/time-ago";
+import { LivePurchases } from "@/components/store/live-purchases";
 import { Container } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
-import { accountsVisible, getAccountFacets, getAccounts, getPackages, getRecentDeliveries } from "@/server/catalog";
+import { accountsVisible, getAccountFacets, getAccounts, getPackages, getLiveDeliveries } from "@/server/catalog";
 import { getSettings } from "@/server/settings";
 import type { Metadata } from "next";
 
@@ -49,12 +49,11 @@ const SHORTCUTS = [
 ];
 
 export default async function HomePage() {
-  const [packages, accounts, recent, settings, facets, heroBanners] = await Promise.all([getPackages(), getAccounts({ onlyAvailable: false, take: 12 }), getRecentDeliveries(12), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => [])]);
+  const [packages, accounts, recent, settings, facets, heroBanners] = await Promise.all([getPackages(), getAccounts({ onlyAvailable: false, take: 12 }), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0, avgDeliverySec: null } })), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => [])]);
   const showAccounts = await accountsVisible();
   const visibleAccounts = showAccounts ? accounts.filter((a) => a.available || a.reservedTemporarily) : [];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const bonusPct = packages[0]?.diamonds ? Math.round((packages[0].bonusDiamonds / packages[0].diamonds) * 100) : 0;
-  const now = new Date();
   const rankChips = [...FF_RANKS].reverse().filter((r) => facets.rankCounts[r.id]);
 
   return (
@@ -123,30 +122,8 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* Entregas recientes (solo pedidos reales) */}
-        {recent.length > 0 && (
-          <section aria-label="Entregas recientes" className="-mt-4 rounded-full bg-ink-850 ring-1 ring-white/[0.06] sm:-mt-6">
-            <div className="flex items-center gap-4 overflow-hidden px-5 py-3">
-              <span className="flex shrink-0 items-center gap-2 text-[12.5px] font-semibold">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok-400 opacity-60" />
-                  <span className="relative inline-flex size-2 rounded-full bg-ok-400" />
-                </span>
-                Entregados recientemente
-              </span>
-              <ul className="flex min-w-0 gap-6 overflow-x-auto text-[12.5px] text-fg-muted [scrollbar-width:none]">
-                {recent.map((r) => (
-                  <li key={r.id} className="flex shrink-0 items-center gap-1.5">
-                    <CircleCheck className="size-3.5 text-ok-400" />
-                    <span className="text-fg">{r.name}</span>
-                    {r.player && <span className="font-mono">{r.player}</span>}
-                    <span>· {timeAgo(r.at, now)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
-        )}
+        {/* Compras en vivo: últimas 10 compras pagadas (reales), se actualiza sola */}
+        <LivePurchases initial={recent} />
 
         <BannerSlot slot="HOME_TRUST" variant="wide" label="Cómo comprar" />
 
