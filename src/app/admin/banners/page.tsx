@@ -36,9 +36,10 @@ function BannerCard({ b, i, total, ratio }: { b: PromoBanner; i: number; total: 
           <input type="hidden" name="id" value={b.id} />
           <input type="hidden" name="op" value="update" />
           <input name="title" defaultValue={b.title} maxLength={120} className="field h-9 text-[13px]" aria-label="Descripción" />
-          <div className="flex gap-2">
-            <input name="href" defaultValue={b.href ?? ""} placeholder="Sin enlace" className="field h-9 min-w-0 flex-1 text-[13px]" aria-label="Enlace" />
-            <select name="placement" defaultValue={b.placement} className="field h-9 w-[150px] py-1 text-[12.5px]" aria-label="Ubicación">
+          {/* En celular: enlace en su propia fila; ubicación y Guardar debajo. */}
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+            <input name="href" defaultValue={b.href ?? ""} placeholder="Sin enlace" className="field h-9 w-full min-w-0 text-[13px] sm:w-auto sm:flex-1" aria-label="Enlace" />
+            <select name="placement" defaultValue={b.placement} className="field h-9 min-w-0 flex-1 py-1 text-[12.5px] sm:w-[150px] sm:flex-none" aria-label="Ubicación">
               {PLACEMENTS.map((p) => (
                 <option key={p.v} value={p.v}>
                   {p.label}
@@ -50,7 +51,7 @@ function BannerCard({ b, i, total, ratio }: { b: PromoBanner; i: number; total: 
             </SubmitButton>
           </div>
         </ActionForm>
-        <div className="flex items-center gap-3 border-t border-white/[0.06] pt-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-3 sm:flex-nowrap">
           {b.imageMobileUrl ? (
             <img src={b.imageMobileUrl} alt="" className="h-12 w-16 shrink-0 rounded-md object-cover ring-1 ring-white/10" />
           ) : (
@@ -60,7 +61,7 @@ function BannerCard({ b, i, total, ratio }: { b: PromoBanner; i: number; total: 
             <p className="text-[12px] font-medium">Versión para celular</p>
             <p className="text-[11.5px] text-fg-subtle">{b.imageMobileUrl ? "Se muestra en teléfonos." : "En teléfonos se ve la imagen ancha."}</p>
           </div>
-          <ActionForm action={bannerAction} hideMessage className="flex items-center gap-1.5">
+          <ActionForm action={bannerAction} hideMessage className="flex w-full items-center gap-1.5 sm:w-auto">
             <input type="hidden" name="id" value={b.id} />
             <input type="hidden" name="op" value="mobile" />
             <input
@@ -69,7 +70,7 @@ function BannerCard({ b, i, total, ratio }: { b: PromoBanner; i: number; total: 
               required
               accept="image/jpeg,image/png,image/webp,image/avif"
               aria-label={b.imageMobileUrl ? "Cambiar versión para celular" : "Subir versión para celular"}
-              className="w-[150px] text-[11.5px] text-fg-muted file:mr-2 file:rounded-md file:border-0 file:bg-ink-700 file:px-2 file:py-1 file:text-[11.5px] file:text-fg"
+              className="min-w-0 flex-1 text-[11.5px] text-fg-muted sm:w-[150px] sm:flex-none file:mr-2 file:rounded-md file:border-0 file:bg-ink-700 file:px-2 file:py-1 file:text-[11.5px] file:text-fg"
             />
             <SubmitButton size="sm" variant="ghost">
               {b.imageMobileUrl ? "Cambiar" : "Subir"}
@@ -171,7 +172,7 @@ export default async function BannersAdmin() {
         const list = banners.filter((b) => b.placement === p.v);
         return (
           <section key={p.v} className="mb-10">
-            <div className="mb-3 flex items-baseline gap-3">
+            <div className="mb-3 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
               <h2 className="text-[16px] font-bold">{p.label}</h2>
               <span className="text-[12.5px] text-fg-subtle">
                 {p.hint} · {list.filter((b) => b.active).length} visibles

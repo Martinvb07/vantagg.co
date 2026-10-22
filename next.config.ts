@@ -50,7 +50,11 @@ const nextConfig: NextConfig = {
     return [{ source: "/ofertas", destination: "/recargas", permanent: false }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Logos de la marca: los correos los cargan desde la bandeja del cliente (otro origen).
+      { source: "/brand/:path*", headers: [{ key: "Cross-Origin-Resource-Policy", value: "cross-origin" }] },
+    ];
   },
 };
 

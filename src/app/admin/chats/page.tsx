@@ -165,7 +165,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
             <p className="px-1 text-[12px] text-fg-subtle">Los mensajes se guardan cifrados. Marca la entrega cuando el comprador confirme que pudo entrar a la cuenta.</p>
           </div>
         ) : (
-          <div className="grid min-h-[300px] place-items-center rounded-[16px] bg-ink-850/50 text-[13px] text-fg-muted ring-1 ring-white/[0.05]">Selecciona un chat de la bandeja.</div>
+          <div className="hidden min-h-[300px] place-items-center lg:grid rounded-[16px] bg-ink-850/50 text-[13px] text-fg-muted ring-1 ring-white/[0.05]">Selecciona un chat de la bandeja.</div>
         )}
       </div>
     </>

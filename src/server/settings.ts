@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
  * Los valores vacíos se ocultan en la interfaz en lugar de mostrar datos inventados.
  */
 export const SETTING_DEFAULTS = {
-  storeName: "VANTA",
+  storeName: "VANTAGG",
   storeTagline: "Recargas y cuentas Free Fire",
   logoUrl: "",
   orderPrefix: "VX",

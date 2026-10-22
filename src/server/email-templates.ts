@@ -117,8 +117,8 @@ ${esc(b.storeName)} es una tienda independiente. Free Fire es una marca de Garen
 <tr><td style="background:${C.ink};padding:20px 28px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="vertical-align:middle"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="width:34px;height:34px;border-radius:9px;background:${C.volt};text-align:center;font:900 19px/34px ${FONT};color:${C.voltInk}">${esc(b.storeName.charAt(0).toUpperCase())}</td>
-      <td style="padding-left:11px;font:800 15px ${FONT};letter-spacing:4px;color:#ffffff">${esc(b.storeName.toUpperCase())}</td>
+      <td style="width:38px;vertical-align:middle"><img src="${esc(b.appUrl)}/brand/vanta-v.png" width="38" height="38" alt="" style="display:block;border:0;width:38px;height:38px"></td>
+      <td style="padding-left:8px;vertical-align:middle"><img src="${esc(b.appUrl)}/brand/vantagg.png" width="113" height="18" alt="${esc(b.storeName.toUpperCase())}" style="display:block;border:0;width:113px;height:18px;font:800 15px ${FONT};letter-spacing:4px;color:#ffffff"></td>
     </tr></table></td>
     ${k.tag ? `<td align="right" style="vertical-align:middle;font:600 12px ${MONO};letter-spacing:1px;color:#9aa3b2">${esc(k.tag)}</td>` : ""}
   </tr></table>
