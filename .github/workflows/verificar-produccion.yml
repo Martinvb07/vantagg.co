@@ -96,10 +96,10 @@ jobs:
           B=https://vantagg.co
           estado() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@"; }
           revisar() { # ruta código-esperado descripción
-            c=$(estado "$B$1"); [ "$c" = "$2" ] && echo "  ✔ $1 → $c" || echo "  ✖ $1 → $c (esperado $2) $3"
+            c=$(estado "$B$1"); [ "$c" = "$2" ] && echo "  ✔ $1 → $c" || echo "  ✖ $1 → $c (esperado $2) ${3:-}"
           }
           echo "== páginas públicas"
-          for p in / /recargas /pedido /ayuda /ingresar /registro /carrito /buscar /medios-de-pago /legal/terminos /legal/privacidad /legal/reembolsos /recuperar /robots.txt /sitemap.xml /api/health /icon.svg; do revisar "$p" 200; done
+          for p in / /recargas /pedido /ayuda /ingresar /registro /carrito /buscar /medios-de-pago /legal/terminos /legal/privacidad /legal/reembolsos /legal/cookies /recuperar /robots.txt /sitemap.xml /api/health /icon.png; do revisar "$p" 200; done
           echo "== rutas ocultas o privadas"
           revisar /admin 404 "(el panel no debe existir sin la dirección secreta)"
           revisar /acceso-equipo 404
