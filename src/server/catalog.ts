@@ -1,8 +1,9 @@
 import "server-only";
-import { createHash } from "node:crypto";
 import { cache } from "react";
 import type { AccountListing, AccountImage, AccountTag, DiamondPackage, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { hmacSha256Hex } from "@/lib/crypto";
+import { getAuthSecret } from "@/lib/env";
 import { quotePrice, type PriceQuote } from "@/domain/pricing";
 import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
 import { formatNumber } from "@/lib/money";
@@ -280,8 +281,8 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
     const snap = (r.itemSnapshot ?? {}) as Snap;
     const topup = r.type === "TOPUP" && typeof snap.diamonds === "number";
     return {
-      // Clave estable para la lista sin exponer el número de pedido.
-      key: createHash("sha256").update(`entrega:${r.number}`).digest("base64url").slice(0, 12),
+      // Clave estable para la lista sin exponer el número de pedido (con llave: no se puede adivinar el número).
+      key: hmacSha256Hex(getAuthSecret(), `entrega:${r.number}`).slice(0, 16),
       kind: r.type,
       diamonds: topup ? snap.diamonds! + (snap.bonusDiamonds ?? 0) : null,
       bonus: topup ? (snap.bonusDiamonds ?? 0) : null,
