@@ -189,27 +189,25 @@ export const LEGAL: Record<string, LegalDoc> = {
   },
   cookies: {
     title: "Política de cookies",
-    description: "Qué cookies y almacenamiento local usa la tienda y para qué.",
+    description: "Qué cookies usa la tienda y para qué.",
     body: () => (
       <>
         <p>
-          Una cookie es un pequeño archivo que el sitio guarda en tu navegador. En esta tienda usamos <strong>solo</strong> cookies y almacenamiento
-          técnicos, necesarios para que funcione: no hay cookies de analítica, publicidad ni redes sociales, y no compartimos esta información con
-          terceros. Por eso no necesitamos pedirte que las aceptes; aun así te avisamos la primera vez que entras.
+          Las cookies son pequeños archivos que la página guarda en tu navegador. Aquí solo usamos las necesarias para que la tienda funcione. No
+          usamos cookies de publicidad, de analítica ni de redes sociales, y nada de esto se comparte con terceros.
         </p>
-        <h2>Lo que guardamos</h2>
+        <h2>Para qué las usamos</h2>
         <ul>
-          <li><strong>vx_session</strong> (cookie, 14 días): mantiene tu sesión iniciada. Solo existe si ingresas a tu cuenta.</li>
-          <li><strong>vx_oauth</strong> (cookie, 10 minutos): protege el inicio de sesión con Google mientras vuelves de Google.</li>
-          <li><strong>vx_gate</strong> (cookie): solo para el equipo de la tienda; no se crea para clientes.</li>
-          <li><strong>vx_cart_v1</strong> (almacenamiento local del navegador): recuerda los productos de tu carrito.</li>
-          <li><strong>vx_cookie_notice</strong> (almacenamiento local): recuerda que ya viste el aviso de cookies.</li>
-          <li><strong>vx_error_reload</strong> (almacenamiento de la pestaña): evita recargas repetidas si una página falla.</li>
+          <li>Mantener tu sesión iniciada si entras a tu cuenta.</li>
+          <li>Recordar lo que tienes en el carrito.</li>
+          <li>Proteger el inicio de sesión con Google.</li>
+          <li>Recordar que ya viste el aviso de cookies, para no mostrártelo otra vez.</li>
         </ul>
+        <p>Como son indispensables, no necesitamos pedirte que las aceptes; igual te lo contamos la primera vez que entras.</p>
         <h2>Cómo borrarlas</h2>
         <p>
-          Puedes borrarlas o bloquearlas desde la configuración de tu navegador. Si bloqueas la cookie de sesión no podrás iniciar sesión, pero sí
-          comprar sin cuenta.
+          Puedes borrarlas o bloquearlas desde la configuración de tu navegador. Si lo haces, la sesión se cerrará y el carrito quedará vacío, pero
+          podrás seguir comprando sin cuenta.
         </p>
       </>
     ),
