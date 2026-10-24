@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Mensajes de error por defecto en español (los que no tienen un texto propio).
+z.config(z.locales.es());
+
 export const playerIdSchema = z
   .string()
   .trim()
@@ -30,7 +33,7 @@ export const topUpOrderSchema = z.object({
   paymentProvider: z.string().min(1).max(30),
   idempotencyKey: idempotencyKeySchema,
   promoCode: promoCodeInputSchema,
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Debes aceptar los términos y condiciones." }) }),
+  acceptTerms: z.literal(true, { error: "Debes aceptar los términos y condiciones." }),
 });
 
 export const accountOrderSchema = z.object({
@@ -41,7 +44,7 @@ export const accountOrderSchema = z.object({
   paymentProvider: z.string().min(1).max(30),
   idempotencyKey: idempotencyKeySchema,
   promoCode: promoCodeInputSchema,
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Debes aceptar los términos y condiciones." }) }),
+  acceptTerms: z.literal(true, { error: "Debes aceptar los términos y condiciones." }),
 });
 
 export const passwordSchema = z

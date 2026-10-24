@@ -11,7 +11,7 @@ export function Logo({ name, logoUrl, className }: { name: string; logoUrl?: str
   if (logoUrl) {
     return (
       <span className={cn("inline-flex items-center", className)}>
-        <Image src={logoUrl} alt={name} width={140} height={32} className="h-8 w-auto" priority />
+        <Image src={logoUrl} alt={name} width={140} height={32} className="h-8 w-auto" priority unoptimized={/\.svg($|\?)/i.test(logoUrl)} />
       </span>
     );
   }

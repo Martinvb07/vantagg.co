@@ -210,7 +210,7 @@ const accountSchema = z.object({
   chestsCount: optInt,
   emailStatus: z.enum(["CONFIRMED", "PENDING"]).optional(),
   rank: z.enum(FF_RANKS.map((r) => r.id) as [RankId, ...RankId[]]).optional(),
-  region: z.enum(FF_REGIONS.map((r) => r.code) as [RegionCode, ...RegionCode[]], { errorMap: () => ({ message: "Selecciona un servidor válido." }) }),
+  region: z.enum(FF_REGIONS.map((r) => r.code) as [RegionCode, ...RegionCode[]], { error: "Selecciona un servidor válido." }),
   label: z.enum(LABELS),
   provenanceSource: z.string().max(255).optional(),
   provenanceNotes: z.string().max(3000).optional(),

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { createTicketAction } from "@/app/actions/store";
 import { SUPPORT_TOPICS as TOPICS } from "@/domain/support";
 import { DataNotice } from "@/components/legal/data-notice";
+import { HoneypotField } from "@/components/ui/honeypot-field";
 
 export function TicketForm({ defaultOrder, defaultTopic, defaultEmail }: { defaultOrder?: string; defaultTopic?: string; defaultEmail?: string }) {
   const [state, action, pending] = useActionState(createTicketAction, null);
@@ -31,6 +32,7 @@ export function TicketForm({ defaultOrder, defaultTopic, defaultEmail }: { defau
 
   return (
     <form action={action} className="space-y-4">
+      <HoneypotField />
       <input type="hidden" name="topic" value={topic} />
       <fieldset>
         <legend className="mb-2 text-[13px] font-medium">¿Sobre qué es?</legend>

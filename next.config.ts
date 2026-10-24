@@ -37,7 +37,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
-    dangerouslyAllowSVG: true,
+    // Las imágenes SVG se muestran sin pasar por el optimizador (unoptimized): el optimizador no acepta SVG.
+    dangerouslyAllowSVG: false,
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: storageHost ? [{ protocol: "https", hostname: storageHost }] : [],

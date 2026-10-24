@@ -15,6 +15,7 @@ import { checkPlayerRegion } from "@/server/supplier";
 import { regionLabel } from "@/domain/topup-regions";
 import { accountsVisible, listingAvailability } from "@/server/catalog";
 import { notifyClaim, notifyStaffTicket, notifyTicketReceived } from "@/server/notifications";
+import { caughtByHoneypot } from "@/lib/honeypot";
 
 async function limited(bucket: string, limit: number, windowMs: number) {
   const r = rateLimit(`${bucket}:${await clientIp()}`, limit, windowMs);
@@ -118,6 +119,7 @@ export async function createAccountOrderAction(input: unknown): Promise<CreateOr
 }
 
 export async function submitClaimAction(_: unknown, form: FormData): Promise<{ ok: boolean; message: string }> {
+  if (caughtByHoneypot(form)) return { ok: true, message: "Recibimos tu reclamo." };
   const tooMany = await limited("claim", 3, 60 * 60_000);
   if (tooMany) return { ok: false, message: tooMany };
   const parsed = claimSchema.safeParse({ accountId: form.get("accountId"), email: form.get("email"), reason: form.get("reason") });
@@ -183,6 +185,7 @@ export async function trackOrderAction(_: unknown, form: FormData): Promise<{ er
 }
 
 export async function createTicketAction(_: unknown, form: FormData): Promise<{ ok: boolean; message: string }> {
+  if (caughtByHoneypot(form)) return { ok: true, message: "Solicitud registrada. Te responderemos al correo indicado." };
   const tooMany = await limited("ticket", 4, 30 * 60_000);
   if (tooMany) return { ok: false, message: tooMany };
   const parsed = ticketSchema.safeParse({

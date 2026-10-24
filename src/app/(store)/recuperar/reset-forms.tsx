@@ -5,12 +5,14 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, FieldHint, Label } from "@/components/ui/primitives";
 import { requestPasswordResetAction, resetPasswordAction } from "@/app/actions/auth";
+import { HoneypotField } from "@/components/ui/honeypot-field";
 
 export function RequestResetForm() {
   const [state, action, pending] = useActionState(requestPasswordResetAction, null);
   if (state?.ok) return <Alert tone="success">{state.ok}</Alert>;
   return (
     <form action={action} className="space-y-4">
+      <HoneypotField />
       <div>
         <Label htmlFor="email">Correo de tu cuenta</Label>
         <input id="email" name="email" type="email" required autoComplete="email" className="field h-11" />

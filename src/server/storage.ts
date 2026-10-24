@@ -102,9 +102,9 @@ async function s3Put(key: string, body: Buffer, contentType: string) {
 
 /**
  * Borra del disco local una foto de perfil subida por el cliente (al eliminar su cuenta).
- * Solo actúa sobre /uploads/avatars/…; en almacenamiento S3 o con otra ruta no hace nada.
+ * Solo actúa sobre /uploads/avatars/AAAA-MM/<archivo> (como los guarda saveImage); en S3 o con otra ruta no hace nada.
  */
 export async function deleteLocalAvatar(url: string | null | undefined): Promise<void> {
-  if (!url || storageMode() !== "local" || !/^\/uploads\/avatars\/[\w.-]+$/.test(url)) return;
+  if (!url || storageMode() !== "local" || !/^\/uploads\/avatars\/\d{4}-\d{2}\/[a-f0-9]+\.(jpg|png|webp|avif)$/.test(url)) return;
   await unlink(path.join(uploadsDir(), url.slice("/uploads/".length))).catch(() => {});
 }

@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, FieldHint, Label } from "@/components/ui/primitives";
 import { loginAction, registerAction } from "@/app/actions/auth";
+import { HoneypotField } from "@/components/ui/honeypot-field";
 
 export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: string }) {
   const [state, action, pending] = useActionState(mode === "login" ? loginAction : registerAction, null);
@@ -14,6 +15,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
   const [email, setEmail] = useState("");
   return (
     <form action={action} className="space-y-4">
+      <HoneypotField />
       {next && <input type="hidden" name="next" value={next} />}
       {mode === "register" && (
         <div>

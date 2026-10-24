@@ -17,6 +17,7 @@ import { RESET_TTL_MS, resetHash } from "@/server/password-reset";
 import { CODE_TTL_MIN, issueEmailCode, linkGuestOrders, verifyEmailCode } from "@/server/email-codes";
 import { passwordResetEmail, welcomeEmail } from "@/server/email-templates";
 import { getBrand, sendEmail, notifyPasswordChanged } from "@/server/notifications";
+import { caughtByHoneypot } from "@/lib/honeypot";
 
 type FormState = { error?: string; ok?: string } | null;
 export type CodeState = { error?: string; ok?: string; email?: string } | null;
@@ -56,6 +57,7 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
 }
 
 export async function registerAction(_: FormState, form: FormData): Promise<FormState> {
+  if (caughtByHoneypot(form)) return { error: "No pudimos crear la cuenta. Intenta de nuevo." };
   const ip = await clientIp();
   if (!rateLimit(`register:${ip}`, 5, 60 * 60_000).ok) return { error: "Demasiados registros desde esta conexión. Intenta más tarde." };
   const parsed = registerSchema.safeParse({ name: form.get("name"), email: form.get("email"), password: form.get("password") });
@@ -104,6 +106,7 @@ export async function changePasswordAction(_: FormState, form: FormData): Promis
 // ---------------------------------------------------------------------
 
 export async function sendLoginCodeAction(_: CodeState, form: FormData): Promise<CodeState> {
+  if (caughtByHoneypot(form)) return { error: "No pudimos enviar el código. Intenta de nuevo." };
   const ip = await clientIp();
   const parsed = emailSchema.safeParse(form.get("email"));
   if (!parsed.success) return { error: firstError(parsed.error) };
@@ -185,6 +188,7 @@ const RESET_SENT = "Si ese correo tiene una cuenta, te enviamos un enlace para c
 
 /** Pide el enlace. La respuesta es siempre la misma para no revelar qué correos tienen cuenta. */
 export async function requestPasswordResetAction(_: FormState, form: FormData): Promise<FormState> {
+  if (caughtByHoneypot(form)) return { error: "No pudimos procesar la solicitud. Intenta de nuevo." };
   const ip = await clientIp();
   const parsed = emailSchema.safeParse(form.get("email"));
   if (!parsed.success) return { error: firstError(parsed.error) };

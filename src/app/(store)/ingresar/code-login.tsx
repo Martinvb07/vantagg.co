@@ -5,6 +5,7 @@ import { ArrowLeft, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, Label } from "@/components/ui/primitives";
 import { sendLoginCodeAction, verifyLoginCodeAction } from "@/app/actions/auth";
+import { HoneypotField } from "@/components/ui/honeypot-field";
 
 /** Ingresar (o crear la cuenta) con un código de 6 dígitos enviado al correo. */
 export function CodeLogin({ next }: { next?: string }) {
@@ -79,6 +80,7 @@ export function CodeLogin({ next }: { next?: string }) {
 
   return (
     <form action={send} className="space-y-4">
+      <HoneypotField />
       <div>
         <Label htmlFor="code-email">Correo</Label>
         <input id="code-email" name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="field h-11" />
