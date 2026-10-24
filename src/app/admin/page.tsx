@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, ArrowRight, CircleAlert, CircleCheck, CreditCard, Flag, Gem, Inbox, MessagesSquare, Plus, Receipt, RotateCcw, Store, Ticket, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, Scale, CircleAlert, CircleCheck, CreditCard, Flag, Gem, Inbox, MessagesSquare, Plus, Receipt, RotateCcw, Store, Ticket, Wallet } from "lucide-react";
 import { Panel } from "@/components/admin/ui";
 import { REVENUE_STATUSES } from "@/domain/order-status";
 import { requireStaff } from "@/lib/auth";
@@ -10,6 +10,7 @@ import { formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { getIntegrationOverview } from "@/server/integrations/status";
 import { supplierApi } from "@/server/integrations/topup/rechargegame";
+import { getSettings } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: { absolute: "Inicio · Panel" } };
@@ -107,6 +108,12 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   if (refundReq) todos.push({ href: "/admin/pedidos?estado=REFUND_REQUESTED", icon: RotateCcw, text: `Reembolsar ${s(refundReq, "pedido", "pedidos")}`, hint: "Devuelve el dinero desde la pasarela y marca el pedido como reembolsado.", tone: "bg-warn-400/12 text-warn-400" });
   if (tickets) todos.push({ href: "/admin/soporte", icon: Inbox, text: `Responder ${s(tickets, "mensaje de soporte", "mensajes de soporte")}`, hint: "Tu respuesta le llega al cliente por correo.", tone: "bg-violet-500/12 text-violet-300" });
   if (claims) todos.push({ href: "/admin/reclamos", icon: Flag, text: `Revisar ${s(claims, "reclamo", "reclamos")} de cuentas`, hint: "Alguien dice ser dueño de una cuenta publicada.", tone: "bg-pink-500/12 text-pink-300" });
+  // Datos del vendedor que exige el Estatuto del Consumidor (Ley 1480, art. 50) y contacto para clientes.
+  if (isAdmin) {
+    const st = await getSettings();
+    const missing = [!st.legalName && "razón social", !st.taxId && "NIT o cédula", !st.address && "dirección", !st.whatsapp && "WhatsApp"].filter(Boolean);
+    if (missing.length) todos.push({ href: "/admin/ajustes", icon: Scale, text: "Completar datos legales de la tienda", hint: `Falta: ${missing.join(", ")}. Se muestran en el pie de página y en los términos (Ley 1480).`, tone: "bg-warn-400/12 text-warn-400" });
+  }
   const needCents = biggestCost._max.costCents ?? 0;
   if (balance != null && needCents && balance * 100 < needCents) {
     todos.push({ href: "/admin/proveedor", icon: Wallet, text: "Recargar saldo del proveedor", hint: `Tienes ${balance.toFixed(2)} USDT; tu paquete más caro cuesta ${(needCents / 100).toFixed(2)} USDT.`, tone: "bg-warn-400/12 text-warn-400" });

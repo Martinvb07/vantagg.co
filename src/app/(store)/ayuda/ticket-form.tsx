@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { createTicketAction } from "@/app/actions/store";
 import { SUPPORT_TOPICS as TOPICS } from "@/domain/support";
+import { DataNotice } from "@/components/legal/data-notice";
 
 export function TicketForm({ defaultOrder, defaultTopic, defaultEmail }: { defaultOrder?: string; defaultTopic?: string; defaultEmail?: string }) {
   const [state, action, pending] = useActionState(createTicketAction, null);
@@ -68,6 +69,7 @@ export function TicketForm({ defaultOrder, defaultTopic, defaultEmail }: { defau
         <span className="mt-1 block text-[11.5px] text-fg-subtle">Nunca compartas contraseñas, códigos SMS ni datos de tarjetas.</span>
       </label>
       {state && !state.ok && <Alert tone="danger">{state.message}</Alert>}
+      <DataNotice />
       <Button type="submit" className="w-full" loading={pending}>
         Enviar solicitud
       </Button>

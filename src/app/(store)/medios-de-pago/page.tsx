@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 };
 
 const DETAILS: Record<PaymentMethodId, { icon: typeof CreditCard; tint: string; text: string; note: string }> = {
-  debito: { icon: Wallet, tint: "bg-volt-400/12 text-volt-300", text: "Paga con tu tarjeta débito habilitada para compras por internet.", note: "Se confirma en segundos" },
-  credito: { icon: CreditCard, tint: "bg-sky-400/12 text-sky-300", text: "Paga con tu tarjeta de crédito. Tu banco puede pedirte confirmar la compra.", note: "Se confirma en segundos" },
+  debito: { icon: Wallet, tint: "bg-volt-400/12 text-volt-300", text: "Paga con tu tarjeta débito habilitada para compras por internet.", note: "Normalmente se confirma en segundos" },
+  credito: { icon: CreditCard, tint: "bg-sky-400/12 text-sky-300", text: "Paga con tu tarjeta de crédito. Tu banco puede pedirte confirmar la compra.", note: "Normalmente se confirma en segundos" },
   nequi: { icon: Smartphone, tint: "bg-pink-500/12 text-pink-300", text: "Te llega una notificación en la app de Nequi y apruebas el pago desde tu celular.", note: "Apruebas desde la app" },
   pse: { icon: Building2, tint: "bg-blue-500/12 text-blue-300", text: "Pagas desde la cuenta de tu banco, sin tarjeta.", note: "Puede tardar unos minutos" },
   bancolombia: { icon: Landmark, tint: "bg-yellow-400/12 text-yellow-300", text: "Pagas desde tu cuenta Bancolombia con el botón de pagos, sin tarjeta.", note: "Se confirma en minutos" },

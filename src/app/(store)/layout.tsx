@@ -8,6 +8,7 @@ import { whatsappLink } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
 import { publicPaymentOptions } from "@/server/integrations/payments";
 import { accountsVisible } from "@/server/catalog";
+import { CookieNotice } from "@/components/legal/cookie-notice";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, user, showAccounts] = await Promise.all([getSettings(), getCurrentUser().catch(() => null), accountsVisible()]);
@@ -29,6 +30,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       />
       <main id="contenido">{children}</main>
       <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />
+      <CookieNotice />
       {wa && (
         <aside aria-label="Contacto por WhatsApp">
           <a

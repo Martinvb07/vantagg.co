@@ -134,7 +134,11 @@ export function AccountCheckoutForm({
           <a href="/legal/reembolsos" target="_blank" className="text-volt-300 underline underline-offset-2">
             política de reembolsos
           </a>{" "}
-          y las condiciones de entrega de esta cuenta.
+          y las condiciones de entrega de esta cuenta, autorizo el tratamiento de mis datos según la{" "}
+          <a href="/legal/privacidad" target="_blank" className="text-volt-300 underline underline-offset-2">
+            política de privacidad
+          </a>{" "}
+          y soy mayor de edad o compro con autorización de mi padre, madre o acudiente.
         </span>
       </label>
 

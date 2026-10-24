@@ -20,8 +20,8 @@ const ERRORS: Record<string, string> = {
   demasiados: "Demasiados intentos. Espera unos minutos.",
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; restablecida?: string; error?: string }> }) {
-  const { next, restablecida, error } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; restablecida?: string; error?: string; eliminada?: string }> }) {
+  const { next, restablecida, error, eliminada } = await searchParams;
   if (await getCurrentUser()) redirect("/cuenta");
   const google = googleEnabled();
   return (
@@ -35,6 +35,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </Link>
           .
         </p>
+        {eliminada && (
+          <Alert tone="success" className="mt-6">
+            Tu cuenta fue eliminada. Gracias por haber comprado con nosotros.
+          </Alert>
+        )}
         {restablecida && (
           <Alert tone="success" className="mt-6">
             Contraseña actualizada. Ingresa con la nueva.

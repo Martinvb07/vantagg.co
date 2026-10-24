@@ -45,6 +45,7 @@ const COLUMNS = [
     links: [
       { href: "/legal/terminos", label: "Términos y condiciones" },
       { href: "/legal/privacidad", label: "Privacidad" },
+      { href: "/legal/cookies", label: "Cookies" },
       { href: "/legal/reembolsos", label: "Reembolsos" },
       { href: "/legal/productos-digitales", label: "Productos digitales" },
     ],
@@ -167,6 +168,13 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
           <p>
             © {year} {settings.legalName || settings.storeName}
             {company && <span className="block sm:inline"><span className="hidden sm:inline"> · </span>{company}</span>}
+            <span className="block">
+              ¿Una queja sin resolver? Acude a la{" "}
+              <a href="https://www.sic.gov.co" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">
+                Superintendencia de Industria y Comercio
+              </a>
+              .
+            </span>
           </p>
           <p className="flex flex-wrap items-center gap-1.5">
             Pagos procesados por

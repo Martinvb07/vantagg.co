@@ -56,7 +56,7 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
           ) : (
             <BadgeCheck className="ml-auto size-4 text-ok-400" aria-label="Entregado" />
           )}
-          <span className="mt-1 block text-[11.5px] text-white/45" suppressHydrationWarning>
+          <span className="mt-1 block text-[11.5px] text-white/60" suppressHydrationWarning>
             {when}
           </span>
         </span>
@@ -85,7 +85,7 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
           )}
           <ChevronsRight className="size-3.5 shrink-0 text-white/35" />
           <span className={cn("truncate font-mono font-semibold", latest ? "text-white" : "text-sky-100/85")}>{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
-          <span className="shrink-0 text-[11px] text-white/40" suppressHydrationWarning>
+          <span className="shrink-0 text-[11px] text-white/60" suppressHydrationWarning>
             {when}
           </span>
         </div>

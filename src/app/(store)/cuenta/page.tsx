@@ -23,6 +23,7 @@ import { logoutEverywhereAction } from "@/app/actions/profile";
 import { AvatarPicker } from "./avatar-picker";
 import { CopyChip, ThemePicker } from "./theme-picker";
 import { PasswordForm } from "./password-form";
+import { DeleteAccountForm } from "./delete-account-form";
 import { ProfileForm } from "./profile-form";
 import { NewTicketForm, ResolveTicketButton, TicketReplyForm } from "./support-forms";
 import { VerifyEmail } from "./verify-email";
@@ -441,6 +442,20 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
             <p className="mt-1 text-[13px] text-fg-muted">{account.hasPassword ? "Al cambiarla se cierran las demás sesiones." : "Opcional: también podrás ingresar con correo y contraseña."}</p>
             <PasswordForm hasPassword={account.hasPassword} />
           </section>
+          {user.role === "CUSTOMER" && (
+            <section className="rounded-[18px] bg-ink-850 p-5 ring-1 ring-bad-400/25 sm:p-6 xl:col-span-2" aria-labelledby="t-eliminar">
+              <h2 id="t-eliminar" className="text-[16px] font-bold">
+                Eliminar mi cuenta
+              </h2>
+              <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-fg-muted">
+                Borramos tu perfil, foto, ID de Free Fire guardado, sesiones y vínculo con Google. Tus pedidos se conservan sin cuenta asociada solo
+                por obligación legal y contable, como explica la <a href="/legal/privacidad#supresion" className="underline underline-offset-2 hover:text-fg">política de privacidad</a>. Esta acción no se puede deshacer.
+              </p>
+              <div className="max-w-[420px]">
+                <DeleteAccountForm />
+              </div>
+            </section>
+          )}
         </div>
       )}
 

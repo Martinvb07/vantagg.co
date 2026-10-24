@@ -10,7 +10,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { firstError, phoneSchema } from "@/lib/validation";
 import { isAvatarPreset } from "@/domain/avatars";
 import { isProfileTheme } from "@/domain/player";
-import { saveImage, UploadError } from "@/server/storage";
+import { deleteLocalAvatar, saveImage, UploadError } from "@/server/storage";
 
 type State = { ok?: string; error?: string } | null;
 
@@ -108,4 +108,24 @@ export async function setProfileThemeAction(theme: string): Promise<State> {
   await db.user.update({ where: { id: user.id }, data: { profileTheme: theme } });
   revalidatePath("/cuenta");
   return { ok: "Portada actualizada." };
+}
+
+/**
+ * Supresión de datos (Ley 1581 de 2012): el cliente elimina su cuenta. Se borran perfil, sesiones, foto,
+ * ID de Free Fire guardado y vínculo con Google. Los pedidos y solicitudes quedan sin cuenta asociada y se
+ * conservan solo por obligación legal y contable (Código de Comercio, art. 60), como explica la política.
+ */
+export async function deleteMyAccountAction(_: State, form: FormData): Promise<State> {
+  const user = await me();
+  if (user.role !== "CUSTOMER") return { error: "Las cuentas del equipo no se eliminan desde aquí." };
+  if (String(form.get("confirm") ?? "").trim().toUpperCase() !== "ELIMINAR") return { error: "Escribe ELIMINAR para confirmar." };
+  if (!rateLimit(`delete-account:${user.id}`, 3, 10 * 60_000).ok) return { error: "Demasiados intentos. Espera unos minutos." };
+  const account = await db.user.findUnique({ where: { id: user.id }, select: { avatarUrl: true } });
+  // Al borrar el usuario: sesiones y recuperaciones se eliminan en cascada; pedidos, solicitudes y
+  // registros de auditoría quedan sin usuario (SetNull).
+  await db.user.delete({ where: { id: user.id } });
+  await deleteLocalAvatar(account?.avatarUrl);
+  await audit({ actorId: null, action: "user.self_delete", entity: "User", entityId: user.id });
+  await destroySession();
+  redirect("/ingresar?eliminada=1");
 }

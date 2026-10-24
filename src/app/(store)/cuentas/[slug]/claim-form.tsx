@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, Label } from "@/components/ui/primitives";
 import { submitClaimAction } from "@/app/actions/store";
+import { DataNotice } from "@/components/legal/data-notice";
 
 export function ClaimForm({ accountId }: { accountId: string }) {
   const [state, action, pending] = useActionState(submitClaimAction, null);
@@ -24,6 +25,7 @@ export function ClaimForm({ accountId }: { accountId: string }) {
         <textarea id="claim-reason" name="reason" required minLength={20} rows={4} className="field resize-y" />
       </div>
       {state && !state.ok && <Alert tone="danger">{state.message}</Alert>}
+      <DataNotice />
       <Button type="submit" variant="secondary" loading={pending}>
         Enviar reclamación
       </Button>

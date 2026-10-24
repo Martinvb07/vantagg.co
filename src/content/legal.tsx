@@ -8,7 +8,7 @@ import type { StoreSettings } from "@/server/settings";
 export type LegalDoc = { title: string; description: string; body: (s: StoreSettings) => ReactNode };
 
 /** Fecha de vigencia de estos textos (Decreto 1377 de 2013, art. 13). Actualízala al cambiar cualquier documento. */
-export const LEGAL_UPDATED = "2026-10-14";
+export const LEGAL_UPDATED = "2026-10-24";
 
 const company = (s: StoreSettings) => s.legalName || s.storeName;
 const contact = (s: StoreSettings) => [s.supportEmail, s.whatsapp && `WhatsApp ${s.whatsapp}`].filter(Boolean).join(" · ") || "los canales publicados en el centro de ayuda";
@@ -72,49 +72,144 @@ export const LEGAL: Record<string, LegalDoc> = {
           La entrega inicia cuando se confirma el pago. Los tiempos dependen del proveedor de recargas o de la coordinación del traspaso en el caso de
           cuentas. El estado actualizado está siempre disponible en la página de seguimiento.
         </p>
-        <h2>6. Uso indebido</h2>
+        <h2 id="menores">6. Edad mínima y menores de edad</h2>
+        <p>
+          Para comprar debes ser mayor de 18 años. Si eres menor de edad, la compra debe hacerla, o autorizarla expresamente, tu padre, madre o
+          representante legal, quien es responsable del pago y del medio de pago utilizado. Si un representante nos informa que una compra se hizo
+          sin su autorización, revisaremos el caso conforme a la política de reembolsos y a la ley.
+        </p>
+        <h2 id="precios-finales">7. Sin cargos ocultos</h2>
+        <p>
+          El precio que ves antes de pagar es el total: no sumamos comisiones, cargos de servicio ni costos adicionales. Los descuentos por código
+          promocional se muestran antes de pagar, aplican solo a lo que indique cada código y no son acumulables salvo que se diga lo contrario.
+        </p>
+        <h2>8. Uso indebido</h2>
         <p>
           Podemos cancelar pedidos con indicios de fraude, suplantación o uso de medios de pago no autorizados, informando al comprador y
           gestionando la devolución que corresponda.
         </p>
-        <h2>7. Contacto</h2>
-        <p>Para cualquier solicitud escríbenos a {contact(s)}.</p>
+        <h2>9. Documentos relacionados y cambios</h2>
+        <p>
+          También forman parte de estas condiciones la <a href="/legal/privacidad">política de privacidad</a>, la{" "}
+          <a href="/legal/cookies">política de cookies</a>, la <a href="/legal/reembolsos">política de reembolsos</a> y la{" "}
+          <a href="/legal/productos-digitales">información sobre productos digitales</a>. Si cambiamos estos textos, publicaremos la nueva versión
+          con su fecha; los pedidos ya hechos se rigen por la versión vigente al momento de la compra.
+        </p>
+        <h2>10. Contacto</h2>
+        <p>
+          Para cualquier solicitud escríbenos a {contact(s)}. Si no quedas conforme con nuestra respuesta, puedes acudir a la Superintendencia de
+          Industria y Comercio (www.sic.gov.co).
+        </p>
       </>
     ),
   },
   privacidad: {
     title: "Política de privacidad",
-    description: "Cómo tratamos tus datos personales conforme a la Ley 1581 de 2012.",
+    description: "Cómo tratamos tus datos personales conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013.",
     body: (s) => (
       <>
         <p>
           <strong>{company(s)}</strong> es responsable del tratamiento de los datos personales recolectados en este sitio, de acuerdo con la Ley 1581
-          de 2012 y sus decretos reglamentarios.
+          de 2012, el Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015) y demás normas aplicables.
         </p>
-        <h2>Datos que recolectamos</h2>
+        <h2 id="responsable">Responsable</h2>
+        <SellerData s={s} />
+        <h2 id="datos">Datos que recolectamos (solo los necesarios)</h2>
         <ul>
-          <li>Correo electrónico, y opcionalmente nombre y teléfono, para gestionar tu pedido.</li>
-          <li>ID de jugador, exclusivamente para entregar la recarga.</li>
-          <li>Datos técnicos mínimos (por ejemplo, una huella anonimizada de la dirección IP) para prevenir abusos.</li>
+          <li><strong>Para comprar:</strong> correo electrónico e ID de jugador de Free Fire (para entregar la recarga). Nada más es obligatorio.</li>
+          <li><strong>Si creas una cuenta:</strong> nombre y correo; opcionalmente teléfono, foto de perfil e ID de jugador guardado para recargar más rápido.</li>
+          <li><strong>Si escribes a soporte o abres un reclamo:</strong> tu correo y lo que nos cuentes.</li>
+          <li><strong>Datos técnicos mínimos:</strong> una huella anonimizada de la dirección IP y el tipo de navegador de tus sesiones, para prevenir abusos y proteger tu cuenta.</li>
         </ul>
         <p>
-          <strong>No</strong> recolectamos contraseñas de redes sociales ni datos de tarjetas: el pago se realiza en la plataforma de la pasarela.
+          <strong>No</strong> pedimos tu contraseña de Free Fire ni de redes sociales, ni datos de tarjetas: el pago se hace en la plataforma de la
+          pasarela. No usamos herramientas de analítica ni publicidad que te rastreen.
         </p>
-        <h2>Finalidades</h2>
+        <h2 id="finalidades">Finalidades</h2>
         <ul>
           <li>Procesar, entregar y dar seguimiento a tus pedidos.</li>
-          <li>Enviarte notificaciones transaccionales sobre el estado de tus compras.</li>
+          <li>Enviarte correos transaccionales sobre tus compras y tu cuenta (confirmaciones, códigos de acceso, estado del pedido). No enviamos publicidad.</li>
           <li>Atender solicitudes de soporte, reclamaciones y reembolsos.</li>
-          <li>Prevenir fraude y cumplir obligaciones legales.</li>
+          <li>Prevenir fraude y cumplir obligaciones legales, contables y tributarias.</li>
         </ul>
-        <h2>Tus derechos</h2>
+        <h2 id="autorizacion">Autorización</h2>
         <p>
-          Puedes conocer, actualizar, rectificar y solicitar la supresión de tus datos, así como revocar la autorización, escribiendo a {contact(s)}.
+          Al crear tu cuenta, hacer un pedido o escribirnos, nos autorizas a tratar tus datos para estas finalidades. Siempre te lo indicamos junto al
+          formulario. Puedes revocar la autorización en cualquier momento, salvo cuando debamos conservar datos por un deber legal o contractual.
         </p>
-        <h2>Encargados</h2>
+        <h2 id="encargados">Con quién los compartimos</h2>
+        <p>Solo con proveedores que necesitamos para operar, que actúan como encargados del tratamiento y reciben únicamente lo indispensable:</p>
+        <ul>
+          <li><strong>Bold</strong> (pasarela de pagos, Colombia): monto, número de pedido y los datos que ingreses en su plataforma para pagar.</li>
+          <li><strong>Proveedor de recargas</strong>: el ID de jugador y el paquete, para acreditar los diamantes.</li>
+          <li><strong>Resend</strong> (envío de correos, Estados Unidos): tu correo y el contenido del mensaje.</li>
+          <li><strong>Google</strong> (solo si eliges «Continuar con Google»): Google nos confirma tu correo y nombre; no recibimos tu contraseña.</li>
+          <li><strong>Proveedor de hosting</strong>: aloja el servidor y la base de datos de la tienda.</li>
+        </ul>
         <p>
-          Compartimos únicamente la información necesaria con la pasarela de pagos, el proveedor de recargas y el servicio de correo transaccional,
-          que actúan como encargados del tratamiento.
+          Algunos de estos proveedores están fuera de Colombia; la transmisión se hace solo para las finalidades descritas y con proveedores que
+          ofrecen medidas de seguridad adecuadas. No vendemos ni cedemos tus datos.
+        </p>
+        <h2 id="conservacion">Cuánto tiempo los guardamos</h2>
+        <ul>
+          <li>Datos de tu cuenta: mientras la mantengas activa. Puedes eliminarla cuando quieras.</li>
+          <li>Pedidos y pagos: el tiempo que exige la ley para soportes contables y comerciales (hasta 10 años, Código de Comercio, art. 60).</li>
+          <li>Sesiones y registros técnicos: lo necesario para seguridad; las sesiones vencen solas.</li>
+        </ul>
+        <h2 id="derechos">Tus derechos</h2>
+        <p>
+          Puedes conocer, actualizar y rectificar tus datos, pedir prueba de la autorización, saber cómo los usamos, revocar la autorización, pedir su
+          supresión y presentar quejas ante la Superintendencia de Industria y Comercio. Escríbenos a {contact(s)} o usa el{" "}
+          <a href="/ayuda#contacto">centro de ayuda</a>. Respondemos consultas en máximo diez (10) días hábiles y reclamos en máximo quince (15)
+          días hábiles (Ley 1581, arts. 14 y 15).
+        </p>
+        <h2 id="supresion">Eliminar tu cuenta</h2>
+        <p>
+          Desde <a href="/cuenta?seccion=seguridad">Mi cuenta → Seguridad</a> puedes eliminar tu cuenta tú mismo: borramos tu perfil, foto, ID de jugador
+          guardado, sesiones y vínculo con Google al instante. Tus pedidos quedan sin cuenta asociada y se conservan solo por el deber legal de
+          guardar soportes contables. Si compraste sin cuenta, pide la supresión por el centro de ayuda.
+        </p>
+        <h2 id="menores">Menores de edad</h2>
+        <p>
+          La tienda está dirigida a mayores de 18 años. Los datos de menores solo se tratan cuando su padre, madre o representante legal realiza o
+          autoriza la compra, respetando el interés superior del menor (Ley 1581, art. 7).
+        </p>
+        <h2 id="cookies">Cookies</h2>
+        <p>
+          Usamos solo cookies técnicas necesarias para que el sitio funcione (sesión y seguridad). Detalle en la{" "}
+          <a href="/legal/cookies">política de cookies</a>.
+        </p>
+        <h2 id="seguridad">Seguridad</h2>
+        <p>
+          Usamos conexión cifrada (HTTPS), contraseñas protegidas con algoritmos de resumen, mensajes de entrega de cuentas cifrados y acceso
+          restringido al panel con verificación en dos pasos.
+        </p>
+      </>
+    ),
+  },
+  cookies: {
+    title: "Política de cookies",
+    description: "Qué cookies y almacenamiento local usa la tienda y para qué.",
+    body: () => (
+      <>
+        <p>
+          Una cookie es un pequeño archivo que el sitio guarda en tu navegador. En esta tienda usamos <strong>solo</strong> cookies y almacenamiento
+          técnicos, necesarios para que funcione: no hay cookies de analítica, publicidad ni redes sociales, y no compartimos esta información con
+          terceros. Por eso no necesitamos pedirte que las aceptes; aun así te avisamos la primera vez que entras.
+        </p>
+        <h2>Lo que guardamos</h2>
+        <ul>
+          <li><strong>vx_session</strong> (cookie, 14 días): mantiene tu sesión iniciada. Solo existe si ingresas a tu cuenta.</li>
+          <li><strong>vx_oauth</strong> (cookie, 10 minutos): protege el inicio de sesión con Google mientras vuelves de Google.</li>
+          <li><strong>vx_gate</strong> (cookie): solo para el equipo de la tienda; no se crea para clientes.</li>
+          <li><strong>vx_cart_v1</strong> (almacenamiento local del navegador): recuerda los productos de tu carrito.</li>
+          <li><strong>vx_cookie_notice</strong> (almacenamiento local): recuerda que ya viste el aviso de cookies.</li>
+          <li><strong>vx_error_reload</strong> (almacenamiento de la pestaña): evita recargas repetidas si una página falla.</li>
+        </ul>
+        <h2>Cómo borrarlas</h2>
+        <p>
+          Puedes borrarlas o bloquearlas desde la configuración de tu navegador. Si bloqueas la cookie de sesión no podrás iniciar sesión, pero sí
+          comprar sin cuenta.
         </p>
       </>
     ),

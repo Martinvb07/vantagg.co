@@ -461,7 +461,11 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 <a href="/legal/reembolsos" target="_blank" className="text-fg underline underline-offset-2">
                   política de reembolsos
                 </a>
-                .
+                , autorizo el tratamiento de mis datos según la{" "}
+                <a href="/legal/privacidad" target="_blank" className="text-fg underline underline-offset-2">
+                  política de privacidad
+                </a>{" "}
+                y soy mayor de edad o compro con autorización de mi padre, madre o acudiente.
               </span>
             </label>
 

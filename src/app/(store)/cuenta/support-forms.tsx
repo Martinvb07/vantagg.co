@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { SUPPORT_TOPICS } from "@/domain/support";
 import { createAccountTicketAction, replyAccountTicketAction, resolveAccountTicketAction } from "@/app/actions/support";
+import { DataNotice } from "@/components/legal/data-notice";
 
 export type OrderOption = { id: string; label: string };
 
@@ -71,6 +72,7 @@ export function NewTicketForm({ orders, email }: { orders: OrderOption[]; email:
           <CircleCheck className="mt-0.5 size-4 shrink-0" /> {state.ok}
         </p>
       )}
+      <DataNotice />
       <Button type="submit" className="w-full" loading={pending}>
         <Send className="size-4" /> Enviar solicitud
       </Button>

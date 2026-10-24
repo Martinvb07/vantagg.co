@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash, createHmac, randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { env } from "@/lib/env";
 
@@ -98,4 +98,13 @@ async function s3Put(key: string, body: Buffer, contentType: string) {
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new UploadError(`El almacenamiento rechazó la subida (HTTP ${res.status}).`);
+}
+
+/**
+ * Borra del disco local una foto de perfil subida por el cliente (al eliminar su cuenta).
+ * Solo actúa sobre /uploads/avatars/…; en almacenamiento S3 o con otra ruta no hace nada.
+ */
+export async function deleteLocalAvatar(url: string | null | undefined): Promise<void> {
+  if (!url || storageMode() !== "local" || !/^\/uploads\/avatars\/[\w.-]+$/.test(url)) return;
+  await unlink(path.join(uploadsDir(), url.slice("/uploads/".length))).catch(() => {});
 }
