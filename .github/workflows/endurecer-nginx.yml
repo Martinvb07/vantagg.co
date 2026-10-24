@@ -1,0 +1,69 @@
+name: Endurecer nginx (ocultar versión)
+
+# Manual. Agrega «server_tokens off;» a los bloques server de vantagg.co para que nginx no anuncie su
+# versión exacta. Solo toca los archivos de esta tienda (no los de otros proyectos del VPS): guarda una
+# copia, valida con «nginx -t» y, si algo falla, restaura la copia sin recargar.
+on:
+  workflow_dispatch:
+
+jobs:
+  endurecer:
+    name: Ocultar versión de nginx
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Aplicar server_tokens off
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" 'bash -s' <<'ENDSSH'
+          set -euo pipefail
+          S=""; [ "$(id -u)" -ne 0 ] && S="sudo -n"
+          archivos=$($S grep -lRE 'server_name[^;]*vantagg\.co' /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | xargs -r -n1 readlink -f | sort -u)
+          [ -n "$archivos" ] || { echo "No encontré la configuración de vantagg.co"; exit 1; }
+          sello=$(date +%Y%m%d-%H%M%S)
+          $S mkdir -p /var/backups/nginx-vantagg
+          cambiados=""
+          for f in $archivos; do
+            echo "== $(basename "$f")"
+            if $S grep -q 'server_tokens off' "$f"; then echo "  ya tenía server_tokens off"; continue; fi
+            $S cp -a "$f" "/var/backups/nginx-vantagg/$(basename "$f").$sello"
+            $S sed -i -E '/^[[:space:]]*server_name[^;]*vantagg\.co[^;]*;/a\    server_tokens off;' "$f"
+            echo "  agregado en $($S grep -c 'server_tokens off' "$f") bloque(s)"
+            cambiados="$cambiados $f"
+          done
+          if [ -z "$cambiados" ]; then echo "Nada que cambiar."; exit 0; fi
+          if $S nginx -t 2>&1 | tail -n 2; then
+            $S systemctl reload nginx && echo "nginx recargado"
+          else
+            echo "nginx -t falló: restaurando copias"
+            for f in $cambiados; do $S cp -a "/var/backups/nginx-vantagg/$(basename "$f").$sello" "$f"; done
+            $S nginx -t >/dev/null 2>&1 && echo "configuración original restaurada"
+            exit 1
+          fi
+          ENDSSH
+
+      - name: Comprobar desde internet
+        run: |
+          sleep 3
+          echo "Cabecera Server ahora: $(curl -sI --max-time 20 https://vantagg.co/ | grep -i '^server:' | tr -d '\r')"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://vantagg.co/)
+          echo "Inicio responde: $code"; [ "$code" = "200" ]
