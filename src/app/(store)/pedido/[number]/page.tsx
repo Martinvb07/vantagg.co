@@ -137,6 +137,15 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             </p>
             {order.status === "DELIVERED" && order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-warn-400">Entrega simulada por el proveedor de prueba: no se enviaron diamantes reales.</p>}
             {order.status === "DELIVERED" && order.type === "TOPUP" && !order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-fg-muted">Abre Free Fire y revisa tu saldo de diamantes.</p>}
+            {/* Recargar de nuevo: mismo paquete y mismo ID, listo para pagar */}
+            {order.type === "TOPUP" && order.productHref && ["DELIVERED", "CANCELLED", "REFUNDED"].includes(order.status) && (
+              <Link
+                href={`${order.productHref}${order.playerId ? `&id=${order.playerId}` : ""}`}
+                className="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-volt-400 px-4 text-[13.5px] font-semibold text-volt-ink transition-colors hover:bg-volt-300"
+              >
+                <RotateCcw className="size-4" /> Recargar de nuevo
+              </Link>
+            )}
             {order.status === "PROCESSING" && order.type === "ACCOUNT" && (
               <p className="mt-1.5 text-[13px] text-fg-muted">Te entregamos la cuenta por el chat de abajo. Nunca te pediremos pagos adicionales ni códigos de tu banco.</p>
             )}

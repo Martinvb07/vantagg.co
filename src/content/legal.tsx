@@ -200,6 +200,7 @@ export const LEGAL: Record<string, LegalDoc> = {
         <ul>
           <li>Mantener tu sesión iniciada si entras a tu cuenta.</li>
           <li>Recordar lo que tienes en el carrito.</li>
+          <li>Rellenar tu último ID de jugador y correo cuando vuelves a recargar desde el mismo dispositivo (quedan solo en tu navegador).</li>
           <li>Proteger el inicio de sesión con Google.</li>
           <li>Recordar que ya viste el aviso de cookies, para no mostrártelo otra vez.</li>
         </ul>

@@ -19,6 +19,9 @@ import { PromoCodeField, type AppliedPromo } from "./promo-code-field";
 import { PaymentBadges } from "@/components/brand/payment-badges";
 import { paymentMethodsSentence, type PaymentMethodId } from "@/domain/payment-methods";
 
+/** Último ID de jugador y correo usados en este dispositivo (solo en el navegador del cliente). */
+const MEMORY_KEY = "vx_checkout_v1";
+
 type Props = {
   packages: PackageView[];
   regions: TopupRegionView[];
@@ -113,6 +116,22 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   const idRef = useRef<HTMLInputElement>(null);
   const checkSeq = useRef(0);
   const regionRow = useRef<HTMLDivElement>(null);
+  const [fromMemory, setFromMemory] = useState(false);
+
+  // Compra repetida en este dispositivo: se rellenan el último ID y correo, salvo que vengan del enlace o de la cuenta.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MEMORY_KEY) ?? "null") as { playerId?: string; email?: string } | null;
+      if (!saved) return;
+      if (!initialPlayerId && saved.playerId && /^\d{6,12}$/.test(saved.playerId)) {
+        setPlayerId(saved.playerId);
+        setFromMemory(true);
+      }
+      if (!defaultEmail && typeof saved.email === "string" && saved.email.length <= 160) setEmail(saved.email);
+    } catch {
+      // Sin almacenamiento disponible: el formulario empieza vacío.
+    }
+  }, [initialPlayerId, defaultEmail]);
 
   // En celular las regiones van en una fila deslizable: se centra la elegida (también si cambió sola al verificar el ID).
   useEffect(() => {
@@ -123,6 +142,15 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   }, [region]);
 
   const pkg = packages.find((p) => p.id === pkgId) ?? null;
+
+  // El paquete elegido queda en la dirección: al recargar la página o compartir el enlace se conserva.
+  useEffect(() => {
+    const slug = allPackages.find((p) => p.id === pkgId)?.slug;
+    const url = new URL(window.location.href);
+    if (slug) url.searchParams.set("paquete", slug);
+    else url.searchParams.delete("paquete");
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
+  }, [pkgId, allPackages]);
   // La cuenta verificada es de otra región que la elegida.
   const regionMismatch = !!player?.regionSlug && player.regionSlug !== region;
   const validId = /^\d{6,12}$/.test(playerId);
@@ -189,6 +217,11 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
         acceptTerms: accept,
       });
       if (!r.ok) return setError(r.error);
+      try {
+        localStorage.setItem(MEMORY_KEY, JSON.stringify({ playerId, email: email.trim() }));
+      } catch {
+        // Sin almacenamiento: la próxima vez simplemente no se rellena.
+      }
       if (r.redirectUrl.startsWith("/")) router.push(r.redirectUrl);
       else window.location.assign(r.redirectUrl);
     });
@@ -299,6 +332,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 onChange={(e) => {
                   checkSeq.current++; // invalida una verificación en curso del ID anterior
                   setPlayerId(e.target.value.replace(/\D/g, ""));
+                  setFromMemory(false);
                   setPlayer(null);
                   setPlayerError(null);
                   setConfirmedId(false);
@@ -310,7 +344,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
               </Button>
             </form>
             <p id="playerId-hint" className={cn("mt-1.5 text-[12px]", playerError ? "text-bad-400" : "text-fg-subtle")}>
-              {playerError ?? "Lo verificamos con el proveedor antes de que pagues."}
+              {playerError ?? (fromMemory ? "Es el último ID que usaste en este dispositivo. Verifícalo o escribe otro." : "Lo verificamos con el proveedor antes de que pagues.")}
             </p>
 
             {player && (
