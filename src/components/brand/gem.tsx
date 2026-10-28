@@ -1,41 +1,39 @@
-import { useId } from "react";
 import { cn } from "@/lib/utils";
 
-/** Gema facetada original (no reproduce el arte del juego). */
+/** Racimo de cristales facetados de VANTAGG (arte propio, igual estilo que las portadas de los paquetes). */
+const PALETTES = {
+  ice: { cap: "#effcff", capSide: "#9be9ff", light: "#5fd4f5", dark: "#1a7fb6", line: "#062b40" },
+  volt: { cap: "#f7ffd9", capSide: "#e4fb9c", light: "#c8f04f", dark: "#6f8f12", line: "#263304" },
+};
+
+/** Cristal: x de la base, y de la base, ancho, alto, inclinación (grados). */
+const SHARDS: Array<[number, number, number, number, number]> = [
+  [30, 104, 22, 54, -18],
+  [92, 104, 24, 60, 16],
+  [60, 104, 40, 100, 0],
+];
+
 export function Gem({ className, hue = "ice" }: { className?: string; hue?: "ice" | "volt" }) {
-  const id = useId().replace(/:/g, "");
-  const c = hue === "volt"
-    ? { a: "#f1ffc8", b: "#c8f04f", c: "#7f9f1a", d: "#3f5108" }
-    : { a: "#e8f6ff", b: "#7cc8ff", c: "#2f7fe0", d: "#173a8a" };
+  const p = PALETTES[hue];
   return (
     <svg viewBox="0 0 120 110" className={cn("drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]", className)} aria-hidden>
-      <defs>
-        <linearGradient id={`${id}t`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={c.a} />
-          <stop offset="1" stopColor={c.b} />
-        </linearGradient>
-        <linearGradient id={`${id}l`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={c.b} />
-          <stop offset="1" stopColor={c.c} />
-        </linearGradient>
-        <linearGradient id={`${id}r`} x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={c.c} />
-          <stop offset="1" stopColor={c.d} />
-        </linearGradient>
-      </defs>
-      {/* corona */}
-      <path d="M30 8h60l26 30H4L30 8Z" fill={`url(#${id}t)`} />
-      <path d="M30 8 44 38H4L30 8Z" fill={c.b} fillOpacity="0.55" />
-      <path d="M90 8 76 38h40L90 8Z" fill={c.c} fillOpacity="0.55" />
-      <path d="M44 38 60 8l16 30H44Z" fill="#fff" fillOpacity="0.35" />
-      {/* pabellón */}
-      <path d="M4 38h40l16 66L4 38Z" fill={`url(#${id}l)`} />
-      <path d="M44 38h32l-16 66-16-66Z" fill={c.b} />
-      <path d="M76 38h40L60 104l16-66Z" fill={`url(#${id}r)`} />
-      <path d="M44 38h32l-16 66-16-66Z" fill="#fff" fillOpacity="0.12" />
-      {/* brillo */}
-      <path d="M36 14h18l-6 8H31l5-8Z" fill="#fff" fillOpacity="0.7" />
-      <path d="M4 38h112" stroke="#fff" strokeOpacity="0.5" strokeWidth="1" />
+      {SHARDS.map(([x, y, w, h, deg], i) => {
+        const l = x - w / 2;
+        const r = x + w / 2;
+        const sh = y - h * 0.7;
+        const tip = y - h;
+        const mid = y - h * 0.62;
+        return (
+          <g key={i} transform={`rotate(${deg} ${x} ${y})`} strokeLinejoin="round">
+            <path d={`M${l} ${sh} L${x} ${mid} L${x} ${y} L${l} ${y - 3}Z`} fill={p.light} />
+            <path d={`M${r} ${sh} L${x} ${mid} L${x} ${y} L${r} ${y - 3}Z`} fill={p.dark} />
+            <path d={`M${x} ${tip} L${l} ${sh} L${x} ${mid}Z`} fill={p.cap} />
+            <path d={`M${x} ${tip} L${r} ${sh} L${x} ${mid}Z`} fill={p.capSide} />
+            <path d={`M${l + w * 0.2} ${sh + h * 0.06} L${l + w * 0.32} ${sh + h * 0.02} L${l + w * 0.32} ${y - h * 0.18} L${l + w * 0.2} ${y - h * 0.14}Z`} fill="#fff" opacity="0.55" />
+            <path d={`M${x} ${tip} L${r} ${sh} L${r} ${y - 3} L${x} ${y} L${l} ${y - 3} L${l} ${sh}Z`} fill="none" stroke={p.line} strokeWidth="2.4" />
+          </g>
+        );
+      })}
     </svg>
   );
 }

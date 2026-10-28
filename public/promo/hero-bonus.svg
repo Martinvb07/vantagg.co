@@ -9,16 +9,7 @@
     <linearGradient id="gl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc8ff"/><stop offset="1" stop-color="#2f7fe0"/></linearGradient>
     <linearGradient id="gr" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7fe0"/><stop offset="1" stop-color="#173a8a"/></linearGradient>
     <linearGradient id="big" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ffb8"/><stop offset="0.55" stop-color="#d4f560"/><stop offset="1" stop-color="#9ccc1e"/></linearGradient>
-    <symbol id="gem" viewBox="0 0 120 110">
-      <path d="M30 8h60l26 30H4L30 8Z" fill="url(#gt)"/>
-      <path d="M30 8 44 38H4L30 8Z" fill="#7cc8ff" fill-opacity=".55"/>
-      <path d="M90 8 76 38h40L90 8Z" fill="#2f7fe0" fill-opacity=".55"/>
-      <path d="M44 38 60 8l16 30H44Z" fill="#fff" fill-opacity=".35"/>
-      <path d="M4 38h40l16 66L4 38Z" fill="url(#gl)"/>
-      <path d="M44 38h32l-16 66-16-66Z" fill="#7cc8ff"/>
-      <path d="M76 38h40L60 104l16-66Z" fill="url(#gr)"/>
-      <path d="M36 14h18l-6 8H31l5-8Z" fill="#fff" fill-opacity=".75"/>
-    </symbol>
+    <symbol id="gem" viewBox="0 0 120 110"><g transform="rotate(-18 30 104)" stroke-linejoin="round"><path d="M19 66.2L30 70.5L30 104L19 101Z" fill="#5fd4f5"/><path d="M41 66.2L30 70.5L30 104L41 101Z" fill="#1a7fb6"/><path d="M30 50L19 66.2L30 70.5Z" fill="#effcff"/><path d="M30 50L41 66.2L30 70.5Z" fill="#9be9ff"/><path d="M23.4 69.4L26 67.3L26 94.3L23.4 96.4Z" fill="#fff" opacity=".55"/><path d="M30 50L41 66.2L41 101L30 104L19 101L19 66.2Z" fill="none" stroke="#062b40" stroke-width="2.4"/></g><g transform="rotate(16 92 104)" stroke-linejoin="round"><path d="M80 62L92 66.8L92 104L80 101Z" fill="#5fd4f5"/><path d="M104 62L92 66.8L92 104L104 101Z" fill="#1a7fb6"/><path d="M92 44L80 62L92 66.8Z" fill="#effcff"/><path d="M92 44L104 62L92 66.8Z" fill="#9be9ff"/><path d="M84.8 65.6L87.7 63.2L87.7 93.2L84.8 95.6Z" fill="#fff" opacity=".55"/><path d="M92 44L104 62L104 101L92 104L80 101L80 62Z" fill="none" stroke="#062b40" stroke-width="2.4"/></g><g transform="rotate(0 60 104)" stroke-linejoin="round"><path d="M40 34L60 42L60 104L40 101Z" fill="#5fd4f5"/><path d="M80 34L60 42L60 104L80 101Z" fill="#1a7fb6"/><path d="M60 4L40 34L60 42Z" fill="#effcff"/><path d="M60 4L80 34L60 42Z" fill="#9be9ff"/><path d="M48 40L52.8 36L52.8 86L48 90Z" fill="#fff" opacity=".55"/><path d="M60 4L80 34L80 101L60 104L40 101L40 34Z" fill="none" stroke="#062b40" stroke-width="2.4"/></g></symbol>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="30"/></filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".5"/></filter>
   </defs>

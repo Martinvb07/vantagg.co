@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, CircleAlert, Clock, KeyRound, Wallet } from "lucide-react";
-import { Gem } from "@/components/brand/gem";
+import { DiamondCover } from "@/components/brand/covers";
 import { TopUpCheckout } from "@/components/checkout/topup-checkout";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Container, EmptyState } from "@/components/ui/primitives";
@@ -66,19 +66,13 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
           {/* Producto (en celular sus bloques se reparten: ficha → compra → ayuda) */}
           <div className="contents lg:sticky lg:top-24 lg:block lg:self-start">
             <div className="flex gap-4 lg:block">
-              <div
-                className="relative aspect-square w-24 shrink-0 self-start overflow-hidden rounded-[14px] ring-1 ring-white/[0.08] sm:w-32 lg:w-full"
-                style={{ background: "radial-gradient(90% 80% at 65% 40%, rgba(90,190,255,.45), transparent 60%), linear-gradient(150deg,#0b3d8c,#06132b)" }}
-              >
+              <div className="relative aspect-square w-24 shrink-0 self-start overflow-hidden rounded-[14px] bg-[#0b0f14] ring-1 ring-white/[0.08] sm:w-32 lg:w-full">
                 {settings.topupCoverUrl ? (
                   <img src={settings.topupCoverUrl} alt="Diamantes Free Fire" className="absolute inset-0 size-full object-cover" />
                 ) : (
                   <>
-                    <div className="absolute -left-1/4 top-0 h-[160%] w-1/3 rotate-[24deg] bg-white/[0.05]" />
-                    <Gem className="absolute left-1/2 top-[54%] w-[58%] -translate-x-1/2 -translate-y-1/2 rotate-[-8deg]" />
-                    <Gem className="absolute left-[16%] top-[22%] w-[16%] rotate-[16deg] opacity-80" />
-                    <Gem className="absolute right-[12%] top-[70%] w-[14%] rotate-[-20deg] opacity-80" />
-                    <span className="absolute left-[7%] top-[7%] hidden rounded-md bg-white/15 px-2 py-0.5 text-[11px] font-bold tracking-[0.16em] text-white backdrop-blur lg:block">FREE FIRE</span>
+                    <DiamondCover tier={5} diamonds={0} plain className="absolute inset-0 size-full" />
+                    <span className="absolute left-[7%] top-[7%] hidden bg-[#c8f04f] px-2 py-0.5 font-display text-[11px] font-black italic tracking-[0.12em] text-[#0b0f14] lg:block">FREE FIRE</span>
                   </>
                 )}
               </div>

@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/money";
 
 /**
- * Portadas originales de los paquetes, estilo tienda de juegos: la escena crece con
- * el paquete (diamante → puñado → montón → bolsa → caja → cofre). Arte vectorial
- * propio; el texto va encima en HTML para que siempre se lea nítido.
+ * Portadas originales de los paquetes con la identidad de VANTAGG: cristales facetados sobre fondo
+ * grafito con la V de la marca. La escena crece con el paquete (cristales sueltos → racimo → roca →
+ * pedestal → anillo de energía → corona dorada). Arte vectorial propio; el texto va en HTML encima.
  */
 
 /** Nivel visual según la cantidad de diamantes (misma portada en toda la tienda). */
@@ -13,154 +13,156 @@ export function tierFor(diamonds: number): number {
   return [200, 450, 800, 1800, 4000].filter((t) => diamonds >= t).length + 1;
 }
 
-type G = [x: number, y: number, w: number];
+/** Cristal: x de la base, y de la base, ancho, alto, inclinación (grados), dorado. */
+type Shard = [x: number, y: number, w: number, h: number, deg: number, gold?: boolean];
 
-/** Gemas por nivel, en coordenadas 200×200 (de atrás hacia adelante). La esquina superior izquierda queda libre para el texto. */
-const GEMS: Record<number, G[]> = {
-  1: [[56, 142, 40], [94, 94, 88]],
-  2: [[112, 92, 64], [62, 120, 66], [122, 128, 62]],
-  3: [[96, 100, 54], [140, 96, 52], [50, 132, 56], [98, 134, 60], [150, 140, 46]],
-  4: [[100, 96, 40], [144, 96, 36], [120, 88, 42], [50, 166, 32], [168, 174, 26]],
-  5: [[70, 106, 44], [104, 96, 48], [142, 102, 44], [86, 120, 42], [124, 118, 44], [160, 122, 34]],
-  6: [[72, 108, 40], [104, 98, 46], [140, 102, 42], [88, 122, 40], [122, 118, 46], [158, 124, 34]],
+const SHARDS: Record<number, Shard[]> = {
+  1: [[96, 140, 18, 42, -18], [148, 141, 16, 36, 16], [122, 140, 32, 84, 0]],
+  2: [[74, 144, 13, 30, -30], [94, 141, 24, 60, -16], [150, 141, 24, 64, 14], [122, 139, 36, 96, 0]],
+  3: [[70, 140, 18, 44, -28], [170, 141, 16, 40, 26], [95, 137, 26, 72, -14], [149, 137, 28, 76, 12], [122, 134, 38, 104, 0]],
+  4: [[74, 132, 18, 46, -26], [168, 133, 17, 42, 24], [97, 129, 27, 74, -13], [148, 129, 29, 80, 11], [122, 126, 40, 108, 0]],
+  5: [[68, 132, 19, 50, -28], [174, 133, 18, 46, 26], [94, 128, 29, 80, -14], [151, 128, 31, 86, 12], [122, 124, 44, 116, 0]],
+  6: [[68, 134, 19, 50, -28], [176, 135, 18, 46, 26], [94, 130, 30, 82, -14, true], [152, 130, 32, 88, 12, true], [122, 126, 46, 120, 0, true]],
 };
 
-const SPARKS: Record<number, Array<[number, number, number]>> = {
-  1: [[176, 84, 1], [70, 128, 0.7], [186, 150, 0.6]],
-  2: [[182, 86, 1], [56, 112, 0.7], [188, 160, 0.6]],
-  3: [[184, 90, 0.9], [44, 124, 0.7], [190, 170, 0.6]],
-  4: [[176, 80, 1], [70, 120, 0.7], [44, 150, 0.6]],
-  5: [[186, 92, 1], [56, 98, 0.8], [40, 150, 0.6]],
-  6: [[188, 88, 1.1], [52, 100, 0.9], [36, 150, 0.7], [180, 120, 0.6]],
+/** Cristales flotando (niveles altos): x, y, tamaño. */
+const FLOATERS: Record<number, Array<[number, number, number]>> = {
+  5: [[60, 62, 0.8], [182, 70, 0.65], [170, 30, 0.5]],
+  6: [[56, 58, 0.85], [186, 66, 0.7], [176, 26, 0.55], [70, 24, 0.45]],
 };
 
-export function DiamondCover({ tier, diamonds, bonus = 0, className }: { tier: number; diamonds: number; bonus?: number; className?: string }) {
+const PALETTE = {
+  ice: { cap: "#effcff", capSide: "#9be9ff", light: "#5fd4f5", dark: "#1a7fb6", line: "#062b40" },
+  gold: { cap: "#fffbe0", capSide: "#ffe58a", light: "#ffc93d", dark: "#c27a0c", line: "#3b2203" },
+};
+
+function ShardShape({ s }: { s: Shard }) {
+  const [x, y, w, h, deg, gold] = s;
+  const p = gold ? PALETTE.gold : PALETTE.ice;
+  const l = x - w / 2;
+  const r = x + w / 2;
+  const sh = y - h * 0.7; // hombros
+  const tip = y - h;
+  const mid = y - h * 0.62; // arista central bajo la punta
+  return (
+    <g transform={`rotate(${deg} ${x} ${y})`} strokeLinejoin="round">
+      <path d={`M${l} ${sh} L${x} ${mid} L${x} ${y} L${l} ${y - 4}Z`} fill={p.light} />
+      <path d={`M${r} ${sh} L${x} ${mid} L${x} ${y} L${r} ${y - 4}Z`} fill={p.dark} />
+      <path d={`M${x} ${tip} L${l} ${sh} L${x} ${mid}Z`} fill={p.cap} />
+      <path d={`M${x} ${tip} L${r} ${sh} L${x} ${mid}Z`} fill={p.capSide} />
+      {/* brillo */}
+      <path d={`M${l + w * 0.2} ${sh + h * 0.06} L${l + w * 0.32} ${sh + h * 0.02} L${l + w * 0.32} ${y - h * 0.18} L${l + w * 0.2} ${y - h * 0.14}Z`} fill="#fff" opacity="0.55" />
+      <path d={`M${x} ${tip} L${r} ${sh} L${r} ${y - 4} L${x} ${y} L${l} ${y - 4} L${l} ${sh}Z`} fill="none" stroke={p.line} strokeWidth="2.6" />
+    </g>
+  );
+}
+
+/** `plain`: solo la ilustración, sin cantidad ni bonus (p. ej. la imagen del producto en /recargas). */
+export function DiamondCover({ tier, diamonds, bonus = 0, plain = false, className }: { tier: number; diamonds: number; bonus?: number; plain?: boolean; className?: string }) {
   const t = Math.max(1, Math.min(tier, 6));
   const id = useId().replace(/:/g, "");
   const u = (name: string) => `url(#${id}${name})`;
   const gold = t === 6;
+  const glow = gold ? "#ffcc4d" : "#c8f04f";
 
   return (
-    <div className={cn("relative aspect-square overflow-hidden bg-[#071228]", className)} style={{ containerType: "inline-size" }} aria-hidden>
+    <div className={cn("relative aspect-square overflow-hidden bg-[#0b0f14]", className)} style={{ containerType: "inline-size" }} aria-hidden>
       <svg viewBox="0 0 200 200" className="absolute inset-0 size-full">
         <defs>
-          <linearGradient id={`${id}bg`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#0b2257" />
-            <stop offset="1" stopColor="#050b1d" />
+          <linearGradient id={`${id}bg`} x1="0" y1="0" x2="0.4" y2="1">
+            <stop offset="0" stopColor="#161c24" />
+            <stop offset="1" stopColor="#090c10" />
           </linearGradient>
-          <radialGradient id={`${id}spot`} cx="0.62" cy="0.66" r="0.55">
-            <stop offset="0" stopColor={gold ? "#ffcf5a" : "#3fb6ff"} stopOpacity={gold ? 0.75 : 0.7} />
-            <stop offset="0.5" stopColor={gold ? "#ff8a1f" : "#1d5fd6"} stopOpacity="0.28" />
+          <radialGradient id={`${id}glow`} cx="0.6" cy="0.62" r="0.5">
+            <stop offset="0" stopColor={glow} stopOpacity={gold ? 0.42 : 0.3} />
+            <stop offset="0.55" stopColor={gold ? "#ff8a1f" : "#2bb7e0"} stopOpacity="0.12" />
             <stop offset="1" stopColor="#000" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id={`${id}floor`} cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0" stopColor={gold ? "#ffcf5a" : "#3fb6ff"} stopOpacity="0.45" />
-            <stop offset="1" stopColor={gold ? "#ffcf5a" : "#3fb6ff"} stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id={`${id}top`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#f2fbff" />
-            <stop offset="1" stopColor="#8fd3ff" />
+          <linearGradient id={`${id}rock`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#3a4452" />
+            <stop offset="1" stopColor="#1b2028" />
           </linearGradient>
-          <linearGradient id={`${id}bag`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#8b5cf6" />
-            <stop offset="1" stopColor="#3b0f8c" />
+          <linearGradient id={`${id}ped`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#262e39" />
+            <stop offset="1" stopColor="#11151b" />
           </linearGradient>
-          <linearGradient id={`${id}steel`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2b4b8f" />
-            <stop offset="1" stopColor="#13234a" />
-          </linearGradient>
-          <linearGradient id={`${id}wood`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#9a4f16" />
-            <stop offset="1" stopColor="#5a2a08" />
-          </linearGradient>
-          <linearGradient id={`${id}gold`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#ffe9a3" />
-            <stop offset="1" stopColor="#e0a019" />
-          </linearGradient>
-          <symbol id={`${id}gem`} viewBox="-3 -3 126 112">
-            <path d="M30 8h60l26 30H4Z" fill={u("top")} />
-            <path d="M30 8 44 38H4Z" fill="#a9ddff" />
-            <path d="M90 8 76 38h40Z" fill="#3f8ff2" />
-            <path d="M44 38 60 8l16 30Z" fill="#ecf8ff" />
-            <path d="M4 38h40l16 64Z" fill="#4aa8ff" />
-            <path d="M44 38h32l-16 64Z" fill="#94d3ff" />
-            <path d="M76 38h40L60 102Z" fill="#1d5bd0" />
-            <path d="M34 13h16l-5 7H30Z" fill="#fff" />
-            <path d="M4 38h112" stroke="#fff" strokeOpacity="0.7" strokeWidth="1.5" />
-            <path d="M30 8h60l26 30L60 102 4 38Z" fill="none" stroke="#06205c" strokeWidth="3.5" strokeLinejoin="round" />
-          </symbol>
-          <path id={`${id}spark`} d="M0 -9 L2.2 -2.2 L9 0 L2.2 2.2 L0 9 L-2.2 2.2 L-9 0 L-2.2 -2.2Z" fill="#fff" />
+          <pattern id={`${id}hatch`} width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+            <rect width="1.2" height="9" fill="#fff" fillOpacity="0.035" />
+          </pattern>
+          <path id={`${id}spark`} d="M0 -8 L1.8 -1.8 L8 0 L1.8 1.8 L0 8 L-1.8 1.8 L-8 0 L-1.8 -1.8Z" fill="#fff" />
         </defs>
 
         <rect width="200" height="200" fill={u("bg")} />
-        {/* haces de luz */}
-        <g fill="#fff" opacity={gold ? 0.09 : 0.06}>
-          <path d="M150 -10 L190 -10 L120 210 L90 210Z" />
-          <path d="M200 20 L215 30 L150 210 L132 210Z" />
-        </g>
-        <rect width="200" height="200" fill={u("spot")} />
-        <ellipse cx="122" cy="194" rx="86" ry="16" fill={u("floor")} />
+        <rect width="200" height="200" fill={u("hatch")} />
+        {/* La V de la marca, grande y tenue detrás de la escena */}
+        <path d="M58 6 L122 128 L186 6" fill="none" stroke="#c8f04f" strokeOpacity={gold ? 0.05 : 0.08} strokeWidth="26" strokeLinejoin="miter" />
+        <rect width="200" height="200" fill={u("glow")} />
 
-        {/* contenedores detrás de las gemas */}
-        {t === 6 && <path d="M66 140 L72 96 C94 82 154 82 176 96 L182 140Z" fill="#3a1a05" stroke={u("gold")} strokeWidth="4" strokeLinejoin="round" />}
-
-        {/* gemas que van dentro/encima del contenedor */}
-        {(t === 5 || t === 6 ? GEMS[t] : []).map(([x, y, w], i) => (
-          <use key={i} href={`#${id}gem`} x={x} y={y} width={w} height={w * (112 / 126)} />
-        ))}
-
-        {t === 4 && (
-          <g>
-            <path d="M102 120 C90 104 96 92 106 98 L125 108 L144 98 C154 92 160 104 148 120Z" fill={u("bag")} stroke="#1c0548" strokeWidth="3.5" strokeLinejoin="round" />
-            {GEMS[4].slice(0, 3).map(([x, y, w], i) => (
-              <use key={i} href={`#${id}gem`} x={x} y={y} width={w} height={w * (112 / 126)} />
+        {/* Corona de rayos (nivel máximo) */}
+        {gold && (
+          <g stroke="#ffd36b" strokeOpacity="0.35" strokeWidth="3" strokeLinecap="round">
+            {[-60, -40, -20, 0, 20, 40, 60].map((a) => (
+              <path key={a} d="M122 70 L122 22" transform={`rotate(${a} 122 96)`} />
             ))}
-            <path d="M104 124 C70 138 62 196 125 196 C188 196 180 138 146 124Z" fill={u("bag")} stroke="#1c0548" strokeWidth="3.5" strokeLinejoin="round" />
-            <path d="M86 156 C88 180 104 190 122 191" fill="none" stroke="#fff" strokeOpacity="0.18" strokeWidth="6" strokeLinecap="round" />
-            <rect x="100" y="114" width="50" height="13" rx="6.5" fill={u("gold")} stroke="#7a4a05" strokeWidth="2.5" />
-          </g>
-        )}
-        {t === 5 && (
-          <g>
-            <rect x="62" y="138" width="126" height="58" rx="6" fill={u("steel")} stroke="#081530" strokeWidth="3.5" />
-            <path d="M62 157 H188 M62 176 H188" stroke="#081530" strokeWidth="2.5" />
-            <path d="M62 150 v-6 a6 6 0 0 1 6-6 h8 M188 150 v-6 a6 6 0 0 0-6-6 h-8 M62 184 v6 a6 6 0 0 0 6 6 h8 M188 184 v6 a6 6 0 0 1-6 6 h-8" fill="none" stroke={u("gold")} strokeWidth="4" strokeLinecap="round" />
-          </g>
-        )}
-        {t === 6 && (
-          <g>
-            <rect x="60" y="138" width="128" height="58" rx="8" fill={u("wood")} stroke="#2b1405" strokeWidth="3.5" />
-            <path d="M60 156 H188" stroke="#2b1405" strokeWidth="2.5" />
-            <rect x="76" y="138" width="9" height="58" fill={u("gold")} />
-            <rect x="163" y="138" width="9" height="58" fill={u("gold")} />
-            <rect x="113" y="148" width="22" height="26" rx="4" fill={u("gold")} stroke="#7a4a05" strokeWidth="2.5" />
-            <circle cx="124" cy="160" r="3.5" fill="#5a2a08" />
           </g>
         )}
 
-        {/* gemas sueltas / que asoman de la bolsa */}
-        {(t <= 3 ? GEMS[t] : t === 4 ? GEMS[4].slice(3) : []).map(([x, y, w], i) => (
-          <use key={i} href={`#${id}gem`} x={x} y={y} width={w} height={w * (112 / 126)} />
+        {/* Anillo de energía detrás (niveles 5 y 6) */}
+        {t >= 5 && <ellipse cx="122" cy="118" rx="70" ry="18" fill="none" stroke={glow} strokeOpacity="0.35" strokeWidth="2" strokeDasharray="6 5" />}
+
+        {/* Base: roca (3), pedestal hexagonal con borde de la marca (4+) */}
+        {t === 3 && <path d="M54 146 L74 128 L104 124 L150 126 L180 136 L188 150 L120 158 L60 154Z" fill={u("rock")} stroke="#0a0d11" strokeWidth="2.5" strokeLinejoin="round" />}
+        {t >= 4 && (
+          <g>
+            <path d="M58 128 L88 116 L156 116 L186 128 L186 146 L156 158 L88 158 L58 146Z" fill={u("ped")} stroke="#05070a" strokeWidth="2.5" strokeLinejoin="round" />
+            <path d="M58 128 L88 140 L156 140 L186 128" fill="none" stroke={glow} strokeOpacity="0.85" strokeWidth="2.2" strokeLinejoin="round" />
+            <path d="M88 140 V158 M156 140 V158" stroke="#05070a" strokeWidth="2" />
+          </g>
+        )}
+
+        {/* Cristales */}
+        {SHARDS[t].map((s, i) => (
+          <ShardShape key={i} s={s} />
         ))}
 
-        {SPARKS[t].map(([x, y, s], i) => (
-          <use key={i} href={`#${id}spark`} transform={`translate(${x} ${y}) scale(${s})`} />
+        {/* Frente del anillo de energía */}
+        {t >= 5 && <path d="M52 118 A70 18 0 0 0 192 118" fill="none" stroke={glow} strokeOpacity="0.8" strokeWidth="2.4" />}
+
+        {/* Cristales flotando */}
+        {(FLOATERS[t] ?? []).map(([fx, fy, k], i) => (
+          <g key={i} transform={`translate(${fx} ${fy}) scale(${k})`}>
+            <ShardShape s={[0, 14, 14, 30, i % 2 ? 18 : -14, gold && i === 0]} />
+          </g>
+        ))}
+
+        {/* Destellos */}
+        {[[178, 92, 1], [72, 90, 0.7], [150, 46, 0.55]].map(([sx, sy, k], i) => (
+          <use key={i} href={`#${id}spark`} transform={`translate(${sx} ${sy}) scale(${k})`} opacity="0.9" />
         ))}
       </svg>
 
-      <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent p-[7%] pb-[14%]">
-        <p className="font-display font-bold leading-none tracking-tight text-white drop-shadow" style={{ fontSize: "19cqw" }}>
+      {/* Bonus: etiqueta verde de la marca, arriba a la izquierda */}
+      {!plain && bonus > 0 && (
+        <span
+          className="absolute left-[6%] top-[6%] bg-[#c8f04f] px-[0.55em] py-[0.2em] font-display font-black italic leading-none text-[#0b0f14]"
+          style={{ fontSize: "6.6cqw", clipPath: "polygon(0 0, 100% 0, 92% 100%, 0 100%)" }}
+        >
+          +{formatNumber(bonus)} BONUS
+        </span>
+      )}
+
+      {/* Cantidad abajo, sobre un degradado para que siempre se lea */}
+      {!plain && (
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-[7%] pb-[6%] pt-[16%]">
+        <p className="font-display font-black italic leading-none tracking-tight text-white" style={{ fontSize: "18cqw" }}>
           {formatNumber(diamonds)}
         </p>
-        <p className="mt-[2%] font-semibold uppercase tracking-[0.12em] text-white/80" style={{ fontSize: "6.2cqw" }}>
+        <p className="mt-[2.5%] flex items-center gap-[0.4em] font-bold uppercase tracking-[0.16em] text-[#c8f04f]" style={{ fontSize: "5.6cqw" }}>
+          <span className="inline-block h-[0.18em] w-[1.2em] bg-[#c8f04f]" />
           Diamantes
         </p>
-        {bonus > 0 && (
-          <span className="mt-[4%] inline-block rounded-[0.35em] bg-sky-400 px-[0.45em] py-[0.15em] font-bold text-ink-950" style={{ fontSize: "6.4cqw" }}>
-            +{formatNumber(bonus)} BONUS
-          </span>
-        )}
       </div>
+      )}
     </div>
   );
 }

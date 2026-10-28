@@ -43,7 +43,7 @@ export function ProductTile({
     <>
       <div className={cn("relative overflow-hidden rounded-[10px] bg-ink-800", label === "RECOMMENDED" ? "ring-2 ring-volt-400 shadow-[0_0_28px_-4px_rgba(200,240,79,0.55)]" : "ring-1 ring-white/[0.06]")}>
         <div className="transition-transform duration-300 group-hover:scale-[1.04]">{cover}</div>
-        {badge && <span className={cn("absolute bottom-2 right-2 rounded-[5px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide", BADGE[label])}>{badge}</span>}
+        {badge && <span className={cn("absolute right-2 top-2 rounded-[5px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide", BADGE[label])}>{badge}</span>}
         {original != null && original > price && (
           <span className="absolute right-2 top-2 rounded-[5px] bg-ink-950/85 px-1.5 py-0.5 text-[10px] font-bold text-volt-300">
             −{Math.round(((original - price) / original) * 100)}%
