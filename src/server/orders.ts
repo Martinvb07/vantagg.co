@@ -117,7 +117,8 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
       const accountRegion = regionLabel(c.regionSlug, c.region);
       return { ok: false, error: `Esta cuenta es de ${accountRegion} y el paquete es de ${regionText}. Elige un paquete de ${accountRegion}.` };
     }
-    nickname = null; // el verificador del proveedor devuelve apodos desactualizados: no se guarda
+    // Central One da el apodo actual (se guarda en el pedido); el de RechargeGame era viejo y no se guarda.
+    nickname = topup.wholesale?.playerCheck === "per-product" ? (c.nickname ?? null) : null;
   } else {
     const player = await topup.validatePlayer(data.playerId);
     if (player.verifiable && !player.valid) return { ok: false, error: player.message ?? "El ID de jugador no existe." };

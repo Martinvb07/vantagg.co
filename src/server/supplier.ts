@@ -232,7 +232,7 @@ export async function fetchDailyUsdCop(): Promise<number> {
 
 export type PlayerRegionCheck =
   /** verified: false = el proveedor no pudo comprobar el ID (se vende con la confirmación del cliente). */
-  | { ok: true; playerId: string; region: string; regionSlug: string; verified?: boolean; message?: string }
+  | { ok: true; playerId: string; region: string; regionSlug: string; verified?: boolean; message?: string; nickname?: string | null }
   | { ok: false; error: string; region?: string | null };
 
 /** "Latinoamérica, Brasil o Europa" */
@@ -278,7 +278,7 @@ async function checkPerProduct(provider: TopUpProvider, playerId: string, region
     if (!product) continue;
     checked++;
     const r = await provider.validatePlayer(playerId, { productKey: product.productKey, region: product.regionName });
-    if (r.verifiable && r.valid) return { ok: true, playerId, region: product.regionName, regionSlug: slug, verified: true };
+    if (r.verifiable && r.valid) return { ok: true, playerId, region: product.regionName, regionSlug: slug, verified: true, nickname: r.nickname?.trim().slice(0, 64) || null };
     if (!r.verifiable) unverified ??= { slug, name: product.regionName, message: r.message };
   }
   if (unverified) {

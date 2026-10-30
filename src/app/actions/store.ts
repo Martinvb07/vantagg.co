@@ -62,9 +62,8 @@ export async function validatePlayerAction(playerId: string, regionSlug?: string
         playerId: parsed.data,
         verifiable: c.verified !== false,
         message: c.message,
-        // El nombre que devuelve el verificador del proveedor está desactualizado (probado: muestra apodos viejos)
-        // y el proveedor no ofrece otra consulta; Garena no permite consultarlo. No se muestra.
-        nickname: null,
+        // Central One devuelve el apodo actual de la cuenta: se muestra. RechargeGame lo daba desactualizado: no.
+        nickname: provider.wholesale?.playerCheck === "per-product" ? (c.nickname ?? null) : null,
         region: c.region,
         regionSlug: c.regionSlug,
         regionLabel: regionLabel(c.regionSlug, c.region),
