@@ -177,9 +177,10 @@ export const centralOneProvider: TopUpProvider = {
 
   async createTopUp(req: TopUpRequest): Promise<TopUpResult> {
     if (!req.sku) throw new SupplierError("unknown_product", 422, "El paquete no está vinculado a un producto de Central One.");
-    // Pedido de prueba (pago en modo prueba o TOPUP_TEST_MODE): no se compra nada real.
-    if (req.test) return { status: "SUCCESS", providerRef: `${TEST_REF}${req.idempotencyKey}`.slice(0, 190), simulated: true, message: "Entrega simulada: pedido de prueba, no se compró en Central One." };
+    // Siempre se comprueba con el catálogo real que el producto existe y que sus datos del jugador se pueden armar.
     const target_payload = await payloadFor(req.sku, req.playerId, req.region);
+    // Pedido de prueba (pago en modo prueba o TOPUP_TEST_MODE): llega hasta aquí, pero no se compra nada real.
+    if (req.test) return { status: "SUCCESS", providerRef: `${TEST_REF}${req.idempotencyKey}`.slice(0, 190), simulated: true, message: "Entrega simulada: pedido de prueba, no se compró en Central One." };
     const r = await call<{ order: CoOrder }>("/orders", {
       method: "POST",
       idempotencyKey: idempotencyKeyFor(req.idempotencyKey),

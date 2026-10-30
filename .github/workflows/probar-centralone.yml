@@ -1,0 +1,189 @@
+name: Probar Central One (reinicia la tienda)
+
+# Manual. Reinicia la tienda para que lea el .env, comprueba la conexión con Central One, sincroniza el
+# catálogo y vincula los paquetes, valida un ID contra cada paquete y hace una ENTREGA DE PRUEBA completa
+# (pasa por todo el flujo y por el catálogo real, pero no compra nada ni gasta saldo). Al final borra el
+# pedido de prueba. El repositorio es público: nunca se muestran la llave, el saldo, costos ni precios.
+on:
+  workflow_dispatch:
+
+jobs:
+  probar:
+    name: Reiniciar y probar entregas
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Reiniciar y probar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/<ip>/g' \
+              -e 's/co_live_[A-Za-z0-9]+/co_live_<oculta>/g' \
+              -e 's/[A-Za-z0-9_-]{24,}/<id>/g'
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          val() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+
+          echo "== variables del proveedor en .env"
+          p=$(val TOPUP_PROVIDER); echo "  TOPUP_PROVIDER: ${p:-(vacío)}"
+          k=$(val TOPUP_API_KEY)
+          if [ -n "$k" ]; then echo "  TOPUP_API_KEY: definida (largo ${#k}), empieza por co_live_: $([[ $k == co_live_* ]] && echo sí || echo NO)"; else echo "  TOPUP_API_KEY: FALTA"; fi
+          u=$(val TOPUP_API_BASE_URL); echo "  TOPUP_API_BASE_URL: ${u:-(vacía → https://portal.centraloneglobal.com/api/v1)}"
+          w=$(val TOPUP_WEBHOOK_SECRET); echo "  TOPUP_WEBHOOK_SECRET: $([ -n "$w" ] && echo definida || echo vacía)"
+          t=$(val TOPUP_TEST_MODE); echo "  TOPUP_TEST_MODE: ${t:-(vacío → ventas reales)}"
+          cron=$(val CRON_SECRET)
+          if [ "$p" != "centralone" ] || [ -z "$k" ]; then echo "⚠ Falta TOPUP_PROVIDER=centralone o TOPUP_API_KEY: no sigo."; exit 1; fi
+
+          echo "== reiniciando la tienda (lee el .env de nuevo)"
+          pm2 delete vanta >/dev/null 2>&1 || true
+          pm2 start deploy/ecosystem.config.js >/dev/null && pm2 save >/dev/null
+          for i in $(seq 1 40); do curl -sf -o /dev/null http://127.0.0.1:3020/api/health && break; sleep 2; done
+          echo "  /api/health: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3020/api/health)"
+
+          echo "== conexión con Central One (desde el VPS)"
+          cat > /tmp/co-api.cjs <<'JS'
+          const base = (process.env.TOPUP_API_BASE_URL || "https://portal.centraloneglobal.com/api/v1").replace(/\/+$/, "");
+          const H = { Authorization: `Bearer ${process.env.TOPUP_API_KEY || ""}`, Accept: "application/json" };
+          async function call(path, init = {}) {
+            try {
+              const r = await fetch(base + path, { ...init, headers: { ...(init.auth === false ? { Accept: "application/json" } : H), ...(init.body ? { "Content-Type": "application/json" } : {}) }, signal: AbortSignal.timeout(20000) });
+              let j = null; try { j = await r.json(); } catch {}
+              return { s: r.status, j };
+            } catch (e) { return { s: 0, j: { error: { code: e.name } } }; }
+          }
+          const code = (r) => r.j?.error?.code ?? "";
+          (async () => {
+            const h = await call("/health", { auth: false }); console.log("  /health (servicio):", h.s, h.j?.status ?? code(h));
+            const p = await call("/ping"); console.log("  /ping (llave):", p.s, p.s === 200 ? "llave válida" : code(p));
+            if (p.s !== 200) return;
+            const b = await call("/balance"); console.log("  /balance (permiso balance:read):", b.s, b.s === 200 ? `moneda ${b.j.currency}, saldo disponible ${Number(b.j.available_balance) > 0 ? "mayor que 0" : "EN CERO: recarga saldo"}` : code(b));
+            const o = await call("/orders?limit=1"); console.log("  /orders (permiso orders:read):", o.s, o.s === 200 ? "ok" : code(o));
+            const c = await call("/catalog"); if (c.s !== 200) return console.log("  /catalog:", c.s, code(c));
+            const items = c.j.items || [];
+            const ff = items.filter((i) => /free\s*-?\s*fire/i.test(`${i.product_family_name ?? ""} ${i.name}`));
+            console.log(`  /catalog: ${items.length} productos habilitados para ti, ${ff.length} de Free Fire`);
+            const byReg = {};
+            for (const i of ff) (byReg[i.region || i.market || "GLOBAL"] ||= []).push(i);
+            for (const [r, list] of Object.entries(byReg)) {
+              console.log(`  · región «${r}»: ${list.length} productos`);
+              for (const i of list.slice(0, 30)) {
+                const pide = (i.target_schema?.length ? i.target_schema.map((f) => f.key + (f.type === "select" ? "(lista)" : "")) : i.target_fields || []).join(", ") || "nada";
+                console.log(`      ${i.name} | ${i.product_type ?? "-"} | pide: ${pide} | ${i.in_stock === false ? "AGOTADO" : "disponible"}`);
+              }
+            }
+            // Validación de ID (gratis, no compra nada) contra los productos vinculados a los paquetes.
+            const ids = JSON.parse(process.env.LINKED || "[]");
+            for (const { slug, sku } of ids) {
+              const it = items.find((i) => i.product_id === sku);
+              if (!it) { console.log(`  validar ID en ${slug}: el producto ya no está en tu catálogo`); continue; }
+              const schema = it.target_schema?.length ? it.target_schema : (it.target_fields || []).map((key) => ({ key, type: "text" }));
+              const target_payload = Object.fromEntries(schema.map((f) => [f.key, f.type === "select" ? f.options?.[0]?.value : "123456789"]));
+              const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: sku, target_payload }) });
+              console.log(`  validar ID 123456789 en ${slug}:`, v.s, v.s === 200 ? `${v.j.status}${v.j.reason ? " (" + v.j.reason + ")" : ""}` : code(v));
+            }
+          })();
+          JS
+          node --env-file=.env /tmp/co-api.cjs
+
+          echo "== sincronizar catálogo y vincular paquetes"
+          node --env-file=.env -e 'const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();db.setting.upsert({where:{key:"supplierSyncedAt"},create:{key:"supplierSyncedAt",value:""},update:{value:""}}).then(()=>db.$disconnect())'
+          echo "  mantenimiento: $(curl -s -H "Authorization: Bearer $cron" http://127.0.0.1:3020/api/cron/maintenance)"
+          cat > /tmp/co-db.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          (async () => {
+            const regions = (await db.setting.findUnique({ where: { key: "topupRegions" } }))?.value || "latam";
+            console.log("  regiones visibles en la tienda:", regions);
+            const prods = await db.supplierProduct.findMany({ where: { game: "free-fire" } });
+            const byReg = {};
+            for (const p of prods) {
+              const r = (byReg[p.regionSlug] ||= { nombre: p.regionName, total: 0, diamantes: 0, entregables: 0, agotados: 0 });
+              r.total++; if (p.unit === "Diamonds") r.diamantes++; if (p.unit === "Diamonds" && p.delivery === "player_id") r.entregables++; if (p.outOfStock) r.agotados++;
+            }
+            for (const [slug, r] of Object.entries(byReg)) console.log(`  catálogo copiado · ${slug} («${r.nombre}»): ${r.total} productos, ${r.diamantes} de diamantes, ${r.entregables} entregables solo con el ID, ${r.agotados} agotados`);
+            const keys = new Set(prods.map((p) => p.productKey));
+            const pkgs = await db.diamondPackage.findMany({ orderBy: [{ region: "asc" }, { diamonds: "asc" }] });
+            const linked = [];
+            for (const p of pkgs) {
+              const ok = !!p.providerSku && keys.has(p.providerSku);
+              if (ok && p.active) linked.push({ slug: p.slug, sku: p.providerSku });
+              console.log(`  paquete ${p.region}/${p.slug} (${p.diamonds + p.bonusDiamonds} 💎): ${ok ? "VINCULADO" : "SIN VINCULAR"}${p.supplierOutOfStock ? " · agotado en el proveedor" : ""}${p.active ? "" : " · inactivo"}${p.costCents != null ? " · costo conocido" : " · sin costo"}`);
+            }
+            require("fs").writeFileSync("/tmp/co-linked.json", JSON.stringify(linked));
+            await db.$disconnect();
+          })();
+          JS
+          node --env-file=.env /tmp/co-db.cjs
+
+          echo "== validar un ID contra cada paquete vinculado (gratis)"
+          LINKED="$(cat /tmp/co-linked.json)" node --env-file=.env /tmp/co-api.cjs 2>&1 | grep "validar ID" || echo "  (sin paquetes vinculados)"
+
+          echo "== entrega de prueba completa (no compra nada)"
+          cat > /tmp/co-test.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const step = process.argv[2];
+          (async () => {
+            if (step === "crear") {
+              const regions = ((await db.setting.findUnique({ where: { key: "topupRegions" } }))?.value || "latam").split(",");
+              const pkg = await db.diamondPackage.findFirst({ where: { active: true, available: true, supplierOutOfStock: false, providerSku: { not: null }, region: { in: regions } }, orderBy: { price: "asc" } });
+              if (!pkg) { console.log("  no hay un paquete vinculado y disponible para probar"); return; }
+              const sp = await db.supplierProduct.findUnique({ where: { productKey: pkg.providerSku } });
+              const crypto = require("crypto");
+              const order = await db.order.create({ data: {
+                number: `VX-PRUEBA-CO-${Date.now().toString(36).toUpperCase()}`, type: "TOPUP", status: "DELIVERY_FAILED", isTest: true,
+                idempotencyKey: crypto.randomUUID(), trackingToken: crypto.randomUUID(), customerEmail: "prueba-centralone@vantagg.invalid",
+                packageId: pkg.id, playerId: "123456789",
+                itemSnapshot: { kind: "TOPUP", name: `${pkg.diamonds + pkg.bonusDiamonds} diamantes Free Fire`, diamonds: pkg.diamonds, bonusDiamonds: pkg.bonusDiamonds, sku: pkg.providerSku, isDemo: false, region: pkg.region, regionName: sp?.regionName ?? null, costCents: pkg.costCents },
+                subtotal: pkg.price, total: pkg.price, currency: pkg.currency, paymentProvider: "bold", expiresAt: new Date(), paidAt: new Date(),
+              } });
+              const d = await db.delivery.create({ data: { orderId: order.id, provider: "centralone", idempotencyKey: `topup-${order.id}`, status: "FAILED", lastError: "[network] prueba de Central One", attempts: 0 } });
+              await db.$executeRawUnsafe("UPDATE `Delivery` SET updatedAt = NOW(3) - INTERVAL 10 MINUTE WHERE id = ?", d.id);
+              require("fs").writeFileSync("/tmp/co-test-order", order.id);
+              console.log(`  pedido de prueba creado con el paquete ${pkg.slug} (${pkg.diamonds + pkg.bonusDiamonds} 💎) para el ID 123456789`);
+            } else {
+              const id = require("fs").readFileSync("/tmp/co-test-order", "utf8");
+              const o = await db.order.findUnique({ where: { id }, include: { delivery: true, events: { orderBy: { createdAt: "asc" } } } });
+              console.log(`  resultado: pedido ${o.status} · entrega ${o.delivery?.status}${o.delivery?.simulated ? " (simulada)" : ""}`);
+              if (o.delivery?.lastError) console.log("  error:", o.delivery.lastError);
+              for (const e of o.events) console.log(`    ${e.type}: ${e.message}`);
+              await db.order.delete({ where: { id } });
+              console.log("  pedido de prueba borrado");
+            }
+            await db.$disconnect();
+          })();
+          JS
+          node --env-file=.env /tmp/co-test.cjs crear
+          if [ -s /tmp/co-test-order ]; then
+            echo "  mantenimiento (envía la entrega): $(curl -s -H "Authorization: Bearer $cron" http://127.0.0.1:3020/api/cron/maintenance)"
+            sleep 3
+            node --env-file=.env /tmp/co-test.cjs ver
+          fi
+          rm -f /tmp/co-api.cjs /tmp/co-db.cjs /tmp/co-test.cjs /tmp/co-linked.json /tmp/co-test-order
+
+          echo "== errores recientes del proveedor en la tienda"
+          pm2 logs vanta --lines 200 --nostream 2>/dev/null | grep -iE "proveedor|central|topup|supplier" | tail -n 10 || true
+          ENDSSH
