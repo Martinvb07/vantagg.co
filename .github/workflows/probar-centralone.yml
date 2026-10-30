@@ -136,7 +136,7 @@ jobs:
             await db.$disconnect();
           })();
           JS
-          node --env-file=.env /tmp/co-db.cjs
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/co-db.cjs
 
           echo "== validar un ID contra cada paquete vinculado (gratis)"
           LINKED="$(cat /tmp/co-linked.json)" node --env-file=.env /tmp/co-api.cjs 2>&1 | grep "validar ID" || echo "  (sin paquetes vinculados)"
@@ -176,11 +176,11 @@ jobs:
             await db.$disconnect();
           })();
           JS
-          node --env-file=.env /tmp/co-test.cjs crear
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/co-test.cjs crear
           if [ -s /tmp/co-test-order ]; then
             echo "  mantenimiento (envía la entrega): $(curl -s -H "Authorization: Bearer $cron" http://127.0.0.1:3020/api/cron/maintenance)"
             sleep 3
-            node --env-file=.env /tmp/co-test.cjs ver
+            NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/co-test.cjs ver
           fi
           rm -f /tmp/co-api.cjs /tmp/co-db.cjs /tmp/co-test.cjs /tmp/co-linked.json /tmp/co-test-order
 

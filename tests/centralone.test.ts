@@ -38,6 +38,15 @@ describe("Central One · catálogo", () => {
     expect(parseDiamondAmount("Free Fire Tarjeta semanal")).toBeNull();
     expect(parseDiamondAmount("Free Fire Pase Booyah 100 diamantes")).toBeNull();
     expect(parseDiamondAmount("Free Fire Membresía mensual")).toBeNull();
+    // Nombres reales del catálogo de Central One
+    expect(parseDiamondAmount("Free Fire 110 Diamantes (100 + 10% de bono)")).toBe(110);
+    expect(parseDiamondAmount("Free Fire 1166 Diamantes (1060 + 10% de bono)")).toBe(1166);
+    expect(parseDiamondAmount("Free Fire 6160 Diamantes (5600 + 10% de bono)")).toBe(6160);
+    expect(parseDiamondAmount("Free Fire · 2398 Diamantes (excepto VN/TH/ID/Medio Oriente)")).toBe(2398);
+    expect(parseDiamondAmount("Free Fire (BR) · 22640 Diamantes")).toBe(22640);
+    expect(parseDiamondAmount("Free Fire (BR) · Paquete de Nivel 10")).toBeNull();
+    expect(parseDiamondAmount("Free Fire (BR) · Acceso Evo 30 días")).toBeNull();
+    expect(parseDiamondAmount("Tarjeta Semanal Básica de Free Fire")).toBeNull();
   });
 
   it("traduce la región de Central One al slug de la tienda", () => {
@@ -60,6 +69,8 @@ describe("Central One · catálogo", () => {
       item({ product_id: "c", name: "Free Fire 110 Diamantes", target_fields: ["player_id", "zone_id"], target_schema: null }),
       item({ product_id: "d", name: "PUBG 60 UC", product_family_name: "PUBG Mobile" }),
       item({ product_id: "e", name: "Free Fire 110 Diamantes", status: "paused" }),
+      // Variante PIN (código, no recarga al ID): no se puede entregar con el ID.
+      item({ product_id: "f", name: "Free Fire 110 Diamantes (100 + 10% de bono) · PIN", requires_target: false, target_fields: [], target_schema: [] }),
     ]);
     expect(currency).toBe("USD");
     const latam = groups.find((g) => g.slug === "latam")!;
@@ -68,6 +79,7 @@ describe("Central One · catálogo", () => {
       ["22222222-3333-4444-5555-666666666666", 110, 0.98, false, "player_id"],
       ["a", 572, 4.9, true, "player_id"],
       ["c", 110, 0.98, false, "unsupported"],
+      ["f", 110, 0.98, false, "unsupported"],
     ]);
     expect(groups.find((g) => g.slug === "brazil")!.products).toHaveLength(1);
     expect(groups.some((g) => g.products.some((p) => p.product_key === "d" || p.product_key === "e"))).toBe(false);
@@ -78,6 +90,9 @@ describe("Central One · datos del jugador", () => {
   it("pone el ID en el campo del jugador", () => {
     expect(buildTargetPayload(targetSchemaOf(item({})), "123456789")).toEqual({ player_id: "123456789" });
     expect(buildTargetPayload(targetSchemaOf(item({ target_schema: null, target_fields: ["uid"] })), "987654321")).toEqual({ uid: "987654321" });
+    expect(buildTargetPayload(targetSchemaOf(item({ target_schema: null, target_fields: ["game_user_id"] })), "987654321")).toEqual({ game_user_id: "987654321" });
+    expect(buildTargetPayload([{ key: "zone_id", type: "text" }], "1")).toBeNull();
+    expect(buildTargetPayload([{ key: "server_id", type: "text" }, { key: "player_id", type: "text" }], "1")).toBeNull();
   });
 
   it("elige el servidor según la región, o la única opción", () => {

@@ -67,8 +67,10 @@ export function isFreeFireItem(item: Pick<CoCatalogItem, "name" | "product_famil
 export function parseDiamondAmount(name: string): number | null {
   if (/pase|pass\b|membres|member|semanal|weekly|mensual|monthly|nivel|level\s*up|evo|booyah/i.test(name)) return null;
   if (!/diamant|diamond|💎/i.test(name)) return null;
-  const withBonus = new RegExp(`${NUMBER}\\s*\\+\\s*${NUMBER}`).exec(name);
+  // «100+10 Diamonds»: base + bonus justo antes de la palabra diamantes. No cuenta «(1060 + 10% de bono)».
+  const withBonus = new RegExp(`${NUMBER}\\s*\\+\\s*${NUMBER}(?!\\s*%)\\s*(?:bonus\\s*)?(?:diamant|diamond|💎)`, "i").exec(name);
   if (withBonus) return num(withBonus[1]) + num(withBonus[2]);
+  // «Free Fire 1166 Diamantes (1060 + 10% de bono)»: el número pegado a la palabra es el total.
   const near = new RegExp(`${NUMBER}\\s*(?:bonus\\s*)?(?:diamant|diamond|💎)`, "i").exec(name);
   const any = near ?? new RegExp(NUMBER).exec(name);
   const n = any ? num(any[1]) : NaN;
@@ -112,7 +114,8 @@ export function regionSlugOf(raw: string | null | undefined): string {
   return s || "global";
 }
 
-const PLAYER_KEY = /^(player_?id|uid|user_?id|game_?id|id|account_?id|player)$/i;
+// Nombres del campo del ID del jugador (Central One usa player_id en LATAM y game_user_id en GLOBAL/BR/EU).
+const PLAYER_KEY = /^(game_?)?(player|user|account)?_?(id|uid)$|^player$|^uid$/i;
 
 /** Campos que pide el producto: target_schema si viene, si no target_fields como texto libre. */
 export function targetSchemaOf(item: Pick<CoCatalogItem, "requires_target" | "target_fields" | "target_schema">): CoTargetField[] {
