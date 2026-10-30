@@ -386,6 +386,23 @@ export function staffChatEmail(b: Brand, p: { number: string; adminLink: string 
   });
 }
 
+/** Aviso interno: algo inusual con el pago de un pedido (cobro duplicado, anulación, monto distinto). */
+export function staffPaymentIssueEmail(b: Brand, p: { number: string; item: string; title: string; reason: string; adminLink: string }): Email {
+  return build(b, `${p.title} · ${p.number}`, {
+    internal: true,
+    badge: "Revisar pago",
+    tone: "danger",
+    tag: p.number,
+    title: p.title,
+    intro: "Bold informó algo inusual sobre el pago de este pedido.",
+    preheader: p.reason.slice(0, 90),
+    rows: [["Pedido", p.number], ["Producto", p.item]],
+    quote: p.reason,
+    cta: { label: "Abrir el pedido", url: p.adminLink },
+    note: "La tienda no movió dinero por su cuenta: revisa el cobro en Bold y decide (reembolso, contracargo o nada).",
+  });
+}
+
 export function staffDeliveryIssueEmail(b: Brand, p: { number: string; item: string; reason: string; adminLink: string }): Email {
   return build(b, `Recarga detenida · ${p.number}`, {
     internal: true,

@@ -135,6 +135,8 @@ export const centralOneProvider: TopUpProvider = {
   displayName: "Central One (mayorista)",
   simulated: false,
   wholesale,
+  // Un pedido «failed» de Central One no siempre es definitivo: se espera antes de comprar de nuevo.
+  retryCooldownMs: 15 * 60_000,
 
   mode() {
     return env.topup.apiKey?.startsWith("co_live_") ? "production" : "sandbox";

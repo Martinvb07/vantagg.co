@@ -12,6 +12,7 @@ import {
   staffChatEmail,
   staffClaimEmail,
   staffDeliveryIssueEmail,
+  staffPaymentIssueEmail,
   staffSecurityEmail,
   staffServerErrorEmail,
   staffTicketEmail,
@@ -261,6 +262,27 @@ export async function notifyStaffDeliveryIssue(orderId: string, reason: string) 
     staffDeliveryIssueEmail(await getBrand(), { number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Recarga", reason: reason.replace(/^\[[a-z0-9_]+\]\s*/i, "").slice(0, 500), adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`) }),
   );
   await db.notification.updateMany({ where: { orderId, template: "staff_delivery_issue" }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+}
+
+/** Aviso al equipo por un problema de pago (uno por tipo y pedido: duplicate | voided | amount). */
+export async function notifyStaffPaymentIssue(orderId: string, kind: "duplicate" | "voided" | "amount", title: string, reason: string) {
+  const to = await staffInbox();
+  if (!to) return;
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, number: true, itemSnapshot: true } });
+  if (!order) return;
+  const template = `staff_payment_${kind}`;
+  try {
+    await db.notification.create({ data: { orderId, channel: "email", recipient: to, template } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return;
+    throw err;
+  }
+  const r = await sendEmail(
+    to,
+    template,
+    staffPaymentIssueEmail(await getBrand(), { number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Pedido", title, reason: reason.slice(0, 500), adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`) }),
+  );
+  await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
 }
 
 /** Aviso de seguridad al propio miembro del equipo (ingreso, 2FA, códigos). */

@@ -140,6 +140,8 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const topList = [...top.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
   const paymentsReal = integrations.some((i) => i.group === "Pagos" && i.active && i.mode !== "Prueba local");
+  // En la tienda publicada, un modo de prueba activo significa pedidos que no se cobran o no se entregan.
+  const testModes = [env.bold.testMode && "pagos de Bold (BOLD_TEST_MODE)", env.topup.forceTest && "recargas (TOPUP_TEST_MODE)"].filter(Boolean);
   const qs = (r: string, t = withTest) => `/admin?r=${r}${t ? "&prueba=1" : ""}`;
   const fecha = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Bogota" }).format(new Date());
   const today = fecha.charAt(0).toUpperCase() + fecha.slice(1);
@@ -158,6 +160,16 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
           <AlertTriangle className="size-5 shrink-0 text-warn-400" />
           <span className="flex-1">
             <span className="font-medium text-fg">Los pagos aún no están activos.</span> <span className="text-fg-muted">Cuando Bold apruebe tu comercio, conectamos las llaves y la tienda empieza a cobrar. Mientras tanto nadie puede comprar.</span>
+          </span>
+          <ArrowRight className="size-4 text-fg-subtle" />
+        </Link>
+      )}
+
+      {isAdmin && paymentsReal && testModes.length > 0 && (
+        <Link href="/admin/integraciones" className="mb-6 flex items-center gap-3 rounded-[12px] border border-bad-400/30 bg-bad-400/[0.06] p-4 text-sm hover:border-bad-400/50">
+          <AlertTriangle className="size-5 shrink-0 text-bad-400" />
+          <span className="flex-1">
+            <span className="font-medium text-fg">Modo de prueba activo en {testModes.join(" y ")}.</span> <span className="text-fg-muted">Los pedidos nuevos quedan como prueba: no se cobran o no se entregan de verdad. Quítalo del .env antes de vender.</span>
           </span>
           <ArrowRight className="size-4 text-fg-subtle" />
         </Link>

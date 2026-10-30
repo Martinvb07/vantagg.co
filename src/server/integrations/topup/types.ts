@@ -91,6 +91,11 @@ export interface TopUpProvider {
   readonly simulated: boolean;
   /** Presente en proveedores mayoristas con catálogo y saldo propios. */
   readonly wholesale?: WholesaleApi;
+  /**
+   * Espera mínima antes de reintentar con una clave nueva una entrega que el proveedor dio por fallida
+   * (hay proveedores que todavía pueden completarla unos minutos después).
+   */
+  readonly retryCooldownMs?: number;
   mode(): "sandbox" | "production" | "test";
   missingConfig(): string[];
   isEnabled(): boolean;

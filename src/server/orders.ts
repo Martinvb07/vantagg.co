@@ -16,7 +16,7 @@ import { activeTopUpProvider, getTopUpProvider } from "./integrations/topup";
 import type { TopUpProvider, TopUpRequest, TopUpResult } from "./integrations/topup/types";
 import { confirmRedemption, releaseRedemption, reservePromo, undoPromoReservation } from "./promo";
 import { postSystemMessage } from "./chat";
-import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue } from "./notifications";
+import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffPaymentIssue } from "./notifications";
 import { getSettings } from "./settings";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import { checkPlayerRegion, supplierRate, supplierRegionName } from "./supplier";
@@ -320,14 +320,30 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     return { handled: false, reason: "Proveedor no corresponde" };
   }
 
+  // Un cobro ya anulado nunca vuelve a «aprobado» por un aviso tardío o una consulta vieja.
+  const prev = await db.payment.findUnique({ where: { provider_providerRef: { provider: providerId, providerRef: p.providerRef } }, select: { status: true, orderId: true } });
+  if (prev && prev.orderId !== order.id) {
+    await addEvent(order.id, "PAYMENT_REF_MISMATCH", `Se ignoró el cobro ${p.providerRef}: ya pertenece a otro pedido.`, actor);
+    return { handled: false, reason: "Cobro de otro pedido" };
+  }
+  if (prev?.status === "VOIDED" && p.status !== "VOIDED") {
+    await addEvent(order.id, "PAYMENT_STALE_IGNORED", `Se ignoró un aviso «${p.status}» del cobro ${p.providerRef}: ese cobro ya fue anulado.`, actor);
+    return { handled: true, duplicate: true };
+  }
+
   await db.payment.upsert({
     where: { provider_providerRef: { provider: providerId, providerRef: p.providerRef } },
     create: { orderId: order.id, provider: providerId, providerRef: p.providerRef, status: p.status, amount: p.amount, currency: p.currency, method: p.method ?? null },
     update: { status: p.status, method: p.method ?? undefined },
   });
 
+  if (p.status === "VOIDED") {
+    await handleVoidedPayment(order.id, p, actor);
+    return { handled: true };
+  }
+
   if (p.status !== "APPROVED") {
-    if (p.status === "DECLINED" || p.status === "ERROR" || p.status === "VOIDED") {
+    if (p.status === "DECLINED" || p.status === "ERROR") {
       await addEvent(order.id, "PAYMENT_NOT_APPROVED", "La pasarela informó que el pago no fue aprobado. Puedes intentarlo de nuevo.", actor, {
         public: true,
         data: { status: p.status, providerRef: p.providerRef },
@@ -340,6 +356,7 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     await addEvent(order.id, "PAYMENT_AMOUNT_MISMATCH", `Monto aprobado (${p.amount} ${p.currency}) distinto al de la orden. Requiere revisión manual.`, actor, {
       data: { expected: order.total, received: p.amount },
     });
+    void notifyStaffPaymentIssue(order.id, "amount", "Pago con monto distinto", `Bold aprobó ${p.amount} ${p.currency} y el pedido es de ${order.total} ${order.currency}. No se entregó nada.`).catch(() => {});
     return { handled: false, reason: "Monto no coincide" };
   }
 
@@ -349,7 +366,10 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     where: { id: order.id, status: { in: ["PENDING_PAYMENT", "CANCELLED"] } },
     data: { status: "PAID", paidAt: now, cancelledAt: null },
   });
-  if (won.count === 0) return { handled: true, duplicate: true };
+  if (won.count === 0) {
+    await flagDuplicatePayment(order.id, p, actor);
+    return { handled: true, duplicate: true };
+  }
   await confirmRedemption(order.id);
 
   await addEvent(order.id, "PAYMENT_CONFIRMED", "La pasarela confirmó el pago.", actor, {
@@ -359,6 +379,63 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
   void notifyOrder(order.id, "payment_confirmed").catch(() => {});
   await fulfillOrder(order.id);
   return { handled: true };
+}
+
+/** Links de cobro iniciados para la orden (sus ids no cuentan como transacciones distintas). */
+async function checkoutRefsOf(orderId: string): Promise<string[]> {
+  const events = await db.orderEvent.findMany({ where: { orderId, type: "CHECKOUT_STARTED" }, select: { data: true } });
+  return events.map((e) => (e.data as { checkoutRef?: string } | null)?.checkoutRef).filter((x): x is string => !!x);
+}
+
+/**
+ * Segundo cobro aprobado para una orden ya pagada (el cliente pagó dos links): no se entrega dos veces;
+ * se avisa al equipo y al cliente para devolver el duplicado. Una misma transacción repetida no cuenta.
+ */
+async function flagDuplicatePayment(orderId: string, p: VerifiedPayment, actor: string) {
+  const links = await checkoutRefsOf(orderId);
+  if (links.includes(p.providerRef)) return;
+  const others = await db.payment.count({ where: { orderId, status: "APPROVED", NOT: { providerRef: { in: [p.providerRef, ...links] } } } });
+  if (others === 0) return;
+  const seen = await db.orderEvent.count({ where: { orderId, type: "PAYMENT_DUPLICATE", message: { contains: p.providerRef } } });
+  if (seen > 0) return;
+  await addEvent(orderId, "PAYMENT_DUPLICATE", `Cobro adicional aprobado ${p.providerRef} (${p.amount} ${p.currency}) para un pedido ya pagado. No se entregó de nuevo: devolver el duplicado.`, actor, { data: { providerRef: p.providerRef, amount: p.amount } });
+  await addEvent(orderId, "PAYMENT_DUPLICATE_PUBLIC", "Recibimos un segundo pago por este pedido. Te devolveremos el valor duplicado; nuestro equipo ya fue notificado.", "SYSTEM", { public: true });
+  void notifyStaffPaymentIssue(orderId, "duplicate", "Pago duplicado", `El cliente pagó dos veces este pedido (cobro adicional ${p.providerRef} por ${p.amount} ${p.currency}). La recarga se entregó una sola vez: devuelve el cobro duplicado en Bold.`).catch(() => {});
+}
+
+/**
+ * Bold anuló un cobro. Si era el único cobro aprobado del pedido y aún no se entregó, el pedido se cancela
+ * (la entrega queda bloqueada). Si ya se envió o entregó, no se toca el estado: se avisa al equipo.
+ */
+async function handleVoidedPayment(orderId: string, p: VerifiedPayment, actor: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  if (!order) return;
+  const stillPaid = await db.payment.count({ where: { orderId, status: "APPROVED", NOT: { providerRef: p.providerRef } } });
+  if (order.status === "PENDING_PAYMENT" || order.status === "CANCELLED") {
+    await addEvent(orderId, "PAYMENT_NOT_APPROVED", "La pasarela informó que el pago no fue aprobado. Puedes intentarlo de nuevo.", actor, { public: true, data: { status: p.status, providerRef: p.providerRef } });
+    return;
+  }
+  if (stillPaid > 0) {
+    await addEvent(orderId, "PAYMENT_VOIDED_EXTRA", `Bold anuló el cobro adicional ${p.providerRef}; el pedido sigue pagado con otro cobro.`, actor);
+    return;
+  }
+  if (order.status === "REFUND_REQUESTED" || order.status === "REFUNDED") {
+    await addEvent(orderId, "PAYMENT_VOIDED", `Bold anuló el cobro ${p.providerRef} (devolución del pedido).`, actor);
+    return;
+  }
+  if (order.status === "PAID" || order.status === "DELIVERY_FAILED") {
+    const r = await db.order.updateMany({ where: { id: orderId, status: { in: ["PAID", "DELIVERY_FAILED"] } }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    if (r.count === 1) {
+      await releaseRedemption(orderId);
+      await addEvent(orderId, "PAYMENT_VOIDED", `Bold anuló el cobro ${p.providerRef} antes de la entrega: pedido cancelado y entrega bloqueada.`, actor);
+      await addEvent(orderId, "STATUS_PUBLIC", "La pasarela anuló el pago de este pedido, así que no se entregará. Si fue un error, escríbenos.", "SYSTEM", { public: true });
+      void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado", `Bold anuló el cobro ${p.providerRef} antes de entregar: el pedido se canceló y no se enviará la recarga.`).catch(() => {});
+      return;
+    }
+  }
+  // Ya en camino o entregado: no se revierte nada automáticamente.
+  await addEvent(orderId, "PAYMENT_VOIDED_AFTER_DELIVERY", `Bold anuló el cobro ${p.providerRef} con el pedido en estado ${order.status}. Revisar posible contracargo.`, actor);
+  void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado después de entregar", `Bold anuló el cobro ${p.providerRef} y el pedido ya está ${ORDER_STATUS_META[order.status].label.toLowerCase()}. Revisa en Bold si es un contracargo o una devolución.`).catch(() => {});
 }
 
 // ---------------------------------------------------------------------
@@ -543,6 +620,14 @@ export async function retryDelivery(orderId: string, actor: string): Promise<{ o
   }
 
   const d = order.delivery;
+  const providerForDelivery = getTopUpProvider(d.provider) ?? provider;
+  // Con una transacción anterior, se espera a que el proveedor la dé por cerrada antes de comprar otra vez.
+  const cooldown = d.providerRef ? (providerForDelivery.retryCooldownMs ?? 0) : 0;
+  const waitMs = d.updatedAt.getTime() + cooldown - Date.now();
+  if (waitMs > 0) {
+    return { ok: false, message: `Espera ${Math.ceil(waitMs / 60_000)} min antes de reintentar: el proveedor todavía puede completar la entrega anterior.` };
+  }
+
   // Bloqueo optimista: solo un reintento a la vez.
   const locked = await db.delivery.updateMany({
     where: { id: d.id, status: "FAILED" },
@@ -553,7 +638,6 @@ export async function retryDelivery(orderId: string, actor: string): Promise<{ o
   await addEvent(order.id, "DELIVERY_RETRY", `Reintento de entrega #${d.attempts + 1}.`, actor);
 
   // Antes de reintentar, se confirma con el proveedor el estado de la transacción anterior.
-  const providerForDelivery = getTopUpProvider(d.provider) ?? provider;
   if (d.providerRef) {
     try {
       const current = await providerForDelivery.getTransactionStatus(d.providerRef);
@@ -579,7 +663,7 @@ export async function retryDelivery(orderId: string, actor: string): Promise<{ o
 /** Estado de los cobros iniciados para una orden (links de pago guardados en CHECKOUT_STARTED). */
 async function checkoutsOf(orderId: string, provider: NonNullable<ReturnType<typeof getPaymentProvider>>): Promise<VerifiedPayment[]> {
   if (!provider.getCheckout) return [];
-  const events = await db.orderEvent.findMany({ where: { orderId, type: "CHECKOUT_STARTED" }, orderBy: { createdAt: "desc" }, take: 5, select: { data: true } });
+  const events = await db.orderEvent.findMany({ where: { orderId, type: "CHECKOUT_STARTED" }, orderBy: { createdAt: "desc" }, take: 20, select: { data: true } });
   const out: VerifiedPayment[] = [];
   for (const e of events) {
     const d = e.data as { provider?: string; checkoutRef?: string } | null;

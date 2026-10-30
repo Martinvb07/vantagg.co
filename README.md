@@ -32,6 +32,16 @@ Para probar compras sin cobros ni diamantes reales: Bold con llaves de prueba y 
 
 Comandos: `npm test` (pruebas unitarias) · `npm run lint` (tipos) · `npm run build` · `npm run db:studio`.
 
+Pruebas del flujo pago → entrega (webhooks, montos, duplicados, reintentos) contra una base MySQL **de pruebas**; la API de Bold y el proveedor se simulan, no sale nada a internet:
+
+```bash
+mysql -e "CREATE DATABASE IF NOT EXISTS vanta_test"
+DATABASE_URL=mysql://usuario:clave@localhost:3306/vanta_test npx prisma db push
+TEST_DATABASE_URL=mysql://usuario:clave@localhost:3306/vanta_test npm test
+```
+
+Sin `TEST_DATABASE_URL` esas pruebas se omiten; solo corren si el nombre de la base contiene «test». Plan de pruebas manuales con Burp: `docs/plan-pruebas-burp.md`.
+
 ---
 
 ## 2. Variables de entorno
