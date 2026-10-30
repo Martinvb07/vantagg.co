@@ -11,9 +11,22 @@ const LIME2 = "#dcff7a";
 const INK = "#030504";
 const HEAD = "Arial Black, Arial, Helvetica, sans-serif";
 const BODY = "Arial, Helvetica, sans-serif";
-const NEQUI = "#ff2d9b";
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Logo de Nequi (public/pagos/nequi.svg, ver CREDITOS.txt): cuadro magenta y letras blancas para fondo oscuro.
+const NEQUI_PATHS = [
+  "M31.99 0.28H28.22C27.7 0.28 27.3 0.7 27.3 1.2V16.28C27.3 16.58 26.9 16.7 26.75 16.42L17.99 0.69C17.85 0.43 17.59 0.28 17.28 0.28H11.02C10.5 0.28 10.1 0.7 10.1 1.2V25.29C10.1 25.81 10.52 26.21 11.02 26.21H14.79C15.3 26.21 15.7 25.79 15.7 25.29V9.76C15.7 9.46 16.11 9.34 16.25 9.62L25.26 25.82C25.4 26.08 25.66 26.22 25.96 26.22H31.96C32.47 26.22 32.87 25.81 32.87 25.31V1.2C32.87 0.69 32.46 0.28 31.96 0.28Z",
+  "M54.65 16.81C54.65 10.02 50.24 6.65 45.39 6.65C39.09 6.65 35.5 11.02 35.5 16.92C35.5 23.63 40.01 26.82 45.24 26.82C50.48 26.82 53.54 24.11 54.36 20.6C54.47 20.15 54.21 19.74 53.54 19.74H50.57C50.24 19.74 49.95 19.92 49.8 20.26C49.06 21.89 47.87 22.74 45.58 22.74C42.99 22.74 41.25 21.11 40.99 17.81H53.73C54.28 17.81 54.65 17.41 54.65 16.81ZM41.2 14.25C41.75 11.81 43.16 10.73 45.31 10.73C47.22 10.73 48.87 11.84 49.09 14.25H41.2Z",
+  "M103.08 7.14H99.3C98.79 7.14 98.38 7.55 98.38 8.05V25.31C98.38 25.81 98.79 26.22 99.3 26.22H103.08C103.59 26.22 104 25.81 104 25.31V8.05C104 7.55 103.59 7.14 103.08 7.14Z",
+  "M74.98 7.14H71.21C70.69 7.14 70.29 7.55 70.29 8.05V8.99C69.16 7.67 67.31 6.75 64.88 6.75C59.43 6.75 56.55 11.68 56.55 16.91C56.55 21.47 58.92 26.58 64.77 26.58C66.86 26.58 69.08 25.58 70.29 24.16V31.58C70.29 32.09 70.71 32.5 71.21 32.5H74.98C75.49 32.5 75.89 32.08 75.89 31.58V8.07C75.89 7.55 75.48 7.15 74.98 7.15ZM66.39 22.52C63.91 22.52 62.17 20.69 62.17 16.78C62.17 12.86 63.91 10.81 66.39 10.81C68.87 10.81 70.61 12.7 70.61 16.78C70.61 20.86 68.87 22.52 66.39 22.52Z",
+  "M95.05 7.14H91.28C90.76 7.14 90.36 7.55 90.36 8.05V17.81C90.36 20.95 88.96 21.87 87.17 21.87C85.38 21.87 83.98 20.95 83.98 17.81V8.05C83.98 7.54 83.56 7.14 83.06 7.14H79.29C78.78 7.14 78.38 7.55 78.38 8.05V18.21C78.38 24.26 81.71 26.69 87.19 26.69C92.66 26.69 96 24.24 96 18.21V8.05C96 7.54 95.58 7.14 95.08 7.14Z",
+];
+/** Logo de Nequi con su esquina superior izquierda en (x, y) y alto h (ancho ≈ 3,2 × h). */
+function nequiLogo(x, y, h) {
+  const k = h / 32.5;
+  return `<g transform="translate(${x} ${y}) scale(${k})"><rect x="0" y="0.28" width="6.22" height="5.56" rx="0.92" fill="#DA0081"/>${NEQUI_PATHS.map((d) => `<path d="${d}" fill="#fff"/>`).join("")}</g>`;
+}
 
 // ---------------------------------------------------------------- piezas de dibujo (coordenadas locales)
 
@@ -85,7 +98,7 @@ const phone = () => `${ringBack(0, 92, 74, 14)}
 <rect x="-56" y="-100" width="112" height="196" rx="20" fill="url(#dark)" stroke="${INK}" stroke-width="4"/>
 <rect x="-48" y="-88" width="96" height="172" rx="12" fill="#070a08" stroke="${LIME}" stroke-width="2"/>
 <rect x="-14" y="-96" width="28" height="5" rx="2.5" fill="#000"/>
-<text x="-34" y="-58" font-family="${BODY}" font-weight="900" font-size="20" fill="${NEQUI}">nequi</text>
+${nequiLogo(-36, -78, 22)}
 <circle cx="0" cy="-2" r="30" fill="${LIME}" filter="url(#soft)" opacity=".7"/>
 <circle cx="0" cy="-2" r="28" fill="${LIME}" stroke="${INK}" stroke-width="2"/>
 <path d="M-13 -2L-3 9L15 -12" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
@@ -171,10 +184,10 @@ function payChips(x, y, s = 1) {
   const chip = (cx, label, icon) => `<g transform="translate(${cx} 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="${INK}" stroke-width="3"/>
 <rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="${LIME}" stroke-opacity=".7" stroke-width="2"/>${icon}
 <text x="0" y="34" font-family="${HEAD}" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1">${label}</text></g>`;
-  const nequi = `<text x="0" y="6" font-family="${BODY}" font-weight="900" font-size="26" fill="${NEQUI}" text-anchor="middle">nequi</text>`;
+  const nequi = nequiLogo(-40, -18, 25);
   const pse = `<path d="M-18 -4H18M-14 -4V14M-5 -4V14M5 -4V14M14 -4V14M-20 16H20M0 -22L-20 -8H20Z" stroke="${LIME}" stroke-width="3" fill="none" stroke-linejoin="round"/>`;
   const card = `<rect x="-22" y="-22" width="44" height="30" rx="5" fill="none" stroke="${LIME}" stroke-width="3"/><path d="M-22 -12H22" stroke="${LIME}" stroke-width="5"/>`;
-  return `<g transform="translate(${x} ${y}) scale(${s})">${chip(-189, "", nequi.replace('y="6"', 'y="9"').replace('font-size="26"', 'font-size="30"'))}${chip(-63, "PSE", pse)}${chip(63, "DÉBITO", card)}${chip(189, "CRÉDITO", card)}</g>`;
+  return `<g transform="translate(${x} ${y}) scale(${s})">${chip(-189, "", nequi)}${chip(-63, "PSE", pse)}${chip(63, "DÉBITO", card)}${chip(189, "CRÉDITO", card)}</g>`;
 }
 
 function steps(x, y, s = 1, labels = ["Verificamos tu cuenta", "Nequi, PSE o tarjeta", "Directo a tu cuenta"]) {
@@ -297,17 +310,16 @@ ${heading(40, 360, [["¿TIENES UN", "w", 56], ["CÓDIGO?", "l", 96]])}
 ${sub(46, 492, "Escríbelo en el último paso y", 22)}${sub(46, 520, "ve tu descuento antes de pagar", 22)}
 ${cta(44, 536, "USAR CÓDIGO  →", 17)}`));
 
-const nequiWord = (x, y, s) => `<text x="${x}" y="${y}" font-family="${BODY}" font-weight="900" font-size="${s}" fill="${NEQUI}" letter-spacing="-2">nequi</text>`;
 
 add("hero-nequi.svg", svg(HERO.w, HERO.h, { vx: 1270, vs: 1.25 }, `${place(phone(), 1270, 230, 1.85)}
 ${tag(96, 70, "DIAMANTES FF")}
-<text x="90" y="216" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="96" fill="#fff">PAGA CON</text>${nequiWord(92, 326, 116)}
+<text x="90" y="216" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="96" fill="#fff">PAGA CON</text>${nequiLogo(96, 238, 96)}
 ${sub(98, 368, "Apruebas el pago en tu app de Nequi", 24)}
 ${cta(96, 390, "RECARGAR  →", 20)}`));
 
 add("m/hero-nequi.svg", svg(MOB.w, MOB.h, { vx: 600, vs: 0.85, glowX: 0.75, glowY: 0.32 }, `${place(phone(), 610, 200, 1.3)}
 ${tag(46, 40, "DIAMANTES FF", 20)}
-<text x="40" y="380" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="76" fill="#fff">PAGA CON</text>${nequiWord(42, 470, 104)}
+<text x="40" y="380" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="76" fill="#fff">PAGA CON</text>${nequiLogo(46, 398, 80)}
 ${sub(46, 510, "Apruebas el pago en tu app de Nequi", 22)}
 ${cta(44, 530, "RECARGAR  →", 17)}`));
 
@@ -383,7 +395,7 @@ side("garantia.svg", refund(), 920, 290, 1.9, `${heading(60, 170, [["SI LA ENTRE
 ${sub(66, 520, "✔ Pago verificado   ✔ Sin contraseñas   ✔ Soporte real", 22)}`);
 
 side("nequi.svg", phone(), 930, 310, 1.75, `${tag(66, 70, "DIAMANTES FF")}
-<text x="60" y="250" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="84" fill="#fff">PAGA CON</text>${nequiWord(62, 370, 128)}
+<text x="60" y="250" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="84" fill="#fff">PAGA CON</text>${nequiLogo(66, 276, 96)}
 ${sub(66, 420, "Apruebas el pago en tu app de Nequi", 24)}
 ${cta(64, 456, "RECARGAR  →", 22)}`);
 
