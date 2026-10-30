@@ -1,48 +1,58 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1a0630"/>
-      <stop offset="0.55" stop-color="#4a0d5e"/>
-      <stop offset="1" stop-color="#b0127a"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000" flood-opacity=".45"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="1050" cy="80" r="220" fill="#ff3fb4" opacity=".35" filter="url(#glow)"/>
-  <circle cx="120" cy="600" r="200" fill="#7c4dff" opacity=".35" filter="url(#glow)"/>
-  <g opacity=".1" stroke="#fff" stroke-width="2"><path d="M0 90 H1200"/><path d="M0 540 H1200"/></g>
-
-  <text x="600" y="150" text-anchor="middle" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="92" fill="#fff">PAGA COMO QUIERAS</text>
-  <text x="600" y="205" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" fill="#ffd1ef">En pesos colombianos · pago seguro en la pasarela</text>
-
-  <g filter="url(#shadow)" font-family="Arial Black, Arial, sans-serif" font-weight="900">
-    <!-- Nequi -->
-    <rect x="70" y="270" rx="28" width="240" height="210" fill="#200020" stroke="#da0081" stroke-width="4"/>
-    <rect x="114" y="350" width="20" height="20" rx="4" fill="#da0081"/>
-    <text x="210" y="392" text-anchor="middle" font-size="58" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="900" letter-spacing="-2">nequi</text>
-    <!-- PSE -->
-    <rect x="340" y="270" rx="28" width="240" height="210" fill="#0b4a8b"/>
-    <path d="M418 330 L460 304 L502 330 Z" fill="#fff"/>
-    <rect x="424" y="336" width="10" height="34" rx="2" fill="#fff"/>
-    <rect x="446" y="336" width="10" height="34" rx="2" fill="#fff"/>
-    <rect x="465" y="336" width="10" height="34" rx="2" fill="#fff"/>
-    <rect x="486" y="336" width="10" height="34" rx="2" fill="#fff"/>
-    <rect x="416" y="374" width="88" height="8" rx="2" fill="#fff"/>
-    <text x="460" y="440" text-anchor="middle" font-size="58" fill="#fff">PSE</text>
-    <!-- Débito -->
-    <rect x="610" y="270" rx="28" width="240" height="210" fill="#ffffff"/>
-    <rect x="660" y="305" rx="12" width="140" height="90" fill="#1d2433"/>
-    <rect x="660" y="325" width="140" height="18" fill="#c8f04f"/>
-    <rect x="676" y="360" rx="4" width="36" height="24" fill="#f4b84a"/>
-    <text x="730" y="447" text-anchor="middle" font-size="40" fill="#1d2433">DÉBITO</text>
-    <!-- Crédito -->
-    <rect x="880" y="270" rx="28" width="240" height="210" fill="#ffffff"/>
-    <rect x="930" y="305" rx="12" width="140" height="90" fill="#0b2e74"/>
-    <rect x="930" y="325" width="140" height="18" fill="#6cb4ff"/>
-    <rect x="946" y="360" rx="4" width="36" height="24" fill="#f4b84a"/>
-    <text x="1000" y="447" text-anchor="middle" font-size="40" fill="#0b2e74">CRÉDITO</text>
-  </g>
-
-  <text x="600" y="565" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#ffffff" fill-opacity=".8">Nunca guardamos los datos de tu tarjeta</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.8416666666666667" cy="0.23809523809523808" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<path d="M870 -10H934.4L1010 143.21999999999997L1085.6 -10H1150L1021.2 230.99999999999997H998.8Z" fill="url(#v)"/>
+<rect width="1200" height="630" fill="url(#glow)"/>
+<path d="M1116 75.6L1186 19.599999999999994L1180 35.599999999999994L1122 83.6Z" fill="#b9f43c" opacity="0.55"/><path d="M1158 126L1200 92.4L1196.4 102L1161.6 130.8Z" fill="#b9f43c" opacity="0.3"/><path d="M24 516.6L80 471.8L75.2 484.6L28.8 523Z" fill="#b9f43c" opacity="0.4"/><circle cx="48" cy="640" r="138.6" fill="#0d200f" opacity=".9"/><circle cx="192" cy="640" r="113.39999999999999" fill="#0d200f" opacity=".9"/><circle cx="1032" cy="640" r="126" fill="#0d200f" opacity=".9"/><circle cx="1176" cy="640" r="151.2" fill="#0d200f" opacity=".9"/>
+<g transform="translate(1010 150) scale(1.05)"><path d="M-70 86A70 13 0 0 1 70 86" fill="none" stroke="#b9f43c" stroke-opacity=".45" stroke-width="2"/>
+<path d="M0 -96L72 -70V-6C72 44 38 76 0 92C-38 76 -72 44 -72 -6V-70Z" fill="url(#dark)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M0 -82L60 -61V-6C60 36 32 64 0 78C-32 64 -60 36 -60 -6V-61Z" fill="none" stroke="#b9f43c" stroke-width="3" stroke-linejoin="round"/>
+<path d="M-28 -2L-8 18L30 -24" fill="none" stroke="#b9f43c" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)" opacity=".6"/>
+<path d="M-28 -2L-8 18L30 -24" fill="none" stroke="#b9f43c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+<g transform="rotate(-18 -92 -49.68)" stroke-linejoin="round">
+<path d="M-98.48 -60L-104 -53.808L-96 -53.808Z" fill="#52bbff"/><path d="M-98.48 -60L-92 -60L-96 -53.808Z" fill="#e3f9ff"/>
+<path d="M-92 -60L-96 -53.808L-88 -53.808Z" fill="#98e1ff"/><path d="M-92 -60L-85.52 -60L-88 -53.808Z" fill="#52bbff"/>
+<path d="M-85.52 -60L-80 -53.808L-88 -53.808Z" fill="#2d84f0"/><path d="M-104 -53.808L-96 -53.808L-92 -39.36Z" fill="#52bbff"/>
+<path d="M-96 -53.808L-88 -53.808L-92 -39.36Z" fill="#2d84f0"/><path d="M-88 -53.808L-80 -53.808L-92 -39.36Z" fill="#1a52c4"/>
+<path d="M-97.04 -58.968L-93.44 -58.968L-96.72 -54.84Z" fill="#fff" opacity=".7"/>
+<path d="M-101.12 -52.775999999999996L-96.48 -52.775999999999996L-93.2 -43.9008Z" fill="#fff" opacity=".25"/>
+<path d="M-98.48 -60H-85.52L-80 -53.808L-92 -39.36L-104 -53.808Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(16 90 -20.54)" stroke-linejoin="round">
+<path d="M84.06 -30L79 -24.324L86.33333333333333 -24.324Z" fill="#52bbff"/><path d="M84.06 -30L90 -30L86.33333333333333 -24.324Z" fill="#e3f9ff"/>
+<path d="M90 -30L86.33333333333333 -24.324L93.66666666666667 -24.324Z" fill="#98e1ff"/><path d="M90 -30L95.94 -30L93.66666666666667 -24.324Z" fill="#52bbff"/>
+<path d="M95.94 -30L101 -24.324L93.66666666666667 -24.324Z" fill="#2d84f0"/><path d="M79 -24.324L86.33333333333333 -24.324L90 -11.080000000000002Z" fill="#52bbff"/>
+<path d="M86.33333333333333 -24.324L93.66666666666667 -24.324L90 -11.080000000000002Z" fill="#2d84f0"/><path d="M93.66666666666667 -24.324L101 -24.324L90 -11.080000000000002Z" fill="#1a52c4"/>
+<path d="M85.38 -29.054L88.68 -29.054L85.67333333333333 -25.270000000000003Z" fill="#fff" opacity=".7"/>
+<path d="M81.64 -23.378L85.89333333333333 -23.378L88.9 -15.242400000000002Z" fill="#fff" opacity=".25"/>
+<path d="M84.06 -30H95.94L101 -24.324L90 -11.080000000000002L79 -24.324Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(10 78 46.019999999999996)" stroke-linejoin="round">
+<path d="M74.22 40L71 43.612L75.66666666666667 43.612Z" fill="#52bbff"/><path d="M74.22 40L78 40L75.66666666666667 43.612Z" fill="#e3f9ff"/>
+<path d="M78 40L75.66666666666667 43.612L80.33333333333333 43.612Z" fill="#98e1ff"/><path d="M78 40L81.78 40L80.33333333333333 43.612Z" fill="#52bbff"/>
+<path d="M81.78 40L85 43.612L80.33333333333333 43.612Z" fill="#2d84f0"/><path d="M71 43.612L75.66666666666667 43.612L78 52.04Z" fill="#52bbff"/>
+<path d="M75.66666666666667 43.612L80.33333333333333 43.612L78 52.04Z" fill="#2d84f0"/><path d="M80.33333333333333 43.612L85 43.612L78 52.04Z" fill="#1a52c4"/>
+<path d="M75.06 40.602L77.16 40.602L75.24666666666667 43.010000000000005Z" fill="#fff" opacity=".7"/>
+<path d="M72.68 44.214L75.38666666666667 44.214L77.3 49.3912Z" fill="#fff" opacity=".25"/>
+<path d="M74.22 40H81.78L85 43.612L78 52.04L71 43.612Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g>
+<path d="M-70 86A70 13 0 0 0 70 86" fill="none" stroke="#b9f43c" stroke-width="7" filter="url(#soft)" opacity=".75"/>
+<path d="M-70 86A70 13 0 0 0 70 86" fill="none" stroke="#dcff7a" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M-86 74Q-74 103 -14 102Q-68 97 -86 74Z" fill="#b9f43c" opacity=".9"/>
+<path d="M84 70Q76 97 24.5 100Q68 94 84 70Z" fill="#b9f43c" opacity=".75"/></g><text x="60" y="130" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="72" fill="#fff">PAGA COMO</text><text x="60" y="203.44" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="72" fill="#b9f43c">QUIERAS</text>
+<text x="66" y="240" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#c9d3cc" text-anchor="start">En pesos colombianos · pago seguro en la pasarela</text>
+<g transform="translate(600 380) scale(1.3)"><g transform="translate(-189 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="#b9f43c" stroke-opacity=".7" stroke-width="2"/><text x="0" y="9" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="30" fill="#ff2d9b" text-anchor="middle">nequi</text>
+<text x="0" y="34" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1"></text></g><g transform="translate(-63 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="#b9f43c" stroke-opacity=".7" stroke-width="2"/><path d="M-18 -4H18M-14 -4V14M-5 -4V14M5 -4V14M14 -4V14M-20 16H20M0 -22L-20 -8H20Z" stroke="#b9f43c" stroke-width="3" fill="none" stroke-linejoin="round"/>
+<text x="0" y="34" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1">PSE</text></g><g transform="translate(63 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="#b9f43c" stroke-opacity=".7" stroke-width="2"/><rect x="-22" y="-22" width="44" height="30" rx="5" fill="none" stroke="#b9f43c" stroke-width="3"/><path d="M-22 -12H22" stroke="#b9f43c" stroke-width="5"/>
+<text x="0" y="34" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1">DÉBITO</text></g><g transform="translate(189 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="#b9f43c" stroke-opacity=".7" stroke-width="2"/><rect x="-22" y="-22" width="44" height="30" rx="5" fill="none" stroke="#b9f43c" stroke-width="3"/><path d="M-22 -12H22" stroke="#b9f43c" stroke-width="5"/>
+<text x="0" y="34" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1">CRÉDITO</text></g></g>
+<text x="600" y="570" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#c9d3cc" text-anchor="middle">Nunca guardamos los datos de tu tarjeta</text>
 </svg>

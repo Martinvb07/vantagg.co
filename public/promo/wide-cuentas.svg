@@ -1,51 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#140404"/>
-      <stop offset="0.45" stop-color="#5c0f12"/>
-      <stop offset="0.8" stop-color="#b6340c"/>
-      <stop offset="1" stop-color="#f59e0b"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1bd"/><stop offset="1" stop-color="#e08a12"/></linearGradient>
-    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3340"/><stop offset="1" stop-color="#171a21"/></linearGradient>
-    <linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#c2410c"/></linearGradient>
-    <linearGradient id="he" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a6b"/><stop offset="1" stop-color="#9f1239"/></linearGradient>
-    <linearGradient id="di" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d1b6ff"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".55"/></filter>
-  </defs>
-  <rect width="1600" height="400" fill="url(#bg)"/>
-  <circle cx="1250" cy="200" r="260" fill="#fb923c" opacity=".35" filter="url(#glow)"/>
-  <g opacity=".12" stroke="#fff" stroke-width="2"><path d="M700 0 L1000 400"/><path d="M820 0 L1120 400"/><path d="M940 0 L1240 400"/></g>
-
-  <text x="70" y="150" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="78" fill="#fff">CUENTAS FREE FIRE</text>
-  <text x="74" y="230" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="44" fill="url(#gold)" stroke="#2a0606" stroke-width="4" paint-order="stroke">RANGO · NIVEL · SKINS A LA VISTA</text>
-  <rect x="74" y="275" rx="28" width="320" height="58" fill="#ffffff"/>
-  <text x="234" y="314" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="24" fill="#5c0f12">VER CATÁLOGO  →</text>
-
-  <!-- tarjetas de cuenta -->
-  <g filter="url(#shadow)" font-family="Arial, Helvetica, sans-serif" font-weight="800">
-    <g transform="translate(1150 70) rotate(-6)">
-      <rect width="220" height="270" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
-      <path transform="translate(22 22) scale(1.2)" d="M0 22l12 3-4-10 12 6 8-12 8 12 12-6-4 10 12-3-8 18c-4 12-12 20-20 24-8-4-16-12-20-24Z" fill="url(#gm)"/>
-      <text x="22" y="140" font-size="21" fill="#fff">Gran Maestro</text>
-      <text x="22" y="176" font-size="22" fill="#a0a8b6">Nivel 74</text>
-      <rect x="22" y="206" width="176" height="40" rx="20" fill="#c8f04f"/>
-      <text x="110" y="233" text-anchor="middle" font-size="20" fill="#10140a">COMPRAR</text>
-    </g>
-    <g transform="translate(1370 50) rotate(5)">
-      <rect width="220" height="270" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity=".18" stroke-width="2"/>
-      <path transform="translate(22 22) scale(1.2)" d="M2 10l10 3-4-8 10 6 8-9 8 9 10-6-4 8 10-3-6 16c-3 12-10 20-18 24-8-4-15-12-18-24Z" fill="url(#he)"/>
-      <text x="22" y="140" font-size="26" fill="#fff">Heroico</text>
-      <text x="22" y="176" font-size="22" fill="#a0a8b6">Nivel 68</text>
-      <rect x="22" y="206" width="176" height="40" rx="20" fill="#c8f04f"/>
-      <text x="110" y="233" text-anchor="middle" font-size="20" fill="#10140a">COMPRAR</text>
-    </g>
-    <g transform="translate(1010 150) rotate(-14)" opacity=".9">
-      <rect width="160" height="200" rx="18" fill="url(#card)" stroke="#ffffff" stroke-opacity=".14" stroke-width="2"/>
-      <path transform="translate(18 18)" d="M4 10l8 6 12-12 12 12 8-6v20c0 12-10 22-20 26-10-4-20-14-20-26Z" fill="url(#di)"/>
-      <text x="18" y="120" font-size="22" fill="#fff">Diamante</text>
-      <text x="18" y="150" font-size="18" fill="#a0a8b6">Nivel 42</text>
-    </g>
-  </g>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.8" cy="0.5" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1600" height="400" fill="url(#bg)"/>
+<path d="M1050 -10H1146.6L1260 214.83L1373.4 -10H1470L1276.8 346.5H1243.2Z" fill="url(#v)"/>
+<rect width="1600" height="400" fill="url(#glow)"/>
+<path d="M1488 48L1558 -8L1552 8L1494 56Z" fill="#b9f43c" opacity="0.55"/><path d="M1544 80L1586 46.4L1582.4 56L1547.6 84.8Z" fill="#b9f43c" opacity="0.3"/><path d="M32 328L88 283.2L83.2 296L36.8 334.4Z" fill="#b9f43c" opacity="0.4"/><circle cx="64" cy="410" r="88" fill="#0d200f" opacity=".9"/><circle cx="256" cy="410" r="72" fill="#0d200f" opacity=".9"/><circle cx="1376" cy="410" r="80" fill="#0d200f" opacity=".9"/><circle cx="1568" cy="410" r="96" fill="#0d200f" opacity=".9"/>
+<g transform="translate(1260 205) scale(1.55)"><g transform="translate(-92 14) rotate(-10)">
+<rect x="-52" y="-66" width="104" height="132" rx="12" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-46" y="-60" width="92" height="120" rx="8" fill="none" stroke="#b9f43c" stroke-opacity=".55" stroke-width="1.6"/>
+<path d="M0 -50L16 -40V-22C16 -12 8 -6 0 -2C-8 -6 -16 -12 -16 -22V-40Z" fill="#7b8cff" stroke="#030504" stroke-width="2"/>
+<text x="0" y="16" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle">Diamante</text>
+<text x="0" y="33" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e" text-anchor="middle">Nivel 42</text>
+<rect x="-36" y="40" width="72" height="18" rx="9" fill="#b9f43c"/><text x="0" y="53" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="9.5" fill="#030504" text-anchor="middle" letter-spacing="1">COMPRAR</text></g><g transform="translate(92 10) rotate(10)">
+<rect x="-52" y="-66" width="104" height="132" rx="12" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-46" y="-60" width="92" height="120" rx="8" fill="none" stroke="#b9f43c" stroke-opacity=".55" stroke-width="1.6"/>
+<path d="M0 -50L16 -40V-22C16 -12 8 -6 0 -2C-8 -6 -16 -12 -16 -22V-40Z" fill="#ff5f6d" stroke="#030504" stroke-width="2"/>
+<text x="0" y="16" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle">Heroico</text>
+<text x="0" y="33" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e" text-anchor="middle">Nivel 68</text>
+<rect x="-36" y="40" width="72" height="18" rx="9" fill="#b9f43c"/><text x="0" y="53" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="9.5" fill="#030504" text-anchor="middle" letter-spacing="1">COMPRAR</text></g><g transform="translate(0 -6) rotate(0)">
+<rect x="-52" y="-66" width="104" height="132" rx="12" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-46" y="-60" width="92" height="120" rx="8" fill="none" stroke="#b9f43c" stroke-opacity=".55" stroke-width="1.6"/>
+<path d="M0 -50L16 -40V-22C16 -12 8 -6 0 -2C-8 -6 -16 -12 -16 -22V-40Z" fill="#ffb547" stroke="#030504" stroke-width="2"/>
+<text x="0" y="16" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle">Gran Maestro</text>
+<text x="0" y="33" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e" text-anchor="middle">Nivel 74</text>
+<rect x="-36" y="40" width="72" height="18" rx="9" fill="#b9f43c"/><text x="0" y="53" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="9.5" fill="#030504" text-anchor="middle" letter-spacing="1">COMPRAR</text></g><g transform="rotate(-16 -140 -62.26)" stroke-linejoin="round">
+<path d="M-144.86 -70L-149 -65.356L-143 -65.356Z" fill="#52bbff"/><path d="M-144.86 -70L-140 -70L-143 -65.356Z" fill="#e3f9ff"/>
+<path d="M-140 -70L-143 -65.356L-137 -65.356Z" fill="#98e1ff"/><path d="M-140 -70L-135.14 -70L-137 -65.356Z" fill="#52bbff"/>
+<path d="M-135.14 -70L-131 -65.356L-137 -65.356Z" fill="#2d84f0"/><path d="M-149 -65.356L-143 -65.356L-140 -54.519999999999996Z" fill="#52bbff"/>
+<path d="M-143 -65.356L-137 -65.356L-140 -54.519999999999996Z" fill="#2d84f0"/><path d="M-137 -65.356L-131 -65.356L-140 -54.519999999999996Z" fill="#1a52c4"/>
+<path d="M-143.78 -69.226L-141.08 -69.226L-143.54 -66.13Z" fill="#fff" opacity=".7"/>
+<path d="M-146.84 -64.582L-143.36 -64.582L-140.9 -57.925599999999996Z" fill="#fff" opacity=".25"/>
+<path d="M-144.86 -70H-135.14L-131 -65.356L-140 -54.519999999999996L-149 -65.356Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(14 138 -59.12)" stroke-linejoin="round">
+<path d="M133.68 -66L130 -61.872L135.33333333333334 -61.872Z" fill="#52bbff"/><path d="M133.68 -66L138 -66L135.33333333333334 -61.872Z" fill="#e3f9ff"/>
+<path d="M138 -66L135.33333333333334 -61.872L140.66666666666666 -61.872Z" fill="#98e1ff"/><path d="M138 -66L142.32 -66L140.66666666666666 -61.872Z" fill="#52bbff"/>
+<path d="M142.32 -66L146 -61.872L140.66666666666666 -61.872Z" fill="#2d84f0"/><path d="M130 -61.872L135.33333333333334 -61.872L138 -52.24Z" fill="#52bbff"/>
+<path d="M135.33333333333334 -61.872L140.66666666666666 -61.872L138 -52.24Z" fill="#2d84f0"/><path d="M140.66666666666666 -61.872L146 -61.872L138 -52.24Z" fill="#1a52c4"/>
+<path d="M134.64000000000001 -65.312L137.04 -65.312L134.85333333333335 -62.56Z" fill="#fff" opacity=".7"/>
+<path d="M131.92 -61.184L135.01333333333335 -61.184L137.2 -55.2672Z" fill="#fff" opacity=".25"/>
+<path d="M133.68 -66H142.32L146 -61.872L138 -52.24L130 -61.872Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g></g>
+<text x="90" y="150" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="66" fill="#fff">CUENTAS FREE FIRE</text>
+<text x="94" y="210" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="32" fill="#b9f43c">RANGO · NIVEL · SKINS A LA VISTA</text>
+<g transform="translate(94 250)"><rect width="270" height="46" rx="23" fill="#b9f43c" filter="url(#soft)" opacity=".55"/>
+<rect width="270" height="46" rx="23" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
+<text x="135" y="30.360000000000003" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="20" fill="#030504" text-anchor="middle" letter-spacing="1">VER CATÁLOGO  →</text></g>
 </svg>

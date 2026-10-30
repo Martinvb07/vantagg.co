@@ -1,35 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1b1200"/>
-      <stop offset="0.55" stop-color="#5e3a00"/>
-      <stop offset="1" stop-color="#f29a00"/>
-    </linearGradient>
-    <linearGradient id="ticket" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ffb100"/></linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000" flood-opacity=".5"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="880" cy="320" r="240" fill="#ffcc33" opacity=".3" filter="url(#glow)"/>
-  <g fill="#fff" opacity=".9">
-    <path d="M600 90 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 Z"/>
-    <path d="M1120 120 l5 13 13 5 -13 5 -5 13 -5 -13 -13 -5 13 -5 Z"/>
-    <path d="M1100 520 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 Z"/>
-  </g>
-
-  <!-- tiquete -->
-  <g filter="url(#shadow)" transform="rotate(-10 880 320)">
-    <path d="M660 210 h440 a0 0 0 0 1 0 0 v60 a40 40 0 0 0 0 80 v60 h-440 v-60 a40 40 0 0 0 0 -80 Z" fill="url(#ticket)"/>
-    <path d="M800 220 v200" stroke="#5e3a00" stroke-width="4" stroke-dasharray="10 12"/>
-    <text x="730" y="345" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="64" fill="#5e3a00">%</text>
-    <text x="950" y="335" text-anchor="middle" font-family="Courier New, monospace" font-weight="700" font-size="54" letter-spacing="4" fill="#3a2400">CÓDIGO</text>
-    <text x="950" y="385" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#5e3a00">APLÍCALO AL PAGAR</text>
-  </g>
-
-  <text x="66" y="200" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="86" fill="#fff">¿TIENES UN</text>
-  <text x="62" y="320" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="120" fill="url(#ticket)" stroke="#2a1800" stroke-width="5" paint-order="stroke">CÓDIGO?</text>
-  <text x="70" y="390" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="32" fill="#ffe9c2">Escríbelo en el último paso</text>
-  <text x="70" y="432" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="32" fill="#ffe9c2">y ve tu descuento antes de pagar</text>
-  <rect x="70" y="480" rx="30" width="320" height="62" fill="#ffffff"/>
-  <text x="230" y="521" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="#5e3a00">USAR CÓDIGO  →</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.7541666666666667" cy="0.47619047619047616" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<path d="M695 -10H791.6L905 214.83L1018.4 -10H1115L921.8 346.5H888.2Z" fill="url(#v)"/>
+<rect width="1200" height="630" fill="url(#glow)"/>
+<path d="M1116 75.6L1186 19.599999999999994L1180 35.599999999999994L1122 83.6Z" fill="#b9f43c" opacity="0.55"/><path d="M1158 126L1200 92.4L1196.4 102L1161.6 130.8Z" fill="#b9f43c" opacity="0.3"/><path d="M24 516.6L80 471.8L75.2 484.6L28.8 523Z" fill="#b9f43c" opacity="0.4"/><circle cx="48" cy="640" r="138.6" fill="#0d200f" opacity=".9"/><circle cx="192" cy="640" r="113.39999999999999" fill="#0d200f" opacity=".9"/><circle cx="1032" cy="640" r="126" fill="#0d200f" opacity=".9"/><circle cx="1176" cy="640" r="151.2" fill="#0d200f" opacity=".9"/>
+<g transform="translate(905 300) scale(1.85)"><g transform="rotate(-9)">
+<path d="M-110 -52H110V-16A16 16 0 0 0 110 16V52H-110V16A16 16 0 0 0 -110 -16Z" fill="url(#dark)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-101 -43H101V-22A24 24 0 0 0 101 22V43H-101V22A24 24 0 0 0 -101 -22Z" fill="none" stroke="#b9f43c" stroke-width="2.6"/>
+<path d="M-48 -40V40" stroke="#b9f43c" stroke-width="2.4" stroke-dasharray="6 6"/>
+<text x="-79" y="16" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="46" fill="#b9f43c" text-anchor="middle">%</text>
+<text x="30" y="6" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="25" fill="#fff" text-anchor="middle">CÓDIGO</text>
+<text x="30" y="27" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="10.5" fill="#b9f43c" text-anchor="middle" letter-spacing="1">APLÍCALO AL PAGAR</text>
+</g><g transform="rotate(-18 -120 -76.54)" stroke-linejoin="round">
+<path d="M-125.94 -86L-131 -80.324L-123.66666666666667 -80.324Z" fill="#52bbff"/><path d="M-125.94 -86L-120 -86L-123.66666666666667 -80.324Z" fill="#e3f9ff"/>
+<path d="M-120 -86L-123.66666666666667 -80.324L-116.33333333333333 -80.324Z" fill="#98e1ff"/><path d="M-120 -86L-114.06 -86L-116.33333333333333 -80.324Z" fill="#52bbff"/>
+<path d="M-114.06 -86L-109 -80.324L-116.33333333333333 -80.324Z" fill="#2d84f0"/><path d="M-131 -80.324L-123.66666666666667 -80.324L-120 -67.08Z" fill="#52bbff"/>
+<path d="M-123.66666666666667 -80.324L-116.33333333333333 -80.324L-120 -67.08Z" fill="#2d84f0"/><path d="M-116.33333333333333 -80.324L-109 -80.324L-120 -67.08Z" fill="#1a52c4"/>
+<path d="M-124.62 -85.054L-121.32 -85.054L-124.32666666666667 -81.27Z" fill="#fff" opacity=".7"/>
+<path d="M-128.36 -79.378L-124.10666666666667 -79.378L-121.1 -71.2424Z" fill="#fff" opacity=".25"/>
+<path d="M-125.94 -86H-114.06L-109 -80.324L-120 -67.08L-131 -80.324Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(16 116 62.6)" stroke-linejoin="round">
+<path d="M110.6 54L106 59.16L112.66666666666667 59.16Z" fill="#52bbff"/><path d="M110.6 54L116 54L112.66666666666667 59.16Z" fill="#e3f9ff"/>
+<path d="M116 54L112.66666666666667 59.16L119.33333333333333 59.16Z" fill="#98e1ff"/><path d="M116 54L121.4 54L119.33333333333333 59.16Z" fill="#52bbff"/>
+<path d="M121.4 54L126 59.16L119.33333333333333 59.16Z" fill="#2d84f0"/><path d="M106 59.16L112.66666666666667 59.16L116 71.2Z" fill="#52bbff"/>
+<path d="M112.66666666666667 59.16L119.33333333333333 59.16L116 71.2Z" fill="#2d84f0"/><path d="M119.33333333333333 59.16L126 59.16L116 71.2Z" fill="#1a52c4"/>
+<path d="M111.8 54.86L114.8 54.86L112.06666666666668 58.3Z" fill="#fff" opacity=".7"/>
+<path d="M108.4 60.019999999999996L112.26666666666667 60.019999999999996L115 67.416Z" fill="#fff" opacity=".25"/>
+<path d="M110.6 54H121.4L126 59.16L116 71.2L106 59.16Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><use href="#spark" transform="translate(100 -74) scale(1.4)" opacity=".9"/><use href="#spark" transform="translate(-112 70) scale(1)" opacity=".9"/></g><text x="60" y="190" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="58" fill="#fff">¿TIENES UN</text><text x="60" y="287.92" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="96" fill="#b9f43c">CÓDIGO?</text>
+<text x="66" y="360" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#c9d3cc" text-anchor="start">Escríbelo en el último paso</text><text x="66" y="394" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#c9d3cc" text-anchor="start">y ve tu descuento antes de pagar</text>
+<g transform="translate(64 430)"><rect width="280.71999999999997" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" filter="url(#soft)" opacity=".55"/>
+<rect width="280.71999999999997" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
+<text x="140.35999999999999" y="33.396" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="22" fill="#030504" text-anchor="middle" letter-spacing="1">USAR CÓDIGO  →</text></g>
 </svg>

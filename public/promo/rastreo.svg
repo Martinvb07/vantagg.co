@@ -1,38 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0d0624"/>
-      <stop offset="0.6" stop-color="#2a1475"/>
-      <stop offset="1" stop-color="#6d3df5"/>
-    </linearGradient>
-    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c8f04f"/><stop offset="1" stop-color="#45d99b"/></linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000" flood-opacity=".5"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="1050" cy="120" r="230" fill="#8b5cff" opacity=".45" filter="url(#glow)"/>
-  <!-- radar -->
-  <g opacity=".25" fill="none" stroke="#c4b5ff" stroke-width="2">
-    <circle cx="1040" cy="520" r="120"/><circle cx="1040" cy="520" r="200"/><circle cx="1040" cy="520" r="280"/>
-  </g>
-
-  <text x="600" y="140" text-anchor="middle" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="96" fill="#fff">SIGUE TU PEDIDO</text>
-  <text x="600" y="215" text-anchor="middle" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="64" fill="#c8f04f">EN VIVO</text>
-
-  <g filter="url(#shadow)">
-    <rect x="150" y="270" rx="28" width="900" height="250" fill="#ffffff"/>
-    <text x="200" y="330" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#6b6b80">PEDIDO</text>
-    <text x="200" y="372" font-family="Courier New, monospace" font-weight="700" font-size="40" letter-spacing="4" fill="#120a2e">VX-7K2M-9QHT</text>
-    <rect x="820" y="318" rx="22" width="190" height="44" fill="#e9fbe0"/>
-    <circle cx="848" cy="340" r="8" fill="#22a85a"/>
-    <text x="930" y="349" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" fill="#15803d">ENTREGADO</text>
-    <rect x="200" y="410" rx="7" width="190" height="14" fill="url(#bar)"/>
-    <rect x="404" y="410" rx="7" width="190" height="14" fill="url(#bar)"/>
-    <rect x="608" y="410" rx="7" width="190" height="14" fill="url(#bar)"/>
-    <rect x="812" y="410" rx="7" width="190" height="14" fill="url(#bar)"/>
-    <g font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="20" fill="#3b3b52">
-      <text x="200" y="465">Creado</text><text x="404" y="465">Pagado</text><text x="608" y="465">Entregando</text><text x="812" y="465">Entregado</text>
-    </g>
-  </g>
-  <text x="600" y="580" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#ddd6ff">Con tu número de pedido · sin crear cuenta</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.5" cy="0.6" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<path d="M380 -10H481.2L600 225.06000000000003L718.8 -10H820L617.6 363.00000000000006H582.4Z" fill="url(#v)"/>
+<rect width="1200" height="630" fill="url(#glow)"/>
+<path d="M1116 75.6L1186 19.599999999999994L1180 35.599999999999994L1122 83.6Z" fill="#b9f43c" opacity="0.55"/><path d="M1158 126L1200 92.4L1196.4 102L1161.6 130.8Z" fill="#b9f43c" opacity="0.3"/><path d="M24 516.6L80 471.8L75.2 484.6L28.8 523Z" fill="#b9f43c" opacity="0.4"/><circle cx="48" cy="640" r="138.6" fill="#0d200f" opacity=".9"/><circle cx="192" cy="640" r="113.39999999999999" fill="#0d200f" opacity=".9"/><circle cx="1032" cy="640" r="126" fill="#0d200f" opacity=".9"/><circle cx="1176" cy="640" r="151.2" fill="#0d200f" opacity=".9"/>
+<g transform="translate(600 384) scale(2.15)"><rect x="-150" y="-70" width="300" height="140" rx="16" fill="url(#dark)" stroke="#030504" stroke-width="4"/>
+<rect x="-142" y="-62" width="284" height="124" rx="10" fill="none" stroke="#b9f43c" stroke-opacity=".6" stroke-width="2"/>
+<text x="-124" y="-34" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="12" fill="#9aa59e" letter-spacing="2">PEDIDO</text>
+<text x="-124" y="-8" font-family="Courier New, monospace" font-weight="700" font-size="22" fill="#fff">VX-7K2M-9QHT</text>
+<rect x="44" y="-44" width="86" height="22" rx="11" fill="#b9f43c"/><text x="87" y="-29" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="10" fill="#030504" text-anchor="middle" letter-spacing="1">ENTREGADO</text>
+<rect x="-124" y="16" width="56" height="7" rx="3.5" fill="#b9f43c"/><rect x="-60" y="16" width="56" height="7" rx="3.5" fill="#b9f43c"/><rect x="4" y="16" width="56" height="7" rx="3.5" fill="#b9f43c"/><rect x="68" y="16" width="56" height="7" rx="3.5" fill="#b9f43c"/>
+<text x="-124" y="44" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e">Creado</text><text x="-60" y="44" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e">Pagado</text><text x="4" y="44" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e">Entregando</text><text x="68" y="44" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" fill="#9aa59e">Entregado</text>
+<g transform="rotate(16 150 -86.54)" stroke-linejoin="round">
+<path d="M144.06 -96L139 -90.324L146.33333333333334 -90.324Z" fill="#52bbff"/><path d="M144.06 -96L150 -96L146.33333333333334 -90.324Z" fill="#e3f9ff"/>
+<path d="M150 -96L146.33333333333334 -90.324L153.66666666666666 -90.324Z" fill="#98e1ff"/><path d="M150 -96L155.94 -96L153.66666666666666 -90.324Z" fill="#52bbff"/>
+<path d="M155.94 -96L161 -90.324L153.66666666666666 -90.324Z" fill="#2d84f0"/><path d="M139 -90.324L146.33333333333334 -90.324L150 -77.08Z" fill="#52bbff"/>
+<path d="M146.33333333333334 -90.324L153.66666666666666 -90.324L150 -77.08Z" fill="#2d84f0"/><path d="M153.66666666666666 -90.324L161 -90.324L150 -77.08Z" fill="#1a52c4"/>
+<path d="M145.38 -95.054L148.68 -95.054L145.67333333333335 -91.27Z" fill="#fff" opacity=".7"/>
+<path d="M141.64 -89.378L145.89333333333335 -89.378L148.9 -81.2424Z" fill="#fff" opacity=".25"/>
+<path d="M144.06 -96H155.94L161 -90.324L150 -77.08L139 -90.324Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(-12 -160 68.88)" stroke-linejoin="round">
+<path d="M-164.32 62L-168 66.128L-162.66666666666666 66.128Z" fill="#52bbff"/><path d="M-164.32 62L-160 62L-162.66666666666666 66.128Z" fill="#e3f9ff"/>
+<path d="M-160 62L-162.66666666666666 66.128L-157.33333333333334 66.128Z" fill="#98e1ff"/><path d="M-160 62L-155.68 62L-157.33333333333334 66.128Z" fill="#52bbff"/>
+<path d="M-155.68 62L-152 66.128L-157.33333333333334 66.128Z" fill="#2d84f0"/><path d="M-168 66.128L-162.66666666666666 66.128L-160 75.76Z" fill="#52bbff"/>
+<path d="M-162.66666666666666 66.128L-157.33333333333334 66.128L-160 75.76Z" fill="#2d84f0"/><path d="M-157.33333333333334 66.128L-152 66.128L-160 75.76Z" fill="#1a52c4"/>
+<path d="M-163.35999999999999 62.688L-160.96 62.688L-163.14666666666665 65.44Z" fill="#fff" opacity=".7"/>
+<path d="M-166.08 66.816L-162.98666666666665 66.816L-160.8 72.73280000000001Z" fill="#fff" opacity=".25"/>
+<path d="M-164.32 62H-155.68L-152 66.128L-160 75.76L-168 66.128Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g></g><text text-anchor="middle" x="600" y="120" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="64" fill="#fff">SIGUE TU PEDIDO</text>
+<text text-anchor="middle" x="600" y="186" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="52" fill="#b9f43c">EN VIVO</text>
+<text x="600" y="580" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#c9d3cc" text-anchor="middle">Con tu número de pedido · sin crear cuenta</text>
 </svg>

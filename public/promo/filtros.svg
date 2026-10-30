@@ -1,50 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#140a1f"/>
-      <stop offset="0.55" stop-color="#3b1259"/>
-      <stop offset="1" stop-color="#a21caf"/>
-    </linearGradient>
-    <linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#c2410c"/></linearGradient>
-    <linearGradient id="he" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a6b"/><stop offset="1" stop-color="#9f1239"/></linearGradient>
-    <linearGradient id="di" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d1b6ff"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>
-    <linearGradient id="pl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe6ff"/><stop offset="1" stop-color="#3b5bb5"/></linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#000" flood-opacity=".5"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="920" cy="300" r="240" fill="#e879f9" opacity=".3" filter="url(#glow)"/>
-
-  <!-- panel de filtros -->
-  <g filter="url(#shadow)" font-family="Arial, Helvetica, sans-serif" font-weight="700">
-    <rect x="700" y="110" rx="26" width="420" height="410" fill="#1a1024" stroke="#ffffff" stroke-opacity=".15" stroke-width="2"/>
-    <text x="910" y="160" text-anchor="middle" font-size="26" fill="#fff">Rango</text>
-    <g transform="translate(740 190)">
-      <path d="M0 22l12 3-4-10 12 6 8-12 8 12 12-6-4 10 12-3-8 18c-4 12-12 20-20 24-8-4-16-12-20-24Z" fill="url(#gm)"/>
-      <text x="80" y="38" font-size="26" fill="#fff">Gran Maestro</text>
-      <rect x="300" y="12" rx="6" width="34" height="34" fill="#c8f04f"/><path d="M308 29l8 8 12-14" stroke="#10140a" stroke-width="5" fill="none"/>
-    </g>
-    <g transform="translate(740 270)">
-      <path d="M2 10l10 3-4-8 10 6 8-9 8 9 10-6-4 8 10-3-6 16c-3 12-10 20-18 24-8-4-15-12-18-24Z" fill="url(#he)"/>
-      <text x="80" y="38" font-size="26" fill="#fff">Heroico</text>
-      <rect x="300" y="12" rx="6" width="34" height="34" fill="#c8f04f"/><path d="M308 29l8 8 12-14" stroke="#10140a" stroke-width="5" fill="none"/>
-    </g>
-    <g transform="translate(740 350)">
-      <path d="M4 10l8 6 12-12 12 12 8-6v20c0 12-10 22-20 26-10-4-20-14-20-26Z" fill="url(#di)"/>
-      <text x="80" y="38" font-size="26" fill="#fff">Diamante</text>
-      <rect x="300" y="12" rx="6" width="34" height="34" fill="none" stroke="#ffffff" stroke-opacity=".3" stroke-width="3"/>
-    </g>
-    <g transform="translate(740 430)">
-      <path d="M24 2l22 9v17c0 14-10 24-22 28C12 52 2 42 2 28V11Z" fill="url(#pl)"/>
-      <text x="80" y="38" font-size="26" fill="#fff">Platino</text>
-      <rect x="300" y="12" rx="6" width="34" height="34" fill="none" stroke="#ffffff" stroke-opacity=".3" stroke-width="3"/>
-    </g>
-  </g>
-
-  <text x="66" y="190" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#fff">ENCUENTRA</text>
-  <text x="66" y="290" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#fff">TU CUENTA</text>
-  <text x="66" y="390" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#f0abfc" stroke="#140a1f" stroke-width="5" paint-order="stroke">IDEAL</text>
-  <text x="70" y="450" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#f5d0fe">Filtra por rango, nivel, servidor y precio</text>
-  <rect x="70" y="490" rx="30" width="300" height="62" fill="#ffffff"/>
-  <text x="220" y="531" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="#3b1259">FILTRAR  →</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.75" cy="0.49206349206349204" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<path d="M690 -10H786.6L900 214.83L1013.4 -10H1110L916.8 346.5H883.2Z" fill="url(#v)"/>
+<rect width="1200" height="630" fill="url(#glow)"/>
+<path d="M1116 75.6L1186 19.599999999999994L1180 35.599999999999994L1122 83.6Z" fill="#b9f43c" opacity="0.55"/><path d="M1158 126L1200 92.4L1196.4 102L1161.6 130.8Z" fill="#b9f43c" opacity="0.3"/><path d="M24 516.6L80 471.8L75.2 484.6L28.8 523Z" fill="#b9f43c" opacity="0.4"/><circle cx="48" cy="640" r="138.6" fill="#0d200f" opacity=".9"/><circle cx="192" cy="640" r="113.39999999999999" fill="#0d200f" opacity=".9"/><circle cx="1032" cy="640" r="126" fill="#0d200f" opacity=".9"/><circle cx="1176" cy="640" r="151.2" fill="#0d200f" opacity=".9"/>
+<g transform="translate(900 310) scale(1.75)"><rect x="-100" y="-96" width="200" height="192" rx="16" fill="url(#dark)" stroke="#030504" stroke-width="4"/>
+<rect x="-92" y="-88" width="184" height="176" rx="10" fill="none" stroke="#b9f43c" stroke-width="2" stroke-opacity=".7"/>
+<text x="-74" y="-60" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#b9f43c" letter-spacing="2">RANGO</text>
+<path d="M-74 -43L-64 -38V-30C-64 -25 -69 -22 -74 -20C-79 -22 -84 -25 -84 -30V-38Z" fill="#ffb547" stroke="#030504" stroke-width="1.6"/>
+<text x="-54" y="-28" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#fff">Gran Maestro</text>
+<rect x="56" y="-43" width="20" height="20" rx="5" fill="#b9f43c" stroke="#030504" stroke-width="2"/><path d="M60 -33L65 -28L72 -37" fill="none" stroke="#030504" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M-74 -7L-64 -2V6C-64 11 -69 14 -74 16C-79 14 -84 11 -84 6V-2Z" fill="#ff5f6d" stroke="#030504" stroke-width="1.6"/>
+<text x="-54" y="8" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#fff">Heroico</text>
+<rect x="56" y="-7" width="20" height="20" rx="5" fill="#b9f43c" stroke="#030504" stroke-width="2"/><path d="M60 3L65 8L72 -1" fill="none" stroke="#030504" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M-74 29L-64 34V42C-64 47 -69 50 -74 52C-79 50 -84 47 -84 42V34Z" fill="#7b8cff" stroke="#030504" stroke-width="1.6"/>
+<text x="-54" y="44" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#fff">Diamante</text>
+<rect x="56" y="29" width="20" height="20" rx="5" fill="none" stroke="#4a5550" stroke-width="2"/><path d="M-74 65L-64 70V78C-64 83 -69 86 -74 88C-79 86 -84 83 -84 78V70Z" fill="#9fd8ff" stroke="#030504" stroke-width="1.6"/>
+<text x="-54" y="80" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#fff">Platino</text>
+<rect x="56" y="65" width="20" height="20" rx="5" fill="none" stroke="#4a5550" stroke-width="2"/><g transform="rotate(14 118 -91.4)" stroke-linejoin="round">
+<path d="M112.6 -100L108 -94.84L114.66666666666667 -94.84Z" fill="#52bbff"/><path d="M112.6 -100L118 -100L114.66666666666667 -94.84Z" fill="#e3f9ff"/>
+<path d="M118 -100L114.66666666666667 -94.84L121.33333333333333 -94.84Z" fill="#98e1ff"/><path d="M118 -100L123.4 -100L121.33333333333333 -94.84Z" fill="#52bbff"/>
+<path d="M123.4 -100L128 -94.84L121.33333333333333 -94.84Z" fill="#2d84f0"/><path d="M108 -94.84L114.66666666666667 -94.84L118 -82.8Z" fill="#52bbff"/>
+<path d="M114.66666666666667 -94.84L121.33333333333333 -94.84L118 -82.8Z" fill="#2d84f0"/><path d="M121.33333333333333 -94.84L128 -94.84L118 -82.8Z" fill="#1a52c4"/>
+<path d="M113.8 -99.14L116.8 -99.14L114.06666666666668 -95.7Z" fill="#fff" opacity=".7"/>
+<path d="M110.4 -93.98L114.26666666666667 -93.98L117 -86.584Z" fill="#fff" opacity=".25"/>
+<path d="M112.6 -100H123.4L128 -94.84L118 -82.8L108 -94.84Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(-12 -122 72.88)" stroke-linejoin="round">
+<path d="M-126.32 66L-130 70.128L-124.66666666666667 70.128Z" fill="#52bbff"/><path d="M-126.32 66L-122 66L-124.66666666666667 70.128Z" fill="#e3f9ff"/>
+<path d="M-122 66L-124.66666666666667 70.128L-119.33333333333333 70.128Z" fill="#98e1ff"/><path d="M-122 66L-117.68 66L-119.33333333333333 70.128Z" fill="#52bbff"/>
+<path d="M-117.68 66L-114 70.128L-119.33333333333333 70.128Z" fill="#2d84f0"/><path d="M-130 70.128L-124.66666666666667 70.128L-122 79.76Z" fill="#52bbff"/>
+<path d="M-124.66666666666667 70.128L-119.33333333333333 70.128L-122 79.76Z" fill="#2d84f0"/><path d="M-119.33333333333333 70.128L-114 70.128L-122 79.76Z" fill="#1a52c4"/>
+<path d="M-125.36 66.688L-122.96 66.688L-125.14666666666668 69.44Z" fill="#fff" opacity=".7"/>
+<path d="M-128.08 70.816L-124.98666666666666 70.816L-122.8 76.73280000000001Z" fill="#fff" opacity=".25"/>
+<path d="M-126.32 66H-117.68L-114 70.128L-122 79.76L-130 70.128Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g></g><text x="60" y="190" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="70" fill="#fff">ENCUENTRA</text><text x="60" y="261.4" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="70" fill="#fff">TU CUENTA</text><text x="60" y="332.79999999999995" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="70" fill="#b9f43c">IDEAL</text>
+<text x="66" y="420" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#c9d3cc" text-anchor="start">Filtra por rango, nivel, servidor y precio</text>
+<g transform="translate(64 456)"><rect width="215.60000000000002" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" filter="url(#soft)" opacity=".55"/>
+<rect width="215.60000000000002" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
+<text x="107.80000000000001" y="33.396" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="22" fill="#030504" text-anchor="middle" letter-spacing="1">FILTRAR  →</text></g>
 </svg>

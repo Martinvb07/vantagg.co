@@ -1,30 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#03150c"/>
-      <stop offset="0.55" stop-color="#0b4a2b"/>
-      <stop offset="1" stop-color="#25d366"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity=".5"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="930" cy="300" r="240" fill="#4ade80" opacity=".3" filter="url(#glow)"/>
-
-  <!-- burbujas de chat -->
-  <g filter="url(#shadow)" font-family="Arial, Helvetica, sans-serif" font-weight="700" transform="translate(40 0)">
-    <path d="M700 150 h370 a26 26 0 0 1 26 26 v80 a26 26 0 0 1 -26 26 h-340 l-30 26 v-26 a26 26 0 0 1 -26 -26 v-80 a26 26 0 0 1 26 -26 Z" fill="#ffffff"/>
-    <text x="728" y="205" font-size="24" fill="#0b4a2b">Pagué con PSE, ¿ya llegó?</text>
-    <text x="728" y="243" font-size="22" fill="#6b7a70">VX-7K2M-9QHT</text>
-    <path d="M770 340 h330 a26 26 0 0 1 26 26 v80 a26 26 0 0 1 -26 26 v26 l-30 -26 h-300 a26 26 0 0 1 -26 -26 v-80 a26 26 0 0 1 26 -26 Z" fill="#dcf8c6"/>
-    <text x="798" y="395" font-size="26" fill="#0b4a2b">¡Sí! Ya está entregado ✓✓</text>
-    <text x="798" y="433" font-size="22" fill="#4f6b58">Soporte · ahora</text>
-  </g>
-
-  <text x="66" y="200" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="92" fill="#fff">SOPORTE</text>
-  <text x="66" y="310" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="84" fill="#86efac" stroke="#03150c" stroke-width="5" paint-order="stroke">DE VERDAD</text>
-  <text x="70" y="380" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" fill="#d1fae5">Personas reales que conocen</text>
-  <text x="70" y="420" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" fill="#d1fae5">tu pedido por su número</text>
-  <rect x="70" y="470" rx="30" width="300" height="62" fill="#ffffff"/>
-  <text x="220" y="511" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="26" fill="#0b4a2b">ESCRÍBENOS  →</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.7375" cy="0.47619047619047616" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<path d="M675 -10H771.6L885 214.83L998.4 -10H1095L901.8 346.5H868.2Z" fill="url(#v)"/>
+<rect width="1200" height="630" fill="url(#glow)"/>
+<path d="M1116 75.6L1186 19.599999999999994L1180 35.599999999999994L1122 83.6Z" fill="#b9f43c" opacity="0.55"/><path d="M1158 126L1200 92.4L1196.4 102L1161.6 130.8Z" fill="#b9f43c" opacity="0.3"/><path d="M24 516.6L80 471.8L75.2 484.6L28.8 523Z" fill="#b9f43c" opacity="0.4"/><circle cx="48" cy="640" r="138.6" fill="#0d200f" opacity=".9"/><circle cx="192" cy="640" r="113.39999999999999" fill="#0d200f" opacity=".9"/><circle cx="1032" cy="640" r="126" fill="#0d200f" opacity=".9"/><circle cx="1176" cy="640" r="151.2" fill="#0d200f" opacity=".9"/>
+<g transform="translate(885 300) scale(1.8)"><g transform="translate(-30 -40)"><rect x="-110" y="-30" width="210" height="60" rx="16" fill="url(#dark)" stroke="#030504" stroke-width="3"/>
+<rect x="-104" y="-24" width="198" height="48" rx="12" fill="none" stroke="#3a443e" stroke-width="1.6"/>
+<text x="-90" y="-2" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#fff">Pagué con PSE, ¿ya llegó?</text>
+<text x="-90" y="16" font-family="Courier New, monospace" font-weight="700" font-size="12" fill="#9aa59e">VX-7K2M-9QHT</text></g>
+<g transform="translate(40 44)"><rect x="-110" y="-30" width="210" height="60" rx="16" fill="#b9f43c" stroke="#030504" stroke-width="3"/>
+<text x="-94" y="-2" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#030504">¡Sí! Ya está entregado ✓✓</text>
+<text x="-94" y="16" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="12" fill="#2b3a14">Soporte · ahora</text></g>
+<g transform="rotate(16 126 -83.4)" stroke-linejoin="round">
+<path d="M120.6 -92L116 -86.84L122.66666666666667 -86.84Z" fill="#52bbff"/><path d="M120.6 -92L126 -92L122.66666666666667 -86.84Z" fill="#e3f9ff"/>
+<path d="M126 -92L122.66666666666667 -86.84L129.33333333333334 -86.84Z" fill="#98e1ff"/><path d="M126 -92L131.4 -92L129.33333333333334 -86.84Z" fill="#52bbff"/>
+<path d="M131.4 -92L136 -86.84L129.33333333333334 -86.84Z" fill="#2d84f0"/><path d="M116 -86.84L122.66666666666667 -86.84L126 -74.8Z" fill="#52bbff"/>
+<path d="M122.66666666666667 -86.84L129.33333333333334 -86.84L126 -74.8Z" fill="#2d84f0"/><path d="M129.33333333333334 -86.84L136 -86.84L126 -74.8Z" fill="#1a52c4"/>
+<path d="M121.8 -91.14L124.8 -91.14L122.06666666666668 -87.7Z" fill="#fff" opacity=".7"/>
+<path d="M118.4 -85.98L122.26666666666667 -85.98L125 -78.584Z" fill="#fff" opacity=".25"/>
+<path d="M120.6 -92H131.4L136 -86.84L126 -74.8L116 -86.84Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(-12 -150 66.88)" stroke-linejoin="round">
+<path d="M-154.32 60L-158 64.128L-152.66666666666666 64.128Z" fill="#52bbff"/><path d="M-154.32 60L-150 60L-152.66666666666666 64.128Z" fill="#e3f9ff"/>
+<path d="M-150 60L-152.66666666666666 64.128L-147.33333333333334 64.128Z" fill="#98e1ff"/><path d="M-150 60L-145.68 60L-147.33333333333334 64.128Z" fill="#52bbff"/>
+<path d="M-145.68 60L-142 64.128L-147.33333333333334 64.128Z" fill="#2d84f0"/><path d="M-158 64.128L-152.66666666666666 64.128L-150 73.76Z" fill="#52bbff"/>
+<path d="M-152.66666666666666 64.128L-147.33333333333334 64.128L-150 73.76Z" fill="#2d84f0"/><path d="M-147.33333333333334 64.128L-142 64.128L-150 73.76Z" fill="#1a52c4"/>
+<path d="M-153.35999999999999 60.688L-150.96 60.688L-153.14666666666665 63.44Z" fill="#fff" opacity=".7"/>
+<path d="M-156.08 64.816L-152.98666666666665 64.816L-150.8 70.73280000000001Z" fill="#fff" opacity=".25"/>
+<path d="M-154.32 60H-145.68L-142 64.128L-150 73.76L-158 64.128Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g></g><text x="60" y="200" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="72" fill="#fff">SOPORTE</text><text x="60" y="273.44" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="72" fill="#b9f43c">DE VERDAD</text>
+<text x="66" y="340" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#c9d3cc" text-anchor="start">Personas reales que conocen</text><text x="66" y="374" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#c9d3cc" text-anchor="start">tu pedido por su número</text>
+<g transform="translate(64 412)"><rect width="264.44" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" filter="url(#soft)" opacity=".55"/>
+<rect width="264.44" height="50.599999999999994" rx="25.299999999999997" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
+<text x="132.22" y="33.396" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="22" fill="#030504" text-anchor="middle" letter-spacing="1">ESCRÍBENOS  →</text></g>
 </svg>

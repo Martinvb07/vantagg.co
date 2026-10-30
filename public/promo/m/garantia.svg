@@ -1,26 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0e0f14"/>
-      <stop offset="0.6" stop-color="#1d2433"/>
-      <stop offset="1" stop-color="#3a4a1a"/>
-    </linearGradient>
-    <linearGradient id="volt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1ffc8"/><stop offset="1" stop-color="#a9d42c"/></linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".45"/></filter>
-  </defs>
-  <rect width="800" height="520" fill="url(#bg)"/>
-  <circle cx="680" cy="120" r="190" fill="#c8f04f" opacity=".2" filter="url(#glow)"/>
-
-  <g filter="url(#shadow)">
-    <circle cx="664" cy="120" r="78" fill="#151a24" stroke="url(#volt)" stroke-width="9"/>
-    <path d="M612 92 a62 62 0 1 1 -6 46" fill="none" stroke="#c8f04f" stroke-width="9" stroke-linecap="round"/>
-    <path d="M598 70 l12 26 l26 -10" fill="none" stroke="#c8f04f" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="668" y="150" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="80" fill="#f1ffc8">$</text>
-  </g>
-
-  <text x="40" y="250" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="50" fill="#fff">SI LA ENTREGA FALLA,</text>
-  <text x="40" y="330" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="66" fill="url(#volt)">TE DEVOLVEMOS</text>
-  <text x="40" y="404" font-family="Arial Black, Impact, Arial, sans-serif" font-weight="900" font-style="italic" font-size="66" fill="#fff">TU DINERO</text>
-  <text x="44" y="466" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="25" fill="#c9d3e3">✔ Pago verificado   ✔ Sin contraseñas   ✔ Soporte real</text>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".4"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="0.76" cy="0.3" r="0.55"><stop offset="0" stop-color="#b9f43c" stop-opacity=".24"/><stop offset=".55" stop-color="#b9f43c" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<linearGradient id="lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#47524c"/><stop offset="1" stop-color="#1b221e"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="800" height="520" fill="url(#bg)"/>
+<path d="M460 -10H529L610 153.45L691 -10H760L622 247.5H598Z" fill="url(#v)"/>
+<rect width="800" height="520" fill="url(#glow)"/>
+<path d="M744 62.4L814 6.399999999999999L808 22.4L750 70.4Z" fill="#b9f43c" opacity="0.55"/><path d="M772 104L814 70.4L810.4 80L775.6 108.8Z" fill="#b9f43c" opacity="0.3"/><path d="M16 426.4L72 381.59999999999997L67.2 394.4L20.8 432.79999999999995Z" fill="#b9f43c" opacity="0.4"/><circle cx="32" cy="530" r="114.4" fill="#0d200f" opacity=".9"/><circle cx="128" cy="530" r="93.6" fill="#0d200f" opacity=".9"/><circle cx="688" cy="530" r="104" fill="#0d200f" opacity=".9"/><circle cx="784" cy="530" r="124.8" fill="#0d200f" opacity=".9"/>
+<g transform="translate(620 140) scale(1.05)"><circle cx="0" cy="0" r="88" fill="#b9f43c" opacity=".12" filter="url(#soft)"/>
+<path d="M-62 -40A74 74 0 1 1 -70 24" fill="none" stroke="#b9f43c" stroke-width="14" stroke-linecap="round" filter="url(#soft)" opacity=".6"/>
+<path d="M-62 -40A74 74 0 1 1 -70 24" fill="none" stroke="#b9f43c" stroke-width="12" stroke-linecap="round"/>
+<path d="M-88 -62L-58 -38L-90 -20Z" fill="#b9f43c" stroke="#030504" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="0" cy="0" r="52" fill="url(#dark)" stroke="#030504" stroke-width="4"/>
+<circle cx="0" cy="0" r="44" fill="none" stroke="#b9f43c" stroke-width="2.4"/>
+<text x="0" y="24" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="66" fill="#fff" text-anchor="middle">$</text>
+<g transform="rotate(16 86 -74.54)" stroke-linejoin="round">
+<path d="M80.06 -84L75 -78.324L82.33333333333333 -78.324Z" fill="#52bbff"/><path d="M80.06 -84L86 -84L82.33333333333333 -78.324Z" fill="#e3f9ff"/>
+<path d="M86 -84L82.33333333333333 -78.324L89.66666666666667 -78.324Z" fill="#98e1ff"/><path d="M86 -84L91.94 -84L89.66666666666667 -78.324Z" fill="#52bbff"/>
+<path d="M91.94 -84L97 -78.324L89.66666666666667 -78.324Z" fill="#2d84f0"/><path d="M75 -78.324L82.33333333333333 -78.324L86 -65.08Z" fill="#52bbff"/>
+<path d="M82.33333333333333 -78.324L89.66666666666667 -78.324L86 -65.08Z" fill="#2d84f0"/><path d="M89.66666666666667 -78.324L97 -78.324L86 -65.08Z" fill="#1a52c4"/>
+<path d="M81.38 -83.054L84.68 -83.054L81.67333333333333 -79.27Z" fill="#fff" opacity=".7"/>
+<path d="M77.64 -77.378L81.89333333333333 -77.378L84.9 -69.2424Z" fill="#fff" opacity=".25"/>
+<path d="M80.06 -84H91.94L97 -78.324L86 -65.08L75 -78.324Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><g transform="rotate(-14 -96 59.74)" stroke-linejoin="round">
+<path d="M-100.86 52L-105 56.644L-99 56.644Z" fill="#52bbff"/><path d="M-100.86 52L-96 52L-99 56.644Z" fill="#e3f9ff"/>
+<path d="M-96 52L-99 56.644L-93 56.644Z" fill="#98e1ff"/><path d="M-96 52L-91.14 52L-93 56.644Z" fill="#52bbff"/>
+<path d="M-91.14 52L-87 56.644L-93 56.644Z" fill="#2d84f0"/><path d="M-105 56.644L-99 56.644L-96 67.48Z" fill="#52bbff"/>
+<path d="M-99 56.644L-93 56.644L-96 67.48Z" fill="#2d84f0"/><path d="M-93 56.644L-87 56.644L-96 67.48Z" fill="#1a52c4"/>
+<path d="M-99.78 52.774L-97.08 52.774L-99.54 55.87Z" fill="#fff" opacity=".7"/>
+<path d="M-102.84 57.418L-99.36 57.418L-96.9 64.0744Z" fill="#fff" opacity=".25"/>
+<path d="M-100.86 52H-91.14L-87 56.644L-96 67.48L-105 56.644Z" fill="none" stroke="#06183f" stroke-width="1.6"/></g><use href="#spark" transform="translate(84 70) scale(1.3)" opacity=".9"/></g>
+<text x="40" y="320" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="42" fill="#fff">SI LA ENTREGA FALLA,</text><text x="40" y="379.36" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="56" fill="#b9f43c">TE DEVOLVEMOS</text><text x="40" y="438.72" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="56" fill="#b9f43c">TU DINERO</text>
+<text x="44" y="486" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="20" fill="#c9d3cc" text-anchor="start">✔ Pago verificado  ✔ Sin contraseñas  ✔ Soporte real</text>
 </svg>
