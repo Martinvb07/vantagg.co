@@ -69,7 +69,7 @@ export async function getIntegrationOverview(): Promise<IntegrationCard[]> {
       mode: MODE_LABEL[t.mode()] ?? t.mode(),
       missing: t.missingConfig(),
       values:
-        t.id === "rechargegame"
+        t.id === "rechargegame" || t.id === "centralone"
           ? [
               { name: "TOPUP_API_KEY", value: mask(env.topup.apiKey) },
               { name: "TOPUP_WEBHOOK_SECRET", value: mask(env.topup.webhookSecret) },
@@ -85,7 +85,7 @@ export async function getIntegrationOverview(): Promise<IntegrationCard[]> {
       webhookUrl: t.simulated ? undefined : `${env.appUrl}/api/webhooks/topup`,
       note: t.simulated
         ? "No entrega diamantes reales. Nunca se activa en producción."
-        : t.id === "rechargegame"
+        : t.wholesale
           ? "Saldo, catálogo, regiones y precios en Panel → Proveedor y saldo. El webhook es opcional: sin él el estado se consulta solo."
           : "Úsalo solo con un proveedor cuyas condiciones autoricen la reventa.",
       ...st(`topup:${t.id}`),

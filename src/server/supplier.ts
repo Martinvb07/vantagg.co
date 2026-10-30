@@ -1,17 +1,20 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { compareRegions, DEFAULT_TOPUP_REGION, isFreeFireProductKey, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
-import { supplierApi } from "./integrations/topup/rechargegame";
+import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { activeWholesale } from "./integrations/topup";
+import { SupplierError } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
 import { getSettings, saveSettings } from "./settings";
 
 /**
- * Catálogo del proveedor mayorista: copia local + vínculo con los paquetes de la tienda.
- * Los precios de venta nunca se cambian solos: la sincronización solo actualiza costos y existencias.
+ * Catálogo del proveedor mayorista activo (Central One o RechargeGame): copia local + vínculo con los
+ * paquetes de la tienda. Los precios de venta nunca se cambian solos: la sincronización solo actualiza
+ * costos y existencias. Los costos se guardan en centavos de la moneda del proveedor (USD o USDT).
  */
 
 const GAME = "free-fire";
-const CATALOG_MAX_AGE_MS = 3 * 60 * 60_000;
+/** Región de respaldo: si el proveedor vende Free Fire como «GLOBAL», esos productos sirven a la región de la tienda. */
+const GLOBAL_REGION = "global";
 const toCents = (usdt: number | string) => Math.round(Number(usdt) * 100);
 const isDiamondPack = (p: { unit: string | null; amount: number | null; delivery: string }) => p.unit === "Diamonds" && (p.amount ?? 0) > 0 && p.delivery === "player_id";
 
@@ -32,7 +35,9 @@ export function syncSupplierCatalog(): Promise<SyncSummary> {
 }
 
 async function doSync(): Promise<SyncSummary> {
-  const { groups } = await supplierApi.catalog();
+  const supplier = activeWholesale();
+  if (!supplier) throw new SupplierError("not_configured", 0, "No hay un proveedor mayorista configurado.");
+  const { groups } = await supplier.wholesale.catalog();
   const now = new Date();
   const rows = groups.flatMap((g) =>
     g.products.map((p) => ({
@@ -56,14 +61,18 @@ async function doSync(): Promise<SyncSummary> {
   let updated = 0;
   const packages = await db.diamondPackage.findMany({ select: { id: true, region: true, diamonds: true, bonusDiamonds: true, providerSku: true, costCents: true, supplierOutOfStock: true } });
   for (const p of packages) {
-    let product = isFreeFireProductKey(p.providerSku) ? byKey.get(p.providerSku) : undefined;
-    // Paquetes creados a mano: se vinculan por cantidad total dentro de su región.
-    if (!product && !isFreeFireProductKey(p.providerSku)) {
-      product = rows.find((r) => r.regionSlug === p.region && isDiamondPack(r) && r.amount === p.diamonds + p.bonusDiamonds);
+    let product = p.providerSku ? byKey.get(p.providerSku) : undefined;
+    // Sin vínculo vigente (paquete creado a mano, o de otro proveedor tras cambiarlo): se vincula por la
+    // cantidad total dentro de su región, o en la región global del proveedor si no tiene esa región.
+    if (!product) {
+      const total = p.diamonds + p.bonusDiamonds;
+      product =
+        rows.find((r) => r.regionSlug === p.region && isDiamondPack(r) && r.amount === total) ??
+        rows.find((r) => r.regionSlug === GLOBAL_REGION && isDiamondPack(r) && r.amount === total);
       if (product) linked++;
     }
     if (!product) {
-      if (isFreeFireProductKey(p.providerSku) && !p.supplierOutOfStock) {
+      if (p.providerSku && !p.supplierOutOfStock) {
         // El proveedor ya no lista ese producto: se trata como agotado.
         await db.diamondPackage.update({ where: { id: p.id }, data: { supplierOutOfStock: true } });
         updated++;
@@ -79,10 +88,12 @@ async function doSync(): Promise<SyncSummary> {
   return { products: rows.length, regions: groups.length, linked, updated };
 }
 
-/** Sincroniza si la copia local tiene más de 3 horas (o nunca se sincronizó). Nunca lanza error. */
+/** Sincroniza si la copia local está vieja (Central One: 15 min; RechargeGame: 3 h). Nunca lanza error. */
 export async function ensureFreshCatalog(): Promise<boolean> {
+  const supplier = activeWholesale();
+  if (!supplier) return false;
   const { syncedAt } = await supplierRate();
-  if (syncedAt && Date.now() - syncedAt.getTime() < CATALOG_MAX_AGE_MS) return false;
+  if (syncedAt && Date.now() - syncedAt.getTime() < supplier.wholesale.catalogMaxAgeMs) return false;
   try {
     await syncSupplierCatalog();
     return true;
@@ -188,8 +199,17 @@ export function updateEnabledRegions(change: (current: string[]) => string[] | P
 
 /** Nombre de la región como lo usa el proveedor ("LATAM", "Brazil"), para pedidos y verificación de ID. */
 export async function supplierRegionName(regionSlug: string): Promise<string | null> {
-  const row = await db.supplierProduct.findFirst({ where: { game: GAME, regionSlug }, select: { regionName: true } });
+  const row =
+    (await db.supplierProduct.findFirst({ where: { game: GAME, regionSlug }, select: { regionName: true } })) ??
+    (await db.supplierProduct.findFirst({ where: { game: GAME, regionSlug: GLOBAL_REGION }, select: { regionName: true } }));
   return row?.regionName ?? null;
+}
+
+/** Paquete del proveedor con el que se comprueba un ID en una región (el más barato disponible). */
+async function representativeProduct(regionSlug: string) {
+  const pick = (slug: string) =>
+    db.supplierProduct.findMany({ where: { game: GAME, regionSlug: slug, outOfStock: false, delivery: "player_id", unit: "Diamonds" }, orderBy: { priceCents: "asc" }, take: 1, select: { productKey: true, regionName: true } });
+  return (await pick(regionSlug))[0] ?? (await pick(GLOBAL_REGION))[0] ?? null;
 }
 
 /** Busca el slug de región a partir del nombre que devuelve el verificador de IDs. */
@@ -211,7 +231,8 @@ export async function fetchDailyUsdCop(): Promise<number> {
 }
 
 export type PlayerRegionCheck =
-  | { ok: true; playerId: string; region: string; regionSlug: string }
+  /** verified: false = el proveedor no pudo comprobar el ID (se vende con la confirmación del cliente). */
+  | { ok: true; playerId: string; region: string; regionSlug: string; verified?: boolean; message?: string }
   | { ok: false; error: string; region?: string | null };
 
 /** "Latinoamérica, Brasil o Europa" */
@@ -224,8 +245,9 @@ function regionsText(slugs: string[]) {
  * Regla de venta: solo se recargan cuentas cuya región confirma el proveedor y que está activa en la tienda.
  * Sin región confirmada (EXISTS, verificador caído) no se vende: una recarga a otra región no llega.
  */
-export async function checkPlayerRegion(provider: TopUpProvider, playerId: string): Promise<PlayerRegionCheck> {
+export async function checkPlayerRegion(provider: TopUpProvider, playerId: string, preferredRegion?: string | null): Promise<PlayerRegionCheck> {
   const { regions } = await supplierRate();
+  if (provider.wholesale?.playerCheck === "per-product") return checkPerProduct(provider, playerId, regions, preferredRegion);
   const r = await provider.validatePlayer(playerId);
   if (r.verifiable && !r.valid) return { ok: false, error: r.message ?? "No encontramos ese ID de jugador. Revísalo e intenta de nuevo." };
   if (!r.verifiable) return { ok: false, error: r.message ?? "No pudimos verificar la región de esta cuenta ahora mismo. Intenta de nuevo en unos minutos." };
@@ -240,3 +262,38 @@ export async function checkPlayerRegion(provider: TopUpProvider, playerId: strin
   return { ok: true, playerId, region: r.region, regionSlug: slug };
 }
 
+
+/**
+ * Central One no dice de qué región es una cuenta: el ID se comprueba contra un paquete de cada región
+ * activa (primero la que está viendo el cliente). La primera donde la cuenta existe es su región.
+ * Si el proveedor no puede comprobarlo (sin verificación para ese juego o caído), se vende igual con la
+ * confirmación del cliente: si el ID estuviera mal, Central One no cobra y el pedido queda para reembolso.
+ */
+async function checkPerProduct(provider: TopUpProvider, playerId: string, regions: string[], preferred?: string | null): Promise<PlayerRegionCheck> {
+  const order = [...new Set([preferred, ...regions].filter((r): r is string => !!r && regions.includes(r)))];
+  let unverified: { slug: string; name: string; message?: string } | null = null;
+  let checked = 0;
+  for (const slug of order) {
+    const product = await representativeProduct(slug);
+    if (!product) continue;
+    checked++;
+    const r = await provider.validatePlayer(playerId, { productKey: product.productKey, region: product.regionName });
+    if (r.verifiable && r.valid) return { ok: true, playerId, region: product.regionName, regionSlug: slug, verified: true };
+    if (!r.verifiable) unverified ??= { slug, name: product.regionName, message: r.message };
+  }
+  if (unverified) {
+    return {
+      ok: true,
+      playerId,
+      region: unverified.name,
+      regionSlug: unverified.slug,
+      verified: false,
+      message: unverified.message ?? "El proveedor no permite comprobar este ID por ahora. Revisa que sea exactamente el de tu cuenta antes de pagar.",
+    };
+  }
+  if (!checked) return { ok: false, error: "Por ahora no hay paquetes disponibles para recargar. Intenta más tarde." };
+  return {
+    ok: false,
+    error: regions.length > 1 ? `No encontramos ese ID en ${regionsText(regions)}. Revísalo e intenta de nuevo.` : "No encontramos ese ID de jugador. Revísalo e intenta de nuevo.",
+  };
+}

@@ -63,3 +63,27 @@ export function boldOrderNumber(reference: string | null | undefined): string | 
   const n = reference?.split("_")[0]?.trim();
   return n ? n : null;
 }
+
+/**
+ * Webhooks de Central One: X-CentralOne-Signature = "sha256=" + hex(HMAC-SHA256(secreto, "{timestamp}.{cuerpo crudo}")).
+ * Durante 24 h tras rotar el secreto llega también X-CentralOne-Signature-Previous (firmada con el anterior):
+ * se acepta cualquiera de las dos si coincide con el secreto configurado. Timestamp con tolerancia de 5 min.
+ */
+export function verifyCentralOneWebhook(params: {
+  timestamp: string | null;
+  signature: string | null;
+  previousSignature?: string | null;
+  body: string;
+  secret: string;
+  nowSec?: number;
+  toleranceSec?: number;
+}): boolean {
+  const { timestamp, signature, previousSignature, body, secret } = params;
+  if (!timestamp || !secret || (!signature && !previousSignature)) return false;
+  const ts = Number(timestamp);
+  if (!Number.isInteger(ts)) return false;
+  const now = params.nowSec ?? Math.floor(Date.now() / 1000);
+  if (Math.abs(now - ts) > (params.toleranceSec ?? 300)) return false;
+  const expected = `sha256=${createHmac("sha256", secret).update(`${timestamp}.${body}`, "utf8").digest("hex")}`;
+  return [signature, previousSignature].some((s) => !!s && safeEqual(s.trim(), expected));
+}

@@ -124,11 +124,12 @@ export async function savePackageAction(_: ActionResult, form: FormData): Promis
   if (d.compareAtPrice != null && d.compareAtPrice <= d.price) return fail("El precio anterior debe ser mayor que el precio actual (o déjalo vacío).");
   // Producto del proveedor: si existe en el catálogo, se toman su región y su costo.
   const product = d.providerSku ? await db.supplierProduct.findUnique({ where: { productKey: d.providerSku } }) : null;
-  if (d.providerSku?.startsWith("topup/") && !product) return fail("Ese producto no está en el catálogo del proveedor. Sincroniza en Proveedor o revisa la clave.");
+  if (d.providerSku && !product) return fail("Ese producto no está en el catálogo del proveedor. Sincroniza en Proveedor o revisa la clave.");
   if (product?.amount && product.amount !== d.diamonds + d.bonusDiamonds) {
     return fail(`El producto del proveedor entrega ${product.amount} diamantes y el paquete suma ${d.diamonds + d.bonusDiamonds}. Ajusta diamantes + bonificación para que coincidan.`);
   }
-  if (product && product.regionSlug !== d.region) return fail(`El producto del proveedor es de la región «${product.regionName}». Cambia la región del paquete.`);
+  // Un producto «GLOBAL» del proveedor sirve para cualquier región de la tienda.
+  if (product && product.regionSlug !== d.region && product.regionSlug !== "global") return fail(`El producto del proveedor es de la región «${product.regionName}». Cambia la región del paquete.`);
 
   const data = {
     name: `${d.diamonds} diamantes`,

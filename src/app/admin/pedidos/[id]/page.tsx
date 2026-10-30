@@ -16,6 +16,7 @@ import { chatState, listMessages, markRead } from "@/server/chat";
 import { getSettings } from "@/server/settings";
 import { refreshDeliveryIfStale } from "@/server/orders";
 import { regionLabel } from "@/domain/topup-regions";
+import { activeWholesale } from "@/server/integrations/topup";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pedido" };
@@ -88,7 +89,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                 {order.playerNickname && <Row k="Apodo (según proveedor)" v={order.playerNickname} />}
                 {item.region && <Row k="Región" v={regionLabel(item.region, item.regionName)} />}
                 {item.sku && <Row k="Producto proveedor" v={<span className="font-mono">{item.sku}</span>} />}
-                {item.costCents != null && <Row k="Costo proveedor" v={`${(item.costCents / 100).toFixed(2)} USDT`} />}
+                {item.costCents != null && <Row k="Costo proveedor" v={`${(item.costCents / 100).toFixed(2)} ${activeWholesale()?.wholesale.currency ?? "USD"}`} />}
                 {order.account && (
                   <Row k="Publicación" v={<Link href={`/admin/cuentas/${order.account.id}`} className="underline">{order.account.status}</Link>} />
                 )}

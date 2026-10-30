@@ -50,17 +50,18 @@ export async function validatePlayerAction(playerId: string, regionSlug?: string
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const provider = activeTopUpProvider();
   if (!provider) return { ok: false, error: "Las recargas automáticas no están habilitadas en este momento." };
-  const supplier = provider.id === "rechargegame";
+  const supplier = !!provider.wholesale;
   const slug = typeof regionSlug === "string" && /^[a-z0-9-]{2,60}$/.test(regionSlug) ? regionSlug : null;
   try {
     if (supplier) {
       // Solo pasan cuentas de una región activa confirmada por el proveedor; la página cambia sola a esa región.
-      const c = await checkPlayerRegion(provider, parsed.data);
+      const c = await checkPlayerRegion(provider, parsed.data, slug);
       if (!c.ok) return { ok: false, error: c.error };
       return {
         ok: true,
         playerId: parsed.data,
-        verifiable: true,
+        verifiable: c.verified !== false,
+        message: c.message,
         // El nombre que devuelve el verificador del proveedor está desactualizado (probado: muestra apodos viejos)
         // y el proveedor no ofrece otra consulta; Garena no permite consultarlo. No se muestra.
         nickname: null,

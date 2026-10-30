@@ -43,8 +43,8 @@ Comandos: `npm test` (pruebas unitarias) · `npm run lint` (tipos) · `npm run b
 | `APP_URL` | Sí | URL pública sin barra final. Se usa en webhooks, retornos de pago, sitemap y correos |
 | `PAYMENT_PROVIDER` | Sí | `bold` (vacío = nadie puede pagar) |
 | `BOLD_API_KEY` / `BOLD_SECRET_KEY` / `BOLD_TEST_MODE` | Para Bold | Llave de identidad y secreta; `BOLD_TEST_MODE=true` con llaves de prueba |
-| `TOPUP_PROVIDER` | Sí | `rechargegame` |
-| `TOPUP_API_KEY` / `TOPUP_WEBHOOK_SECRET` / `TOPUP_TEST_MODE` | Para RechargeGame | Clave `gv_live_…`, secreto `whsec_…` del webhook y modo prueba opcional |
+| `TOPUP_PROVIDER` | Sí | `centralone` (o `rechargegame`) |
+| `TOPUP_API_KEY` / `TOPUP_WEBHOOK_SECRET` / `TOPUP_TEST_MODE` | Para el proveedor | Central One: llave `co_live_…` y secreto del webhook. RechargeGame: `gv_live_…` y `whsec_…`. Modo prueba opcional |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER`, `NEXT_PUBLIC_INSTAGRAM_URL` | No | Valores iniciales; luego se editan en `/admin/ajustes` |
 | `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, `STORAGE_PUBLIC_URL` | En producción | Bucket S3 compatible (S3, R2, MinIO, Spaces). Vacío = disco local: `UPLOADS_DIR` (disco persistente en producción) o `public/uploads` |
 | `NOTIFY_PROVIDER`, `RESEND_API_KEY`, `NOTIFY_FROM_EMAIL` | Recomendado | `resend` envía correos transaccionales; `log` solo los registra |
@@ -155,7 +155,15 @@ El menú muestra pendientes en vivo (cada 20 s), el título de la pestaña lleva
 3. `PAYMENT_PROVIDER=bold`. Si el webhook se demora, la tienda consulta el link al volver el cliente y en el mantenimiento programado.
 Mientras `PAYMENT_PROVIDER` esté vacío nadie puede comprar.
 
-**Proveedor de recargas: RechargeGame** (`topup/rechargegame.ts`)
+**Proveedor de recargas: Central One** (`topup/centralone.ts`, lógica pura en `topup/centralone-core.ts`)
+1. En el portal de Central One → Integración → crea una llave con los permisos `catalog:read`, `balance:read`, `orders:read` y `orders:write` (NO marques `codes:read`: las recargas directas no tienen códigos).
+2. En el `.env` del servidor: `TOPUP_PROVIDER=centralone` y `TOPUP_API_KEY=co_live_…` (nunca en el frontend). Reinicia.
+3. Panel → **Proveedor**: muestra saldo disponible (USD), sincroniza el catálogo (cada 15 min con el cron) y permite activar regiones. Los paquetes que ya tenías se vinculan solos por cantidad de diamantes dentro de su región (o con productos «GLOBAL»).
+4. ID del jugador: se comprueba con `POST /player/validate` contra un paquete de cada región activa (30 consultas/min por cuenta; se guarda 10 min). Si Central One no puede comprobarlo, se vende con la confirmación del cliente.
+5. Al confirmarse el pago se crea `POST /orders` con `Idempotency-Key` = clave de la entrega (reintentar nunca cobra dos veces); el estado se consulta con `GET /orders/{id}`. Central One no tiene modo prueba: los pagos de prueba (o `TOPUP_TEST_MODE=true`) se simulan sin llamar a la API.
+6. Webhook opcional: Integración → Webhooks → `https://TU_DOMINIO/api/webhooks/topup`, eventos `order.delivered` y `order.failed`; copia el secreto en `TOPUP_WEBHOOK_SECRET` (firma `X-CentralOne-Signature`). Sin webhook el estado se consulta al abrir el pedido y en el cron.
+
+**Proveedor de recargas: RechargeGame** (`topup/rechargegame.ts`, alternativa)
 1. `TOPUP_PROVIDER=rechargegame` y `TOPUP_API_KEY=gv_live_…` en el `.env` del servidor (nunca en el frontend).
 2. Panel → **Proveedor**: muestra cuenta y saldo (USDT), sincroniza el catálogo de Free Fire (cada 3 h solo, con el cron) y permite **activar regiones**. Activar una región crea sus paquetes con precio sugerido = costo × tasa (pesos por USDT) + margen, redondeado a $500; luego se ajustan en Paquetes, donde se ve el costo y el margen real de cada uno.
 3. Cada paquete apunta a un `product_key` del proveedor; la cantidad debe coincidir con lo que entrega el proveedor.

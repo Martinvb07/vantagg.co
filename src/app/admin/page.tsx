@@ -9,7 +9,7 @@ import { env } from "@/lib/env";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { getIntegrationOverview } from "@/server/integrations/status";
-import { supplierApi } from "@/server/integrations/topup/rechargegame";
+import { activeWholesale } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +28,11 @@ function rangeStart(days: number) {
 const dayKey = (d: Date) => new Date(d.getTime() - OFFSET).toISOString().slice(0, 10);
 
 /** Saldo del proveedor sin frenar la página (máx. 2,5 s). */
-async function supplierBalance(): Promise<number | null> {
-  if (env.topup.provider !== "rechargegame" || !env.topup.apiKey) return null;
+async function supplierBalance(): Promise<{ amount: number; currency: string } | null> {
+  const supplier = activeWholesale();
+  if (!supplier) return null;
   const timeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
-  const bal = await Promise.race([supplierApi.balance().catch(() => null), timeout]);
-  return bal ? Number(bal.balance_usdt) : null;
+  return Promise.race([supplier.wholesale.balance().catch(() => null), timeout]);
 }
 
 type Todo = { href: string; icon: typeof Receipt; text: string; hint: string; tone: string };
@@ -115,8 +115,8 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
     if (missing.length) todos.push({ href: "/admin/ajustes", icon: Scale, text: "Completar datos legales de la tienda", hint: `Falta: ${missing.join(", ")}. Se muestran en el pie de página y en los términos (Ley 1480).`, tone: "bg-warn-400/12 text-warn-400" });
   }
   const needCents = biggestCost._max.costCents ?? 0;
-  if (balance != null && needCents && balance * 100 < needCents) {
-    todos.push({ href: "/admin/proveedor", icon: Wallet, text: "Recargar saldo del proveedor", hint: `Tienes ${balance.toFixed(2)} USDT; tu paquete más caro cuesta ${(needCents / 100).toFixed(2)} USDT.`, tone: "bg-warn-400/12 text-warn-400" });
+  if (balance != null && needCents && balance.amount * 100 < needCents) {
+    todos.push({ href: "/admin/proveedor", icon: Wallet, text: "Recargar saldo del proveedor", hint: `Tienes ${balance.amount.toFixed(2)} ${balance.currency}; tu paquete más caro cuesta ${(needCents / 100).toFixed(2)} ${balance.currency}.`, tone: "bg-warn-400/12 text-warn-400" });
   }
 
   // Ventas del periodo
@@ -192,7 +192,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
             {isAdmin && <QuickAction href="/admin/paquetes" icon={Gem} label="Cambiar precios" />}
             {isAdmin && <QuickAction href="/admin/cuentas/nueva" icon={Plus} label="Publicar una cuenta" />}
             {isAdmin && <QuickAction href="/admin/codigos" icon={Ticket} label="Crear descuento" />}
-            {isAdmin && <QuickAction href="/admin/proveedor" icon={Wallet} label={balance != null ? `Saldo: ${balance.toFixed(2)} USDT` : "Proveedor y saldo"} />}
+            {isAdmin && <QuickAction href="/admin/proveedor" icon={Wallet} label={balance != null ? `Saldo: ${balance.amount.toFixed(2)} ${balance.currency}` : "Proveedor y saldo"} />}
             <QuickAction href="/" icon={Store} label="Ver la tienda" />
           </div>
         </Panel>

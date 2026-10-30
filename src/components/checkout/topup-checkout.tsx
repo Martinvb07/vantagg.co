@@ -364,7 +364,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                   {!player.nickname && (
                     <span className="flex items-center gap-1.5 font-semibold">
                       {player.verifiable ? <BadgeCheck className="size-4 text-ok-400" /> : <CircleAlert className="size-4 text-warn-400" />}
-                      {player.verifiable ? "ID verificado" : "Cuenta encontrada"}
+                      {player.verifiable ? "ID verificado" : "ID sin verificar"}
                     </span>
                   )}
                   <span className="font-mono text-fg-muted">ID {player.playerId}</span>

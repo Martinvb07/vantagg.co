@@ -2,7 +2,7 @@ import "server-only";
 import { env } from "@/lib/env";
 import { sameRegion } from "@/domain/topup-regions";
 import { verifyStandardWebhook } from "../payments/signatures";
-import type { PlayerValidation, TopUpProduct, TopUpProvider, TopUpRequest, TopUpResult, TopUpStatus } from "./types";
+import type { PlayerValidation, TopUpProduct, TopUpProvider, TopUpRequest, TopUpResult, TopUpStatus, WholesaleApi } from "./types";
 
 /**
  * Proveedor mayorista RechargeGame (API /v1, saldo prepago en USDT).
@@ -108,6 +108,42 @@ export const supplierApi = {
   orders: (limit = 20) => call<{ orders: RemoteOrder[] }>(`/v1/orders?limit=${limit}`),
 };
 
+const wholesale: WholesaleApi = {
+  name: "RechargeGame",
+  currency: "USDT",
+  catalogMaxAgeMs: 3 * 60 * 60_000,
+  playerCheck: "lookup",
+  topUpHint: "Recarga USDT por red BEP20 desde tu enlace de depósito del proveedor (mínimo 5 USDT). Mantén al menos el valor de tu paquete más grande.",
+  async ping() {
+    const r = await supplierApi.ping();
+    return { ok: r.ok, account: r.buyer };
+  },
+  async balance() {
+    const b = await supplierApi.balance();
+    return { amount: Number(b.balance_usdt), currency: "USDT" };
+  },
+  catalog: () => supplierApi.catalog(),
+  async orders(limit) {
+    const r = await supplierApi.orders(limit);
+    return r.orders.map((o) => {
+      const st = mapStatus(o.status);
+      return {
+        ref: o.order_id,
+        reference: o.buyer_ref ?? null,
+        status: o.status,
+        outcome: st === "SUCCESS" ? "delivered" : st === "FAILED" ? "failed" : "pending",
+        product: o.product ?? o.product_key ?? null,
+        playerId: o.player_id ?? null,
+        price: o.price_usdt != null ? Number(o.price_usdt) : null,
+        note: o.region ?? null,
+        failure: o.failure_reason ?? null,
+        createdAt: o.created_at ?? null,
+        test: o.test === true,
+      } as const;
+    });
+  },
+};
+
 // Verificación de región: el proveedor limita a 20 consultas/min por IP; se guarda 10 min en memoria.
 const regionCache = new Map<string, { at: number; value: PlayerValidation }>();
 
@@ -115,6 +151,7 @@ export const rechargeGameProvider: TopUpProvider = {
   id: "rechargegame",
   displayName: "RechargeGame (mayorista)",
   simulated: false,
+  wholesale,
 
   mode() {
     return env.topup.apiKey?.startsWith("gv_live_") ? "production" : "sandbox";

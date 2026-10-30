@@ -8,7 +8,7 @@ import { formatNumber } from "@/lib/money";
 import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validation";
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
-import { costInCop, isFreeFireProductKey, parseRegionList, regionLabel } from "@/domain/topup-regions";
+import { costInCop, parseRegionList, regionLabel } from "@/domain/topup-regions";
 import { getPaymentProvider } from "./integrations/payments";
 import type { VerifiedPayment } from "./integrations/payments/types";
 import { gatewayConfirms } from "./integrations/payments/confirm";
@@ -102,15 +102,16 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
 
   const settings = await getSettings();
   if (!parseRegionList(settings.topupRegions).includes(pkg.region)) return { ok: false, error: "Las recargas para esta región no están disponibles." };
-  const supplier = topup.id === "rechargegame";
-  if (supplier && !isFreeFireProductKey(pkg.providerSku)) return { ok: false, error: "Este paquete no está disponible en este momento." };
+  // Proveedor mayorista (Central One, RechargeGame): el paquete tiene que estar vinculado a su catálogo.
+  const supplier = !!topup.wholesale;
+  if (supplier && !pkg.providerSku) return { ok: false, error: "Este paquete no está disponible en este momento." };
   const regionName = supplier ? await supplierRegionName(pkg.region) : null;
   const regionText = regionLabel(pkg.region, regionName);
 
   // Mismo control que la página: la cuenta debe ser de una región activa confirmada y coincidir con el paquete.
   let nickname: string | null;
   if (supplier) {
-    const c = await checkPlayerRegion(topup, data.playerId);
+    const c = await checkPlayerRegion(topup, data.playerId, pkg.region);
     if (!c.ok) return { ok: false, error: c.error };
     if (c.regionSlug !== pkg.region) {
       const accountRegion = regionLabel(c.regionSlug, c.region);
@@ -383,7 +384,7 @@ export async function fulfillOrder(orderId: string, opts: { force?: boolean } = 
 
   // Protección: si el costo del proveedor supera lo que pagó el cliente, no se compra solo.
   const snap = order.itemSnapshot as { costCents?: number | null };
-  if (!opts.force && provider.id === "rechargegame" && !supplierTest(order) && snap.costCents != null) {
+  if (!opts.force && provider.wholesale && !supplierTest(order) && snap.costCents != null) {
     const { usdtCop } = await supplierRate();
     const cost = costInCop(snap.costCents, usdtCop);
     if (cost > order.total) {
@@ -400,7 +401,7 @@ export async function fulfillOrder(orderId: string, opts: { force?: boolean } = 
         provider: provider.id,
         idempotencyKey: `topup-${order.id}`,
         status: "PROCESSING",
-        simulated: provider.simulated || (provider.id === "rechargegame" && supplierTest(order)),
+        simulated: provider.simulated || (!!provider.wholesale && supplierTest(order)),
         attempts: 1,
         lockedAt: new Date(),
       },
@@ -424,11 +425,14 @@ function topUpRequest(order: Order, idempotencyKey: string): TopUpRequest {
 function supplierErrorMessage(err: unknown): string {
   if (err instanceof SupplierError) {
     const hints: Record<string, string> = {
-      insufficient_balance: "Saldo insuficiente en el proveedor. Recarga saldo (USDT) y la entrega se reintenta sola en unos minutos, o usa «Reintentar entrega».",
+      insufficient_balance: "Saldo insuficiente en el proveedor. Recarga saldo y la entrega se reintenta sola en unos minutos, o usa «Reintentar entrega».",
       out_of_stock: "El proveedor tiene este paquete agotado. Se reintenta solo; si sigue agotado, reembolsa o cambia el paquete.",
       unknown_product: "El proveedor no reconoce el producto. Sincroniza el catálogo en Panel → Proveedor y saldo.",
       rate_limited: "El proveedor limitó las solicitudes. Se reintenta sola en unos minutos.",
       invalid_api_key: "La clave de la API del proveedor es inválida o fue desactivada.",
+      insufficient_scope: "La llave de la API no tiene permiso para esta operación. En Central One debe tener catalog:read, balance:read, orders:read y orders:write.",
+      unsupported_target: "El producto del proveedor pide datos además del ID del jugador. Vincula el paquete a otro producto.",
+      idempotency_key_reused: "El proveedor ya tiene otra compra con esta referencia. Revisa el pedido en el portal del proveedor antes de reintentar.",
     };
     return `[${err.code}] ${hints[err.code] ?? err.message}`;
   }

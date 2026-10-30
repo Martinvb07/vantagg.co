@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  *  - consulta a la pasarela los pagos pendientes recientes (por si el webhook se demora),
  *  - consulta al proveedor las entregas pendientes de confirmación,
  *  - reintenta entregas detenidas por saldo/agotado/red (misma referencia: no cobra dos veces),
- *  - actualiza costos y existencias del catálogo del proveedor cada 3 horas.
+ *  - actualiza costos y existencias del catálogo del proveedor (Central One: cada 15 min; RechargeGame: cada 3 h).
  * Requiere: Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(req: Request) {
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if (!env.cronSecret || !safeEqual(auth, `Bearer ${env.cronSecret}`)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const supplier = activeTopUpProvider()?.id === "rechargegame";
+  const supplier = !!activeTopUpProvider()?.wholesale;
   // Primero se confirman los pagos que la pasarela ya aprobó; luego se vencen los que siguen sin pagar.
   const paymentsConfirmed = await pollPendingPayments().catch(() => 0);
   const [expired, deliveries, retried, catalogSynced] = await Promise.all([

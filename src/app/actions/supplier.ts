@@ -37,7 +37,7 @@ export async function saveSupplierRatesAction(_: ActionResult, form: FormData): 
   const user = await requireAdmin();
   const rate = Number(str(form, "usdtCop").replace(/[.\s]/g, "").replace(",", "."));
   const margin = Number(str(form, "topupMargin").replace(",", "."));
-  if (!Number.isFinite(rate) || rate < 1000 || rate > 10000) return fail("La tasa debe estar entre 1.000 y 10.000 pesos por USDT.");
+  if (!Number.isFinite(rate) || rate < 1000 || rate > 10000) return fail("La tasa debe estar entre 1.000 y 10.000 pesos por dólar.");
   if (!Number.isFinite(margin) || margin < 0 || margin > 300) return fail("El margen debe estar entre 0 % y 300 %.");
   const values = { usdtCop: String(Math.round(rate)), topupMargin: String(Math.round(margin * 10) / 10) };
   await saveSettings(values);
@@ -50,12 +50,12 @@ export async function dailyRateAction(_: ActionResult, _form: FormData): Promise
   const user = await requireAdmin();
   try {
     const usd = await fetchDailyUsdCop();
-    // El USDT en Colombia suele costar un poco más que el dólar oficial: +2 % para no quedar corto.
+    // El dólar/USDT que se compra en Colombia suele costar un poco más que el oficial: +2 % para no quedar corto.
     const rate = Math.round(usd * 1.02);
     await saveSettings({ usdtCop: String(rate) });
     await audit({ actorId: user.id, action: "supplier.rates", entity: "Setting", data: { usdtCop: rate, source: "open.er-api.com", usd } });
     refresh();
-    return ok(`Tasa actualizada: $${rate.toLocaleString("es-CO")} por USDT (dólar del día $${usd.toLocaleString("es-CO")} + 2 %).`);
+    return ok(`Tasa actualizada: $${rate.toLocaleString("es-CO")} por dólar (dólar del día $${usd.toLocaleString("es-CO")} + 2 %).`);
   } catch (e) {
     return fail(`No se pudo consultar la tasa del día: ${(e as Error).message}`);
   }

@@ -11,8 +11,7 @@ import { formatDate, formatMoney } from "@/lib/money";
 import { timeAgo } from "@/components/store/time-ago";
 import { costInCop, MIN_MARGIN_PCT, regionFlag } from "@/domain/topup-regions";
 import { dailyRateAction, repriceRegionAction, saveSupplierRatesAction, syncSupplierAction, toggleRegionAction } from "@/app/actions/supplier";
-import { activeTopUpProvider } from "@/server/integrations/topup";
-import { supplierApi } from "@/server/integrations/topup/rechargegame";
+import { activeWholesale } from "@/server/integrations/topup";
 import { ensureFreshCatalog, listSupplierRegions, supplierRate } from "@/server/supplier";
 import { getSettings } from "@/server/settings";
 
@@ -25,22 +24,26 @@ const STATUS_LABEL = { delivered: "Entregado", failed: "Fallido", pending: "En p
 
 export default async function SupplierAdmin() {
   await requireAdmin();
-  const configured = !!env.topup.apiKey;
-  const active = activeTopUpProvider()?.id === "rechargegame";
-  if (configured) await ensureFreshCatalog();
+  // Proveedor mayorista activo según TOPUP_PROVIDER (Central One o RechargeGame).
+  const supplier = activeWholesale();
+  const api = supplier?.wholesale ?? null;
+  const name = api?.name ?? "Central One";
+  const cur = api?.currency ?? "USD";
+  if (api) await ensureFreshCatalog();
 
   const [ping, balance, remote, regions, rate, settings] = await Promise.all([
-    configured ? supplierApi.ping().catch((e: Error) => ({ error: e.message })) : null,
-    configured ? supplierApi.balance().catch(() => null) : null,
-    configured ? supplierApi.orders(15).catch(() => null) : null,
+    api ? api.ping().catch((e: Error) => ({ error: e.message })) : null,
+    api ? api.balance().catch(() => null) : null,
+    api ? api.orders(15).catch(() => null) : null,
     listSupplierRegions(),
     supplierRate(),
     getSettings(),
   ]);
-  const ours = remote?.orders.length
-    ? await db.delivery.findMany({ where: { idempotencyKey: { in: remote.orders.map((o) => o.buyer_ref ?? "").filter(Boolean) } }, select: { idempotencyKey: true, order: { select: { id: true, number: true } } } })
+  // Pedidos del proveedor que salieron de la tienda: la entrega guarda el id del pedido del proveedor.
+  const ours = remote?.length
+    ? await db.delivery.findMany({ where: { providerRef: { in: remote.map((o) => o.ref) } }, select: { providerRef: true, order: { select: { id: true, number: true } } } })
     : [];
-  const balanceUsdt = balance ? Number(balance.balance_usdt) : null;
+  const balanceUsdt = balance ? balance.amount : null;
   const enabled = regions.filter((r) => r.enabled);
   const largest = enabled.reduce((m, r) => Math.max(m, r.maxCents ?? 0), 0);
 
@@ -71,7 +74,7 @@ export default async function SupplierAdmin() {
       <td className="tabular-nums">
         {r.minCents != null && r.maxCents != null ? (
           <>
-            {usd(r.minCents)}–{usd(r.maxCents)} USDT
+            {usd(r.minCents)}–{usd(r.maxCents)} {cur}
             <span className="block text-[11.5px] text-fg-subtle">
               ≈ {formatMoney(costInCop(r.minCents, rate.usdtCop))}–{formatMoney(costInCop(r.maxCents, rate.usdtCop))}
             </span>
@@ -125,9 +128,9 @@ export default async function SupplierAdmin() {
     <>
       <PageHeader
         title="Proveedor y saldo"
-        description="RechargeGame: cada pago aprobado compra la recarga con tu saldo prepago (USDT) y el proveedor la entrega al ID del cliente."
+        description={`${name}: cada pago aprobado compra la recarga con tu saldo prepago (${cur}) y el proveedor la entrega al ID del cliente.`}
         actions={
-          configured && (
+          api && (
             <ActionForm action={syncSupplierAction} className="text-right">
               <SubmitButton size="sm" variant="secondary">
                 Sincronizar catálogo
@@ -137,36 +140,36 @@ export default async function SupplierAdmin() {
         }
       />
 
-      {!configured && (
-        <Alert tone="warning" title="Falta la clave de la API" className="mb-6">
-          Agrega <span className="font-mono">TOPUP_API_KEY</span> y <span className="font-mono">TOPUP_PROVIDER=rechargegame</span> en el archivo .env del servidor y reinicia.
-        </Alert>
-      )}
-      {configured && !active && (
-        <Alert tone="warning" title="El proveedor no está activo para entregas" className="mb-6">
-          La clave funciona, pero <span className="font-mono">TOPUP_PROVIDER</span> = «{env.topup.provider || "vacío"}». Cámbialo a <span className="font-mono">rechargegame</span> para que los pedidos se envíen aquí.
+      {!api && (
+        <Alert tone="warning" title="Proveedor sin configurar" className="mb-6">
+          En el archivo .env del servidor pon <span className="font-mono">TOPUP_PROVIDER=centralone</span> y <span className="font-mono">TOPUP_API_KEY=co_live_…</span> (la llave de Central One) y reinicia.
+          {env.topup.apiKey && env.topup.provider !== "centralone" && env.topup.provider !== "rechargegame" && (
+            <span className="mt-1 block">
+              Ahora <span className="font-mono">TOPUP_PROVIDER</span> = «{env.topup.provider || "vacío"}».
+            </span>
+          )}
         </Alert>
       )}
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Cuenta" value={ping && "buyer" in ping ? ping.buyer : "—"} hint={ping && "error" in ping ? ping.error : ping ? "Conectado" : "Sin configurar"} tone={ping && "buyer" in ping ? "ok" : "warn"} />
+        <Stat label="Cuenta" value={ping && "account" in ping ? ping.account : "—"} hint={ping && "error" in ping ? ping.error : ping ? "Conectado" : "Sin configurar"} tone={ping && "account" in ping && ping.ok ? "ok" : "warn"} />
         <Stat
           label="Saldo"
-          value={balanceUsdt != null ? `${balanceUsdt.toFixed(2)} USDT` : "—"}
-          hint={balanceUsdt != null ? `≈ ${formatMoney(Math.round(balanceUsdt * rate.usdtCop))} a $${rate.usdtCop.toLocaleString("es-CO")} por USDT` : undefined}
+          value={balanceUsdt != null ? `${balanceUsdt.toFixed(2)} ${cur}` : "—"}
+          hint={balanceUsdt != null ? `Disponible · ≈ ${formatMoney(Math.round(balanceUsdt * rate.usdtCop))} a $${rate.usdtCop.toLocaleString("es-CO")} por ${cur}` : undefined}
           tone={balanceUsdt != null && largest && balanceUsdt * 100 < largest ? "warn" : undefined}
         />
         <Stat
           label="Pedidos al proveedor"
           value={env.topup.forceTest ? "Solo prueba" : "Automáticos"}
-          hint={env.topup.forceTest ? "TOPUP_TEST_MODE=true: nada se cobra ni se entrega." : "Pagos de prueba → pedido de prueba (gratis). Pagos reales → recarga real."}
+          hint={env.topup.forceTest ? "TOPUP_TEST_MODE=true: nada se cobra ni se entrega." : "Pagos de prueba → entrega simulada (no se compra nada). Pagos reales → recarga real."}
         />
-        <Stat label="Catálogo" value={rate.syncedAt ? timeAgo(rate.syncedAt) : "Nunca"} hint={`${rate.syncedAt ? `${formatDate(rate.syncedAt)} · ` : ""}Costos y existencias se actualizan cada 3 horas. Tus precios no cambian solos.`} />
+        <Stat label="Catálogo" value={rate.syncedAt ? timeAgo(rate.syncedAt) : "Nunca"} hint={`${rate.syncedAt ? `${formatDate(rate.syncedAt)} · ` : ""}Costos y existencias se actualizan cada ${api && api.catalogMaxAgeMs < 3600_000 ? `${Math.round(api.catalogMaxAgeMs / 60_000)} minutos` : "3 horas"}. Tus precios no cambian solos.`} />
       </div>
 
       {balanceUsdt != null && largest > 0 && balanceUsdt * 100 < largest && (
         <Alert tone="warning" className="mb-6">
-          Tu saldo ({balanceUsdt.toFixed(2)} USDT) no alcanza para el paquete más grande activo ({usd(largest)} USDT). Si un cliente lo compra, la entrega queda en espera hasta que recargues; se reintenta sola cada 5
+          Tu saldo ({balanceUsdt.toFixed(2)} {cur}) no alcanza para el paquete más grande activo ({usd(largest)} {cur}). Si un cliente lo compra, la entrega queda en espera hasta que recargues; se reintenta sola cada 5
           minutos.
         </Alert>
       )}
@@ -174,7 +177,7 @@ export default async function SupplierAdmin() {
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Panel title="Tasa y margen">
           <ActionForm action={saveSupplierRatesAction} className="space-y-3">
-            <Field label="Pesos por 1 USDT" hint="Para calcular costos, márgenes y precios sugeridos.">
+            <Field label={`Pesos por 1 ${cur}`} hint="Para calcular costos, márgenes y precios sugeridos.">
               <input name="usdtCop" inputMode="numeric" defaultValue={settings.usdtCop} className="field tabular-nums" />
             </Field>
             <Field label="Margen para precios sugeridos (%)" hint="Se aplica al activar una región o al recalcular precios.">
@@ -192,11 +195,13 @@ export default async function SupplierAdmin() {
         <Panel title="Saldo y webhook">
           <div className="space-y-3 text-[12.5px] text-fg-muted">
             <p>
-              <strong className="text-fg">Recargar saldo:</strong> USDT por red BEP20 desde tu enlace de depósito del proveedor (mínimo 5 USDT). Mantén al menos el valor de tu paquete más grande.
+              <strong className="text-fg">Recargar saldo:</strong> {api?.topUpHint ?? "Desde el portal de tu proveedor."}
             </p>
             <p>
-              <strong className="text-fg">Webhook (al publicar la tienda):</strong> en el panel del proveedor → Profile → Webhook, pon <span className="break-all font-mono text-fg">{env.appUrl}/api/webhooks/topup</span>{" "}
-              y copia el secreto <span className="font-mono">whsec_…</span> en <span className="font-mono">TOPUP_WEBHOOK_SECRET</span>.
+              <strong className="text-fg">Webhook (opcional):</strong>{" "}
+              {name === "Central One" ? "en el portal de Central One → Integración → Webhooks" : "en el panel del proveedor → Profile → Webhook"}, pon{" "}
+              <span className="break-all font-mono text-fg">{env.appUrl}/api/webhooks/topup</span> y copia el secreto en <span className="font-mono">TOPUP_WEBHOOK_SECRET</span>.
+              {name === "Central One" && " Marca los eventos de pedidos (order.delivered y order.failed)."}
             </p>
             <p>
               Estado: {env.topup.webhookSecret ? <Badge tone="success">Secreto configurado</Badge> : <Badge tone="warning">Sin webhook</Badge>}
@@ -263,19 +268,19 @@ export default async function SupplierAdmin() {
             </tr>
           </thead>
           <tbody>
-            {!remote?.orders.length && (
+            {!remote?.length && (
               <tr>
                 <td colSpan={6} className="text-fg-muted">
                   {remote ? "Sin pedidos todavía." : "No se pudo consultar el proveedor."}
                 </td>
               </tr>
             )}
-            {remote?.orders.map((o) => {
-              const mine = ours.find((d) => d.idempotencyKey === o.buyer_ref)?.order;
-              const st = (o.status in STATUS_LABEL ? o.status : "pending") as keyof typeof STATUS_LABEL;
+            {remote?.map((o) => {
+              const mine = ours.find((d) => d.providerRef === o.ref)?.order;
+              const st = o.outcome;
               return (
-                <tr key={o.order_id}>
-                  <td className="whitespace-nowrap text-fg-muted">{o.created_at ? formatDate(o.created_at) : "—"}</td>
+                <tr key={o.ref}>
+                  <td className="whitespace-nowrap text-fg-muted">{o.createdAt ? formatDate(o.createdAt) : "—"}</td>
                   <td>
                     {mine ? (
                       <Link href={`/admin/pedidos/${mine.id}`} className="font-mono underline underline-offset-2">
@@ -284,19 +289,19 @@ export default async function SupplierAdmin() {
                     ) : (
                       <span className="text-fg-subtle">Fuera de la tienda</span>
                     )}
-                    <span className="block font-mono text-[11px] text-fg-subtle">{o.order_id}</span>
+                    <span className="block font-mono text-[11px] text-fg-subtle">{o.reference ?? o.ref}</span>
                   </td>
                   <td>
-                    {o.product}
+                    {o.product ?? o.note ?? "—"}
                     {o.test && <Badge className="ml-2">Prueba</Badge>}
                   </td>
-                  <td className="font-mono">{o.player_id ?? "—"}</td>
-                  <td className="tabular-nums">{o.price_usdt != null ? `${Number(o.price_usdt).toFixed(2)} USDT` : "—"}</td>
+                  <td className="font-mono">{o.playerId ?? "—"}</td>
+                  <td className="tabular-nums">{o.price != null ? `${o.price.toFixed(2)} ${cur}` : "—"}</td>
                   <td>
                     <Badge tone={STATUS_TONE[st]} dot>
                       {STATUS_LABEL[st]}
                     </Badge>
-                    {o.status === "failed" && o.failure_reason && <span className="mt-1 block max-w-[260px] text-[11.5px] text-bad-400">{o.failure_reason}</span>}
+                    {st === "failed" && o.failure && <span className="mt-1 block max-w-[260px] text-[11.5px] text-bad-400">{o.failure}</span>}
                   </td>
                 </tr>
               );

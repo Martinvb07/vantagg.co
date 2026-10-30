@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { applyBonusAllAction, deletePackageAction, savePackageAction, topupCoverAction } from "@/app/actions/admin";
 import { getSettings } from "@/server/settings";
+import { activeWholesale } from "@/server/integrations/topup";
 import { costInCop, marginOf, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
 import { TopupRegionFlag } from "@/components/brand/topup-region-flag";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,9 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
   const packages = await db.diamondPackage.findMany({ where: { region }, orderBy: [{ sortOrder: "asc" }, { diamonds: "asc" }], include: { _count: { select: { orders: true } } } });
   const quotes = packages.map((p) => quotePrice(p.price, p.compareAtPrice));
   const demoCount = packages.filter((p) => p.isDemo).length;
-  const products = await db.supplierProduct.findMany({ where: { regionSlug: region, unit: "Diamonds" }, orderBy: { amount: "asc" }, select: { productKey: true, name: true, priceCents: true } });
+  // Productos del proveedor para vincular: los de la región y los «GLOBAL» (sirven para cualquier región).
+  const products = await db.supplierProduct.findMany({ where: { regionSlug: { in: [region, "global"] }, unit: "Diamonds" }, orderBy: { amount: "asc" }, select: { productKey: true, name: true, priceCents: true } });
+  const currency = activeWholesale()?.wholesale.currency ?? "USD";
 
   return (
     <>
@@ -116,7 +119,7 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
                 {quotes[i].original != null && <span className="ml-1.5 text-fg-subtle line-through">{formatMoney(quotes[i].original!)}</span>}
               </span>
               <span className="w-28 text-fg-muted">{PRODUCT_LABELS[p.label] ?? "Sin etiqueta"}</span>
-              <MarginTag price={quotes[i].price} costCents={p.costCents} usdtCop={usdtCop} linked={!!p.providerSku?.startsWith("topup/")} />
+              <MarginTag price={quotes[i].price} costCents={p.costCents} usdtCop={usdtCop} linked={!!p.providerSku} />
               <span className={p.active && p.available && !p.supplierOutOfStock ? "text-ok-400" : "text-fg-subtle"}>
                 {!p.active ? "Inactivo" : p.supplierOutOfStock ? "Agotado en el proveedor" : p.available ? "Disponible" : "Agotado"}
               </span>
@@ -124,7 +127,7 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
               <span className="ml-auto text-fg-subtle">{p._count.orders} pedidos · Editar ▾</span>
             </summary>
             <div className="border-t border-white/[0.06] p-4">
-              <PackageForm pkg={p} region={region} products={products} usdtCop={usdtCop} />
+              <PackageForm pkg={p} region={region} products={products} usdtCop={usdtCop} currency={currency} />
               <ActionForm action={deletePackageAction} className="mt-4 border-t border-white/[0.06] pt-4">
                 <input type="hidden" name="id" value={p.id} />
                 <ConfirmSubmit confirmText={p._count.orders ? "Confirmar desactivación" : "Confirmar eliminación"}>
@@ -137,7 +140,7 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
       </div>
 
       <Panel title={`Nuevo paquete · ${regionLabel(region)}`} className="mt-8">
-        <PackageForm region={region} products={products} usdtCop={usdtCop} />
+        <PackageForm region={region} products={products} usdtCop={usdtCop} currency={currency} />
       </Panel>
     </>
   );
@@ -156,7 +159,7 @@ function MarginTag({ price, costCents, usdtCop, linked }: { price: number; costC
   );
 }
 
-function PackageForm({ pkg, region, products, usdtCop }: { pkg?: DiamondPackage; region: string; products: { productKey: string; name: string; priceCents: number }[]; usdtCop: number }) {
+function PackageForm({ pkg, region, products, usdtCop, currency }: { pkg?: DiamondPackage; region: string; products: { productKey: string; name: string; priceCents: number }[]; usdtCop: number; currency: string }) {
   return (
     <ActionForm action={savePackageAction} resetOnSuccess={!pkg}>
       {pkg && <input type="hidden" name="id" value={pkg.id} />}
@@ -192,7 +195,7 @@ function PackageForm({ pkg, region, products, usdtCop }: { pkg?: DiamondPackage;
             {pkg?.providerSku && !products.some((p) => p.productKey === pkg.providerSku) && <option value={pkg.providerSku}>{pkg.providerSku}</option>}
             {products.map((p) => (
               <option key={p.productKey} value={p.productKey}>
-                {p.name} · {(p.priceCents / 100).toFixed(2)} USDT (≈ {formatMoney(costInCop(p.priceCents, usdtCop))})
+                {p.name} · {(p.priceCents / 100).toFixed(2)} {currency} (≈ {formatMoney(costInCop(p.priceCents, usdtCop))})
               </option>
             ))}
           </select>
