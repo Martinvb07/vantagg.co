@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Headphones, KeyRound, Mail, MessageCircle, RotateCcw, ShieldCheck } from "lucide-react";
-import { Gem } from "@/components/brand/gem";
+import { CoverArt } from "@/components/brand/covers";
 import { Logo } from "@/components/brand/logo";
 import { PaymentBadges } from "@/components/brand/payment-badges";
 import { Container } from "@/components/ui/primitives";
@@ -77,26 +77,45 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
   return (
     <footer className="relative mt-10 overflow-hidden border-t sm:mt-16 border-white/[0.06] bg-ink-950">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-volt-400/40 to-transparent" aria-hidden />
-      <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(108,180,255,0.10),transparent)]" aria-hidden />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(200,240,79,0.07),transparent)]" aria-hidden />
 
       <Container className="relative">
         {/* Llamado a la acción */}
-        <div className="relative -mb-2 mt-8 overflow-hidden rounded-[22px] sm:mt-12 bg-[linear-gradient(115deg,#0a2a5e_0%,#1167d8_55%,#4cc3ff_120%)] p-6 ring-1 ring-white/10 sm:p-8">
-          <div className="pointer-events-none absolute inset-0 opacity-25" style={{ background: "repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,.08) 46px 48px)" }} aria-hidden />
-          <Gem className="pointer-events-none absolute -right-8 -top-6 w-28 rotate-[-12deg] opacity-80 sm:top-1/2 sm:-translate-y-1/2 sm:opacity-90 drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)] sm:right-10 sm:w-48" />
+        <div className="relative -mb-2 mt-8 overflow-hidden rounded-[22px] bg-[linear-gradient(115deg,#0e1f0e_0%,#070d08_55%,#030504_100%)] p-6 ring-1 ring-volt-400/20 sm:mt-12 sm:p-8">
+          {/* La V de la marca y el brillo lima detrás del cofre */}
+          <svg viewBox="0 0 400 240" preserveAspectRatio="xMaxYMid slice" className="pointer-events-none absolute inset-0 size-full" aria-hidden>
+            <defs>
+              <linearGradient id="cta-v" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#b9f43c" stopOpacity="0.38" />
+                <stop offset="1" stopColor="#b9f43c" stopOpacity="0.03" />
+              </linearGradient>
+              <radialGradient id="cta-glow" cx="0.82" cy="0.5" r="0.45">
+                <stop offset="0" stopColor="#b9f43c" stopOpacity="0.22" />
+                <stop offset="1" stopColor="#b9f43c" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <rect width="400" height="240" fill="url(#cta-glow)" />
+            <path d="M262 -6 H296 L330 150 L364 -6 H398 L338 236 H322Z" fill="url(#cta-v)" />
+            <g fill="#b9f43c">
+              <path d="M384 40 L400 26 V36 L388 46Z" opacity="0.5" />
+            </g>
+          </svg>
+          <CoverArt tier={5} className="pointer-events-none absolute -right-6 -top-4 w-32 opacity-90 sm:right-8 sm:top-1/2 sm:w-52 sm:-translate-y-1/2 sm:opacity-100" />
           <div className="relative max-w-xl">
-            <p className="max-w-[75%] text-[26px] font-extrabold italic leading-tight tracking-tight text-white sm:max-w-none sm:text-[34px]">¿LISTO PARA RECARGAR?</p>
-            <p className="mt-1.5 text-[14.5px] font-medium text-white/80">Pon tu ID, elige tu paquete con bonus y paga en pesos.</p>
+            <p className="max-w-[70%] text-[26px] font-extrabold italic leading-tight tracking-tight text-white sm:max-w-none sm:text-[34px]">
+              ¿LISTO PARA <span className="text-volt-400">RECARGAR?</span>
+            </p>
+            <p className="mt-1.5 text-[14.5px] font-medium text-white/75">Pon tu ID, elige tu paquete con bonus y paga en pesos.</p>
             <div className="mt-5 grid gap-2.5 sm:flex sm:flex-wrap">
-              <Link href="/recargas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 sm:h-11 text-[14px] font-bold text-ink-950 transition hover:bg-volt-300">
+              <Link href="/recargas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-volt-400 px-5 text-[14px] font-bold text-ink-950 shadow-[0_0_24px_rgba(200,240,79,0.35)] transition hover:bg-volt-300 sm:h-11">
                 Recargar diamantes <ArrowRight className="size-4" />
               </Link>
               {showAccounts ? (
-                <Link href="/cuentas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 sm:h-11 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
+                <Link href="/cuentas" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-5 text-[14px] font-semibold text-white ring-1 ring-white/15 transition hover:bg-white/15 sm:h-11">
                   Ver cuentas
                 </Link>
               ) : (
-                <Link href="/pedido" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/15 px-5 sm:h-11 text-[14px] font-semibold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">
+                <Link href="/pedido" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-5 text-[14px] font-semibold text-white ring-1 ring-white/15 transition hover:bg-white/15 sm:h-11">
                   Rastrear pedido
                 </Link>
               )}

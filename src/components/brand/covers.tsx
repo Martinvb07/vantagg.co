@@ -215,6 +215,51 @@ function Scene({ t, u }: { t: number; u: (n: string) => string }): ReactNode {
   }
 }
 
+/** Degradados, filtros y destello que usan las escenas (ids únicos por portada). */
+function CoverDefs({ id, glow }: { id: string; glow: number }) {
+  return (
+    <defs>
+      <linearGradient id={`${id}bg`} x1="0" y1="0" x2="0.5" y2="1">
+        <stop offset="0" stopColor="#10200f" />
+        <stop offset="1" stopColor="#040705" />
+      </linearGradient>
+      <linearGradient id={`${id}v`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor={LIME} stopOpacity="0.42" />
+        <stop offset="1" stopColor={LIME} stopOpacity="0.04" />
+      </linearGradient>
+      <radialGradient id={`${id}glow`} cx="0.5" cy="0.52" r="0.55">
+        <stop offset="0" stopColor={LIME} stopOpacity={glow} />
+        <stop offset="0.55" stopColor={LIME} stopOpacity={glow / 4} />
+        <stop offset="1" stopColor="#000" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id={`${id}gemglow`}>
+        <stop offset="0" stopColor="#4fc3ff" stopOpacity="0.5" />
+        <stop offset="1" stopColor="#4fc3ff" stopOpacity="0" />
+      </radialGradient>
+      <linearGradient id={`${id}dark`} x1="0" y1="0" x2="0.3" y2="1">
+        <stop offset="0" stopColor="#323a36" />
+        <stop offset="1" stopColor="#0c100e" />
+      </linearGradient>
+      <linearGradient id={`${id}lid`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#47524c" />
+        <stop offset="1" stopColor="#1b221e" />
+      </linearGradient>
+      <linearGradient id={`${id}chute`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor={LIME_SOFT} />
+        <stop offset="1" stopColor="#5f9a12" />
+      </linearGradient>
+      <linearGradient id={`${id}ped`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#2d3531" />
+        <stop offset="1" stopColor="#141916" />
+      </linearGradient>
+      <filter id={`${id}soft`} x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2.6" />
+      </filter>
+      <path id={`${id}spark`} d="M0 -8 L1.8 -1.8 L8 0 L1.8 1.8 L0 8 L-1.8 1.8 L-8 0 L-1.8 -1.8Z" fill="#fff" />
+    </defs>
+  );
+}
+
 /** `plain`: solo la ilustración, sin cantidad ni bonus. */
 export function DiamondCover({ tier, diamonds, bonus = 0, plain = false, className }: { tier: number; diamonds: number; bonus?: number; plain?: boolean; className?: string }) {
   const t = Math.max(1, Math.min(tier, 6));
@@ -225,45 +270,7 @@ export function DiamondCover({ tier, diamonds, bonus = 0, plain = false, classNa
   return (
     <div className={cn("relative aspect-square overflow-hidden bg-[#060a07]", className)} style={{ containerType: "inline-size" }} aria-hidden>
       <svg viewBox="0 0 200 200" className="absolute inset-0 size-full">
-        <defs>
-          <linearGradient id={`${id}bg`} x1="0" y1="0" x2="0.5" y2="1">
-            <stop offset="0" stopColor="#10200f" />
-            <stop offset="1" stopColor="#040705" />
-          </linearGradient>
-          <linearGradient id={`${id}v`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={LIME} stopOpacity="0.42" />
-            <stop offset="1" stopColor={LIME} stopOpacity="0.04" />
-          </linearGradient>
-          <radialGradient id={`${id}glow`} cx="0.5" cy="0.52" r="0.55">
-            <stop offset="0" stopColor={LIME} stopOpacity={glow} />
-            <stop offset="0.55" stopColor={LIME} stopOpacity={glow / 4} />
-            <stop offset="1" stopColor="#000" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id={`${id}gemglow`}>
-            <stop offset="0" stopColor="#4fc3ff" stopOpacity="0.5" />
-            <stop offset="1" stopColor="#4fc3ff" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id={`${id}dark`} x1="0" y1="0" x2="0.3" y2="1">
-            <stop offset="0" stopColor="#323a36" />
-            <stop offset="1" stopColor="#0c100e" />
-          </linearGradient>
-          <linearGradient id={`${id}lid`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#47524c" />
-            <stop offset="1" stopColor="#1b221e" />
-          </linearGradient>
-          <linearGradient id={`${id}chute`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={LIME_SOFT} />
-            <stop offset="1" stopColor="#5f9a12" />
-          </linearGradient>
-          <linearGradient id={`${id}ped`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2d3531" />
-            <stop offset="1" stopColor="#141916" />
-          </linearGradient>
-          <filter id={`${id}soft`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.6" />
-          </filter>
-          <path id={`${id}spark`} d="M0 -8 L1.8 -1.8 L8 0 L1.8 1.8 L0 8 L-1.8 1.8 L-8 0 L-1.8 -1.8Z" fill="#fff" />
-        </defs>
+        <CoverDefs id={id} glow={glow} />
 
         <rect width="200" height="200" fill={u("bg")} />
         {/* La V de la marca, grande detrás de la escena */}
@@ -316,5 +323,20 @@ export function DiamondCover({ tier, diamonds, bonus = 0, plain = false, classNa
         </div>
       )}
     </div>
+  );
+}
+
+/** Solo la escena del paquete, sin fondo (para banners armados en HTML sobre fondo de la marca). */
+export function CoverArt({ tier, className }: { tier: number; className?: string }) {
+  const t = Math.max(1, Math.min(tier, 6));
+  const id = useId().replace(/:/g, "");
+  const u = (name: string) => `url(#${id}${name})`;
+  return (
+    <svg viewBox="0 0 200 200" className={className} aria-hidden>
+      <CoverDefs id={id} glow={0} />
+      <g transform={`translate(100 90) scale(${SCALE[t - 1]}) translate(-100 -90)`}>
+        <Scene t={t} u={u} />
+      </g>
+    </svg>
   );
 }
