@@ -108,6 +108,14 @@ jobs:
           for p in /.env /.git/config /.env.production /package.json /prisma/schema.prisma /deploy/ecosystem.config.js /.next/server/app/page.js; do revisar "$p" 404 "(no debe exponerse)"; done
           c=$(estado -o /dev/null -w '%{redirect_url}' "$B/cuenta"); echo "  /cuenta sin sesión → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/cuenta")"
           echo "  /api/cron/maintenance sin llave → $(estado "$B/api/cron/maintenance")"
+          echo "== pagos y pedidos (sin dinero: firmas falsas y tokens inválidos)"
+          # Aviso «aprobado» con firma inventada para un pedido inexistente: debe rechazarse sin tocar nada.
+          falso='{"id":"verificacion","type":"SALE_APPROVED","subject":"TX-VERIFICACION","data":{"payment_id":"TX-VERIFICACION","amount":{"currency":"COP","total":100},"metadata":{"reference":"VX-0000-0000_verif"}}}'
+          c=$(estado -X POST -H "Content-Type: application/json" -H "x-bold-signature: 0000" --data "$falso" "$B/api/webhooks/bold"); [ "$c" = "401" ] && echo "  ✔ webhook de Bold con firma falsa → $c" || echo "  ✖ webhook de Bold con firma falsa → $c (esperado 401)"
+          c=$(estado -X POST -H "Content-Type: application/json" --data "$falso" "$B/api/webhooks/bold"); [ "$c" = "401" ] && echo "  ✔ webhook de Bold sin firma → $c" || echo "  ✖ webhook de Bold sin firma → $c (esperado 401)"
+          c=$(estado -X POST -H "Content-Type: application/json" -H "X-CentralOne-Timestamp: $(date +%s)" -H "X-CentralOne-Signature: sha256=00" --data '{"event_id":"verificacion"}' "$B/api/webhooks/topup"); case "$c" in 401|404) echo "  ✔ webhook de recargas con firma falsa → $c";; *) echo "  ✖ webhook de recargas con firma falsa → $c (esperado 401)";; esac
+          revisar "/pedido/VX-0000-0000?t=token-falso&status=APPROVED&from=pago" 404 "(un pedido sin token válido no se muestra)"
+          revisar /api/orders/VX-0000-0000/chat 404
           echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
           echo "== redirecciones"
           echo "  http://vantagg.co → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' http://vantagg.co/)"
