@@ -22,7 +22,7 @@
 <circle cx="0" cy="-2" r="30" fill="#b9f43c" filter="url(#soft)" opacity=".7"/>
 <circle cx="0" cy="-2" r="28" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
 <path d="M-13 -2L-3 9L15 -12" fill="none" stroke="#030504" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="0" y="52" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#fff" text-anchor="middle" letter-spacing="1">PAGO LISTO</text>
+<text x="0" y="50" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#fff" text-anchor="middle">PAGO</text><text x="0" y="68" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#b9f43c" text-anchor="middle">LISTO</text>
 </g><g transform="rotate(-18 -86 -59.68)" stroke-linejoin="round">
 <path d="M-92.48 -70L-98 -63.808L-90 -63.808Z" fill="#52bbff"/><path d="M-92.48 -70L-86 -70L-90 -63.808Z" fill="#e3f9ff"/>
 <path d="M-86 -70L-90 -63.808L-82 -63.808Z" fill="#98e1ff"/><path d="M-86 -70L-79.52 -70L-82 -63.808Z" fill="#52bbff"/>

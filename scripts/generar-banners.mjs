@@ -102,7 +102,7 @@ ${nequiLogo(-36, -78, 22)}
 <circle cx="0" cy="-2" r="30" fill="${LIME}" filter="url(#soft)" opacity=".7"/>
 <circle cx="0" cy="-2" r="28" fill="${LIME}" stroke="${INK}" stroke-width="2"/>
 <path d="M-13 -2L-3 9L15 -12" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="0" y="52" font-family="${HEAD}" font-weight="900" font-size="15" fill="#fff" text-anchor="middle" letter-spacing="1">PAGO LISTO</text>
+<text x="0" y="50" font-family="${HEAD}" font-weight="900" font-size="15" fill="#fff" text-anchor="middle">PAGO</text><text x="0" y="68" font-family="${HEAD}" font-weight="900" font-size="15" fill="${LIME}" text-anchor="middle">LISTO</text>
 </g>${gems([[-86, -70, 24, -18], [88, 18, 20, 16], [-80, 40, 14, -10]])}
 ${ringFront(0, 92, 74, 14)}`;
 
