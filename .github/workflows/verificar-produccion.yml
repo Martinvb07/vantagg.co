@@ -114,7 +114,10 @@ jobs:
           c=$(estado -X POST -H "Content-Type: application/json" -H "x-bold-signature: 0000" --data "$falso" "$B/api/webhooks/bold"); [ "$c" = "401" ] && echo "  ✔ webhook de Bold con firma falsa → $c" || echo "  ✖ webhook de Bold con firma falsa → $c (esperado 401)"
           c=$(estado -X POST -H "Content-Type: application/json" --data "$falso" "$B/api/webhooks/bold"); [ "$c" = "401" ] && echo "  ✔ webhook de Bold sin firma → $c" || echo "  ✖ webhook de Bold sin firma → $c (esperado 401)"
           c=$(estado -X POST -H "Content-Type: application/json" -H "X-CentralOne-Timestamp: $(date +%s)" -H "X-CentralOne-Signature: sha256=00" --data '{"event_id":"verificacion"}' "$B/api/webhooks/topup"); case "$c" in 401|404) echo "  ✔ webhook de recargas con firma falsa → $c";; *) echo "  ✖ webhook de recargas con firma falsa → $c (esperado 401)";; esac
-          revisar "/pedido/VX-0000-0000?t=token-falso&status=APPROVED&from=pago" 404 "(un pedido sin token válido no se muestra)"
+          # La tienda transmite la página por partes (loading.tsx), así que el código HTTP sale 200 antes del 404:
+          # se revisa que la respuesta sea la página «no encontrada» y no la del pedido.
+          p=$(curl -s --max-time 20 "$B/pedido/VX-0000-0000?t=token-falso&status=APPROVED&from=pago")
+          printf '%s' "$p" | grep -q "No encontramos esta página" && ! printf '%s' "$p" | grep -qi "pago confirmado\|ID del jugador" && echo "  ✔ /pedido con token falso → página no encontrada (sin datos del pedido)" || echo "  ✖ /pedido con token falso no muestra «no encontrada»"
           revisar /api/orders/VX-0000-0000/chat 404
           echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
           echo "== redirecciones"

@@ -49,7 +49,9 @@ if (pays.includes("bold")) {
 }
 
 // --- Recargas
-check(v("TOPUP_PROVIDER") === "rechargegame" && !!v("TOPUP_API_KEY"), "Proveedor de recargas RechargeGame con TOPUP_API_KEY");
+const topup = v("TOPUP_PROVIDER").toLowerCase();
+check(["centralone", "rechargegame"].includes(topup) && !!v("TOPUP_API_KEY"), `Proveedor de recargas (${topup === "centralone" ? "Central One" : topup === "rechargegame" ? "RechargeGame" : "sin configurar"}) con TOPUP_API_KEY`);
+if (topup === "centralone") check(v("TOPUP_API_KEY").startsWith("co_live_"), "Llave de Central One de producción (co_live_)");
 check(v("TOPUP_TEST_MODE") !== "true", "Recargas reales (TOPUP_TEST_MODE vacío)");
 check(!!v("TOPUP_WEBHOOK_SECRET"), "TOPUP_WEBHOOK_SECRET (webhook del proveedor; sin él el estado se consulta cada pocos minutos)", "warn");
 
