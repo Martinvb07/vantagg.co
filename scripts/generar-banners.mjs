@@ -1,7 +1,7 @@
 // Genera los banners de public/promo con la identidad de VANTAGG (fondo negro verdoso, V verde lima,
 // diamantes azules y objetos negros con bordes lima). Uso: node scripts/generar-banners.mjs
 // Los archivos conservan su nombre, así que los banners guardados en la base no cambian.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,10 +23,15 @@ const NEQUI_PATHS = [
   "M95.05 7.14H91.28C90.76 7.14 90.36 7.55 90.36 8.05V17.81C90.36 20.95 88.96 21.87 87.17 21.87C85.38 21.87 83.98 20.95 83.98 17.81V8.05C83.98 7.54 83.56 7.14 83.06 7.14H79.29C78.78 7.14 78.38 7.55 78.38 8.05V18.21C78.38 24.26 81.71 26.69 87.19 26.69C92.66 26.69 96 24.24 96 18.21V8.05C96 7.54 95.58 7.14 95.08 7.14Z",
 ];
 /** Logo de Nequi con su esquina superior izquierda en (x, y) y alto h (ancho ≈ 3,2 × h). */
-function nequiLogo(x, y, h) {
+function nequiLogo(x, y, h, letters = "#fff") {
   const k = h / 32.5;
-  return `<g transform="translate(${x} ${y}) scale(${k})"><rect x="0" y="0.28" width="6.22" height="5.56" rx="0.92" fill="#DA0081"/>${NEQUI_PATHS.map((d) => `<path d="${d}" fill="#fff"/>`).join("")}</g>`;
+  return `<g transform="translate(${x} ${y}) scale(${k})"><rect x="0" y="0.28" width="6.22" height="5.56" rx="0.92" fill="#DA0081"/>${NEQUI_PATHS.map((d) => `<path d="${d}" fill="${letters}"/>`).join("")}</g>`;
 }
+
+// Logos de PSE, Visa y Mastercard (public/pagos, ver CREDITOS.txt).
+const PAGOS = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "pagos");
+const PSE_DATA = `data:image/jpeg;base64,${readFileSync(join(PAGOS, "pse.jpg")).toString("base64")}`;
+const VISA_PATH = "m651.19.5c-70.93,0-134.32,36.77-134.32,104.69,0,77.9,112.42,83.28,112.42,122.42,0,16.48-18.88,31.23-51.14,31.23-45.77,0-79.98-20.61-79.98-20.61l-14.64,68.55s39.41,17.41,91.73,17.41c77.55,0,138.58-38.57,138.58-107.66,0-82.32-112.89-87.54-112.89-123.86,0-12.91,15.5-27.05,47.66-27.05,36.29,0,65.89,14.99,65.89,14.99l14.33-66.2S696.61.5,651.18.5h0ZM2.22,5.5L.5,15.49s29.84,5.46,56.72,16.36c34.61,12.49,37.07,19.77,42.9,42.35l63.51,244.83h85.14L379.93,5.5h-84.94l-84.28,213.17-34.39-180.7c-3.15-20.68-19.13-32.48-38.68-32.48,0,0-135.41,0-135.41,0Zm411.87,0l-66.63,313.53h81L494.85,5.5h-80.76Zm451.76,0c-19.53,0-29.88,10.46-37.47,28.73l-118.67,284.8h84.94l16.43-47.47h103.48l9.99,47.47h74.95L934.12,5.5h-68.27Zm11.05,84.71l25.18,117.65h-67.45l42.28-117.65h0Z";
 
 // ---------------------------------------------------------------- piezas de dibujo (coordenadas locales)
 
@@ -181,13 +186,14 @@ const chat = () => `<g transform="translate(-30 -40)"><rect x="-110" y="-30" wid
 ${gems([[126, -92, 20, 16], [-150, 60, 16, -12]])}`;
 
 function payChips(x, y, s = 1) {
-  const chip = (cx, label, icon) => `<g transform="translate(${cx} 0)"><rect x="-58" y="-46" width="116" height="92" rx="14" fill="url(#dark)" stroke="${INK}" stroke-width="3"/>
-<rect x="-52" y="-40" width="104" height="80" rx="10" fill="none" stroke="${LIME}" stroke-opacity=".7" stroke-width="2"/>${icon}
-<text x="0" y="34" font-family="${HEAD}" font-weight="900" font-size="13" fill="#fff" text-anchor="middle" letter-spacing="1">${label}</text></g>`;
-  const nequi = nequiLogo(-40, -18, 25);
-  const pse = `<path d="M-18 -4H18M-14 -4V14M-5 -4V14M5 -4V14M14 -4V14M-20 16H20M0 -22L-20 -8H20Z" stroke="${LIME}" stroke-width="3" fill="none" stroke-linejoin="round"/>`;
-  const card = `<rect x="-22" y="-22" width="44" height="30" rx="5" fill="none" stroke="${LIME}" stroke-width="3"/><path d="M-22 -12H22" stroke="${LIME}" stroke-width="5"/>`;
-  return `<g transform="translate(${x} ${y}) scale(${s})">${chip(-189, "", nequi)}${chip(-63, "PSE", pse)}${chip(63, "DÉBITO", card)}${chip(189, "CRÉDITO", card)}</g>`;
+  // Fichas blancas iguales con el logo centrado (los logos se ven con sus colores reales).
+  const chip = (cx, logo) => `<g transform="translate(${cx} 0)"><rect x="-62" y="-50" width="124" height="100" rx="18" fill="${LIME}" opacity=".35" filter="url(#soft)"/>
+<rect x="-58" y="-46" width="116" height="92" rx="14" fill="#f5f8f1" stroke="${LIME}" stroke-width="3"/>${logo}</g>`;
+  const nequi = nequiLogo(-46, -14.5, 29, "#200020");
+  const pse = `<image href="${PSE_DATA}" x="-31" y="-31" width="62" height="62"/>`;
+  const visa = `<g transform="translate(-42 -13.6) scale(0.084)"><path fill="#1434cb" d="${VISA_PATH}"/></g>`;
+  const mastercard = `<g transform="translate(-37 -22.9) scale(0.074)"><path fill="#EB001B" d="m308,0a309,309 0 1,0 2,0z"/><path fill="#F79E1B" d="m690,0a309,309 0 1,0 2,0z"/><path fill="#FF5F00" d="m500,66a309,309 0 0,0 0,486 309,309 0 0,0 0-486"/></g>`;
+  return `<g transform="translate(${x} ${y}) scale(${s})">${chip(-189, nequi)}${chip(-63, pse)}${chip(63, visa)}${chip(189, mastercard)}</g>`;
 }
 
 function steps(x, y, s = 1, labels = ["Verificamos tu cuenta", "Nequi, PSE o tarjeta", "Directo a tu cuenta"]) {
@@ -327,13 +333,13 @@ add("hero-pagos.svg", svg(HERO.w, HERO.h, { vx: 1330, vs: 1.2, glowX: 0.83 }, `$
 ${heading(90, 140, [["PAGA COMO", "w", 82], ["QUIERAS", "l", 82]], 1.0)}
 ${sub(96, 268, "En pesos colombianos · pago seguro en la pasarela", 24)}
 ${payChips(400, 360, 1.22)}
-${sub(96, 452, "Nunca guardamos los datos de tu tarjeta", 18)}`));
+${sub(96, 452, "Tarjetas débito y crédito · nunca guardamos sus datos", 18)}`));
 
 add("m/hero-pagos.svg", svg(MOB.w, MOB.h, { vx: 640, vs: 0.75, glowX: 0.8, glowY: 0.26 }, `${place(shield(), 650, 130, 1.0)}
 ${heading(40, 120, [["PAGA COMO", "w", 66], ["QUIERAS", "l", 66]])}
 ${sub(46, 232, "En pesos colombianos · pago seguro", 22)}
 ${payChips(400, 380, 1.18)}
-${sub(46, 540, "Y Botón Bancolombia · no guardamos tu tarjeta", 20)}`));
+${sub(46, 540, "Débito, crédito y Botón Bancolombia", 20)}`));
 
 // Franjas anchas 1600×400 y celular 800×520
 const WIDE = { w: 1600, h: 400 };
@@ -402,7 +408,7 @@ ${cta(64, 456, "RECARGAR  →", 22)}`);
 side("pagos.svg", shield(), 1010, 150, 1.05, `${heading(60, 130, [["PAGA COMO", "w", 72], ["QUIERAS", "l", 72]])}
 ${sub(66, 240, "En pesos colombianos · pago seguro en la pasarela", 24)}
 ${payChips(600, 380, 1.3)}
-${sub(600, 570, "Nunca guardamos los datos de tu tarjeta", 22, "middle")}`, { vs: 0.7 });
+${sub(600, 570, "Tarjetas débito y crédito · nunca guardamos sus datos", 22, "middle")}`, { vs: 0.7 });
 
 side("pasos.svg", "", 0, 0, 1, `${heading(600, 120, [["RECARGA EN 3 PASOS", "w", 64]]).replace("<text ", '<text text-anchor="middle" ')}
 ${sub(600, 168, "Sin contraseñas · directo a tu ID", 26, "middle")}
