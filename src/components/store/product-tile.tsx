@@ -43,11 +43,16 @@ export function ProductTile({
     <>
       <div className={cn("relative overflow-hidden rounded-[10px] bg-ink-800", label === "RECOMMENDED" ? "ring-2 ring-volt-400 shadow-[0_0_28px_-4px_rgba(200,240,79,0.55)]" : "ring-1 ring-white/[0.06]")}>
         <div className="transition-transform duration-300 group-hover:scale-[1.04]">{cover}</div>
-        {badge && <span className={cn("absolute right-2 top-2 rounded-[5px] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide", BADGE[label])}>{badge}</span>}
-        {original != null && original > price && (
-          <span className="absolute right-2 top-2 rounded-[5px] bg-ink-950/85 px-1.5 py-0.5 text-[10px] font-bold text-volt-300">
-            −{Math.round(((original - price) / original) * 100)}%
-          </span>
+        {/* Arriba a la derecha, a la altura de la etiqueta del bonus: descuento y, debajo, la etiqueta del paquete */}
+        {(badge || (original != null && original > price)) && (
+          <div className="absolute right-[6%] top-[6%] flex flex-col items-end gap-1">
+            {original != null && original > price && (
+              <span className="rounded-[4px] bg-black/75 px-1.5 py-[3px] text-[11px] font-black italic leading-none text-volt-300 ring-1 ring-volt-400/35 tabular-nums">
+                −{Math.round(((original - price) / original) * 100)}%
+              </span>
+            )}
+            {badge && <span className={cn("rounded-[4px] px-1.5 py-[3px] text-[9.5px] font-black uppercase leading-none tracking-wide", BADGE[label])}>{badge}</span>}
+          </div>
         )}
         {disabled && <span className="absolute inset-0 grid place-items-center bg-ink-950/70 text-[13px] font-semibold text-fg-muted">No disponible</span>}
       </div>

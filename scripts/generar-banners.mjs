@@ -93,7 +93,7 @@ const ticket = () => `<g transform="rotate(-9)">
 <path d="M-110 -52H110V-16A16 16 0 0 0 110 16V52H-110V16A16 16 0 0 0 -110 -16Z" fill="url(#dark)" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
 <path d="M-101 -43H101V-22A24 24 0 0 0 101 22V43H-101V22A24 24 0 0 0 -101 -22Z" fill="none" stroke="${LIME}" stroke-width="2.6"/>
 <path d="M-48 -40V40" stroke="${LIME}" stroke-width="2.4" stroke-dasharray="6 6"/>
-<g fill="none" stroke="${LIME}" stroke-linecap="round"><circle cx="-76" cy="-10" r="5.5" stroke-width="4.2"/><circle cx="-59" cy="12" r="5.5" stroke-width="4.2"/><path d="M-57 -17L-78 19" stroke-width="5"/></g>
+<g fill="none" stroke="${LIME}" stroke-linecap="round"><circle cx="-75" cy="-9" r="5" stroke-width="4"/><circle cx="-61" cy="11" r="5" stroke-width="4"/><path d="M-59 -15L-77 17" stroke-width="4.6"/></g>
 <text x="22" y="6" font-family="${HEAD}" font-weight="900" font-size="21" fill="#fff" text-anchor="middle">CÓDIGO</text>
 <text x="22" y="27" font-family="${BODY}" font-weight="700" font-size="10" fill="${LIME}" text-anchor="middle" letter-spacing="1">APLÍCALO AL PAGAR</text>
 </g>${gems([[-120, -86, 22, -18], [116, 54, 20, 16]])}${spark(100, -74, 1.4)}${spark(-112, 70, 1)}`;
