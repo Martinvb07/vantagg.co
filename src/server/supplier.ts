@@ -40,6 +40,14 @@ async function doSync(): Promise<SyncSummary> {
   if (!supplier) throw new SupplierError("not_configured", 0, "No hay un proveedor mayorista configurado.");
   const { groups } = await supplier.wholesale.catalog();
   const now = new Date();
+  // Protección: un catálogo vacío o al que le falta la mayoría de los productos vinculados es una falla del
+  // proveedor, no «dejó de vender todo». No se aplica (se conserva la copia anterior) y se reintenta después.
+  const incoming = new Set(groups.flatMap((g) => g.products.map((p) => p.product_key.slice(0, 191))));
+  const linkedActive = (await db.diamondPackage.findMany({ where: { active: true, providerSku: { not: null } }, select: { providerSku: true } })).map((p) => p.providerSku!);
+  const stillThere = linkedActive.filter((k) => incoming.has(k)).length;
+  if (incoming.size === 0 || (linkedActive.length >= 4 && stillThere < linkedActive.length / 2)) {
+    throw new SupplierError("incomplete_catalog", 0, `El proveedor devolvió un catálogo ${incoming.size === 0 ? "vacío" : `incompleto (${stillThere} de ${linkedActive.length} productos vinculados)`}: no se aplicó y se conserva la copia anterior.`);
+  }
   const rows = groups.flatMap((g) =>
     g.products.map((p) => ({
       productKey: p.product_key.slice(0, 191),

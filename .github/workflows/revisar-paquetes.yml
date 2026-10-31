@@ -103,6 +103,22 @@ jobs:
             console.log(`== Central One: /ping HTTP ${ping.s}${ping.j?.error?.code ? " " + ping.j.error.code : ""} · /balance HTTP ${bal.s}${bal.s === 200 ? (Number(bal.j?.available_balance) > 0 ? " (saldo mayor que 0)" : " (saldo en 0)") : bal.j?.error?.code ? " " + bal.j.error.code : ""} · /catalog HTTP ${c.s}${c.j?.error?.code ? " " + c.j.error.code : ""}`);
             console.log(`   /catalog campos: ${Object.keys(c.j || {}).join(", ") || "(vacío)"} · items: ${Array.isArray(c.j?.items) ? c.j.items.length : typeof c.j?.items}`);
             if (c.s !== 200) { console.log(`✖ No se pudo leer el catálogo en vivo de Central One (HTTP ${c.s}).`); await db.$disconnect(); return; }
+            if (!(c.j?.items || []).length) {
+              // Catálogo vacío: se prueban variantes de la consulta y si los productos vinculados siguen existiendo.
+              for (const q of ["?page=1", "?limit=100", "?per_page=100", "?category=gaming_topup", "?q=free%20fire", "?search=free%20fire"]) {
+                const r = await call("/catalog" + q);
+                console.log(`   /catalog${q}: HTTP ${r.s} · items: ${Array.isArray(r.j?.items) ? r.j.items.length : "—"}${r.j && !Array.isArray(r.j?.items) ? " · campos: " + Object.keys(r.j).join(", ") : ""}`);
+              }
+              const sample = await db.diamondPackage.findFirst({ where: { active: true, region: { in: visible }, diamonds: { gt: 0 }, providerSku: { not: null } }, orderBy: { diamonds: "asc" } });
+              if (sample) {
+                const one = await call(`/catalog/${sample.providerSku}`);
+                console.log(`   /catalog/<producto vinculado>: HTTP ${one.s}${one.j?.error?.code ? " " + one.j.error.code : ""}`);
+                const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: sample.providerSku, target_payload: { player_id: "123456789" } }) });
+                console.log(`   /player/validate con el producto vinculado: HTTP ${v.s} ${v.j?.status ?? v.j?.error?.code ?? ""}`);
+              }
+              const o = await call("/orders?limit=1");
+              console.log(`   /orders: HTTP ${o.s}${o.j?.error?.code ? " " + o.j.error.code : ""}`);
+            }
             const items = new Map((c.j.items || []).map((i) => [i.product_id, i]));
             console.log(`== catálogo en vivo de Central One: ${items.size} productos`);
 
