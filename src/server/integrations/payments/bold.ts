@@ -79,8 +79,19 @@ function fromNotification(n: BoldNotification): VerifiedPayment | null {
 }
 
 /** Última notificación con estado de una transacción (Bold puede enviar varias). */
+// Si el comercio no tiene habilitada la consulta de notificaciones (403), no se insiste durante una hora:
+// cada consulta de estado ahorra una llamada a Bold que igual iba a fallar.
+let notificationsOffUntil = 0;
+
 async function latestForPayment(paymentId: string): Promise<VerifiedPayment | null> {
-  const r = await boldFetch<{ notifications?: BoldNotification[] }>(`/payments/webhook/notifications/${encodeURIComponent(paymentId)}`);
+  if (Date.now() < notificationsOffUntil) return null;
+  let r: { notifications?: BoldNotification[] };
+  try {
+    r = await boldFetch<{ notifications?: BoldNotification[] }>(`/payments/webhook/notifications/${encodeURIComponent(paymentId)}`);
+  } catch (err) {
+    if (/HTTP 403/.test((err as Error).message)) notificationsOffUntil = Date.now() + 3600_000;
+    throw err;
+  }
   const list = (r.notifications ?? []).filter((n) => EVENT_STATUS[n.type]).sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
   return list.length ? fromNotification(list[0]) : null;
 }

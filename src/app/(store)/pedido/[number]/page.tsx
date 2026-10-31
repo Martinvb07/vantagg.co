@@ -35,19 +35,25 @@ const HERO: Record<OrderStatusValue, { icon: typeof Clock; tone: string; title: 
   CANCELLED: { icon: XCircle, tone: "text-fg-muted bg-white/[0.06] ring-white/10", title: "Pedido cancelado" },
 };
 
+/** Espera la tarea como mucho `ms`; si tarda más (o falla) sigue con `fallback` y la tarea termina sola. */
+function within<T>(ms: number, task: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([task.catch(() => fallback), new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
+}
+
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ number: string }>; searchParams: Promise<{ t?: string; from?: string }> }) {
   const [{ number }, { t, from }] = await Promise.all([params, searchParams]);
   const user = await getCurrentUser();
   const orderNumber = decodeURIComponent(number).toUpperCase();
   let order = await getOrderForCustomer(orderNumber, t, user);
   if (!order) notFound();
-  // Pago pendiente: se pregunta a la pasarela (además del webhook y el cron) por si ya lo aprobó.
+  // Pago pendiente: se pregunta a la pasarela (además del webhook y el cron) por si ya lo aprobó. Se espera
+  // poco: si Bold tarda, la página sale igual y la consulta termina sola (la página se actualiza cada pocos s).
   if (order.status === "PENDING_PAYMENT" && !order.viewerIsStaff) {
-    if (await checkPendingPayment(order.id).catch(() => false)) order = (await getOrderForCustomer(orderNumber, t, user)) ?? order;
+    if (await within(3_500, checkPendingPayment(order.id), false)) order = (await getOrderForCustomer(orderNumber, t, user)) ?? order;
   }
   // Recarga en curso: se pregunta al proveedor (además del webhook y el cron) para mostrar el estado real.
   if (order.type === "TOPUP" && order.status === "PROCESSING") {
-    await refreshDeliveryIfStale(order.id).catch(() => {});
+    await within(3_000, refreshDeliveryIfStale(order.id), undefined);
     order = (await getOrderForCustomer(orderNumber, t, user)) ?? order;
   }
   const settings = await getSettings();

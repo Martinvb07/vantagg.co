@@ -13,10 +13,14 @@ export function AutoRefresh({ active, intervalMs = 5000, maxTicks = 120, label =
   const [ticks, setTicks] = useState(0);
   useEffect(() => {
     if (!active || ticks > maxTicks) return;
-    const t = setTimeout(() => {
-      router.refresh();
-      setTicks((n) => n + 1);
-    }, intervalMs);
+    // El primer minuto, cada 3 s (justo después de pagar es cuando el cliente está mirando); luego, más espaciado.
+    const t = setTimeout(
+      () => {
+        router.refresh();
+        setTicks((n) => n + 1);
+      },
+      ticks < 20 ? Math.min(intervalMs, 3000) : intervalMs,
+    );
     return () => clearTimeout(t);
   }, [active, ticks, intervalMs, maxTicks, router]);
   if (!active) return null;

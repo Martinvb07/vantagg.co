@@ -25,8 +25,8 @@ const TEST_REF = "prueba-";
 // Códigos de Central One → códigos que la tienda ya entiende (avisos y reintentos automáticos).
 const CODE_MAP: Record<string, string> = { insufficient_stock: "out_of_stock", service_unavailable: "http_503", internal_error: "http_500" };
 
-async function call<T>(path: string, init: RequestInit & { idempotencyKey?: string } = {}): Promise<T> {
-  const { idempotencyKey, ...rest } = init;
+async function call<T>(path: string, init: RequestInit & { idempotencyKey?: string; timeoutMs?: number } = {}): Promise<T> {
+  const { idempotencyKey, timeoutMs = 20_000, ...rest } = init;
   let res: Response;
   try {
     res = await fetch(`${baseUrl()}${path}`, {
@@ -39,7 +39,7 @@ async function call<T>(path: string, init: RequestInit & { idempotencyKey?: stri
       },
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
     throw new SupplierError("network", 0, `Sin respuesta de Central One (${(e as Error).name === "TimeoutError" ? "tiempo agotado" : "red"})`);
@@ -163,7 +163,7 @@ export const centralOneProvider: TopUpProvider = {
     if (hit && Date.now() - hit.at < 10 * 60_000) return hit.value;
     let r: { status?: string; reason?: string; player?: { name?: string | null } | null };
     try {
-      r = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: productKey, target_payload: await payloadFor(productKey, playerId, opts?.region) }) });
+      r = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: productKey, target_payload: await payloadFor(productKey, playerId, opts?.region) }), timeoutMs: 8_000 });
     } catch {
       // Límite de consultas, red o producto que no pide datos: no se pudo comprobar (no es «no existe»).
       return { valid: true, verifiable: false, regionMatch: "unknown", message: "No pudimos verificar el ID en este momento. Intenta de nuevo en unos segundos." };

@@ -144,6 +144,8 @@ describe("Bold: conector (API simulada)", () => {
     });
     expect(await bold.getCheckout!("LNK_ABC")).toEqual({ providerRef: "TX7", reference: "VX-7K2M-9QHT", status: "APPROVED", amount: 15999, currency: "COP", method: "PSE" });
     expect(await bold.getPayment("TX7")).toBeNull();
+    // Tras el 403 no se vuelve a pedir las notificaciones: una sola llamada a ese endpoint.
+    expect(calls.filter((c) => c.url.includes("/notifications/")).length).toBe(1);
   });
 
   it("un link en proceso todavía no confirma nada", async () => {

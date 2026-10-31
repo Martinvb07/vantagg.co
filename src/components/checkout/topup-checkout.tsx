@@ -143,6 +143,15 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
   const pkg = packages.find((p) => p.id === pkgId) ?? null;
 
+  // El ID que ya venía escrito (enlace, cuenta o último usado en este dispositivo) se verifica solo, una vez.
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (autoChecked.current || !topupEnabled || !/^\d{6,12}$/.test(playerId)) return;
+    autoChecked.current = true;
+    verifyPlayer(playerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId, topupEnabled]);
+
   // El paquete elegido queda en la dirección: al recargar la página o compartir el enlace se conserva.
   useEffect(() => {
     const slug = allPackages.find((p) => p.id === pkgId)?.slug;
@@ -175,9 +184,9 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
     setPromo(null);
   }
 
-  function verifyPlayer() {
-    if (!validId) return;
-    const id = playerId;
+  function verifyPlayer(value = playerId) {
+    if (!/^\d{6,12}$/.test(value)) return;
+    const id = value;
     const seq = ++checkSeq.current;
     setPlayerError(null);
     setPlayer(null);
@@ -331,11 +340,22 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 aria-describedby="playerId-hint"
                 onChange={(e) => {
                   checkSeq.current++; // invalida una verificación en curso del ID anterior
+                  autoChecked.current = true; // el cliente lo está escribiendo: no se verifica solo a mitad
                   setPlayerId(e.target.value.replace(/\D/g, ""));
                   setFromMemory(false);
                   setPlayer(null);
                   setPlayerError(null);
                   setConfirmedId(false);
+                }}
+                // Pegar el ID (lo más común: se copia del juego) lo verifica sin tener que tocar «Verificar».
+                onPaste={() => {
+                  // Se verifica lo que quedó en el campo después de pegar (no solo lo pegado).
+                  setTimeout(() => verifyPlayer((idRef.current?.value ?? "").replace(/\D/g, "")), 0);
+                }}
+                onBlur={(e) => {
+                  // Si sale del campo para tocar «Verificar», ese botón ya lo hace.
+                  if (e.relatedTarget?.getAttribute("type") === "submit") return;
+                  if (validId && !player && !checking && !playerError) verifyPlayer();
                 }}
                 className="field h-11 flex-1 bg-ink-800 font-mono text-[15px] tracking-wider"
               />

@@ -664,14 +664,10 @@ export async function retryDelivery(orderId: string, actor: string): Promise<{ o
 async function checkoutsOf(orderId: string, provider: NonNullable<ReturnType<typeof getPaymentProvider>>): Promise<VerifiedPayment[]> {
   if (!provider.getCheckout) return [];
   const events = await db.orderEvent.findMany({ where: { orderId, type: "CHECKOUT_STARTED" }, orderBy: { createdAt: "desc" }, take: 20, select: { data: true } });
-  const out: VerifiedPayment[] = [];
-  for (const e of events) {
-    const d = e.data as { provider?: string; checkoutRef?: string } | null;
-    if (d?.provider !== provider.id || !d.checkoutRef) continue;
-    const v = await provider.getCheckout(d.checkoutRef).catch(() => null);
-    if (v) out.push(v);
-  }
-  return out;
+  // Los links se consultan a la vez (antes uno tras otro): la página del pedido responde antes.
+  const refs = events.map((e) => e.data as { provider?: string; checkoutRef?: string } | null).filter((d) => d?.provider === provider.id && !!d.checkoutRef);
+  const found = await Promise.all(refs.map((d) => provider.getCheckout!(d!.checkoutRef!).catch(() => null)));
+  return found.filter((v): v is VerifiedPayment => !!v);
 }
 
 /**
