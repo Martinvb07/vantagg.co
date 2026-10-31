@@ -96,7 +96,12 @@ jobs:
             const synced = settings.supplierSyncedAt ? Math.round((Date.now() - new Date(settings.supplierSyncedAt).getTime()) / 60000) : null;
             console.log(`== tienda: regiones visibles: ${visible.join(", ")} · catálogo copiado hace ${synced == null ? "?" : synced + " min"}`);
 
+            const ping = await call("/ping");
+            const bal = await call("/balance");
             const c = await call("/catalog");
+            // Diagnóstico de la respuesta (sin datos sensibles): estado, campos y cantidad de productos.
+            console.log(`== Central One: /ping HTTP ${ping.s}${ping.j?.error?.code ? " " + ping.j.error.code : ""} · /balance HTTP ${bal.s}${bal.s === 200 ? (Number(bal.j?.available_balance) > 0 ? " (saldo mayor que 0)" : " (saldo en 0)") : bal.j?.error?.code ? " " + bal.j.error.code : ""} · /catalog HTTP ${c.s}${c.j?.error?.code ? " " + c.j.error.code : ""}`);
+            console.log(`   /catalog campos: ${Object.keys(c.j || {}).join(", ") || "(vacío)"} · items: ${Array.isArray(c.j?.items) ? c.j.items.length : typeof c.j?.items}`);
             if (c.s !== 200) { console.log(`✖ No se pudo leer el catálogo en vivo de Central One (HTTP ${c.s}).`); await db.$disconnect(); return; }
             const items = new Map((c.j.items || []).map((i) => [i.product_id, i]));
             console.log(`== catálogo en vivo de Central One: ${items.size} productos`);
