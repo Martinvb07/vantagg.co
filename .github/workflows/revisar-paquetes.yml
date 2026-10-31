@@ -1,0 +1,184 @@
+name: Revisar paquetes activos
+
+# Manual y de solo lectura (no cambia nada ni compra nada). Compara cada paquete activo de la tienda con el
+# catálogo EN VIVO de Central One: vínculo, cantidad, región, existencias, que se pueda entregar con el ID,
+# verificación gratuita de un ID de prueba, que el precio cubra el costo y que el orden de precios tenga
+# sentido. El repositorio es público: no se muestran precios, costos, saldo ni la llave, solo ✔ / ⚠ / ✖.
+on:
+  workflow_dispatch:
+
+jobs:
+  revisar:
+    name: Revisar paquetes
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/co_live_[A-Za-z0-9]+/co_live_<oculta>/g'
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          cat > /tmp/revisar-paquetes.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const base = (process.env.TOPUP_API_BASE_URL || "https://portal.centraloneglobal.com/api/v1").replace(/\/+$/, "");
+          const H = { Authorization: `Bearer ${process.env.TOPUP_API_KEY || ""}`, Accept: "application/json" };
+          const call = async (path, init = {}) => {
+            try {
+              const r = await fetch(base + path, { ...init, headers: { ...H, ...(init.body ? { "Content-Type": "application/json" } : {}) }, signal: AbortSignal.timeout(20000) });
+              let j = null; try { j = await r.json(); } catch {}
+              return { s: r.status, j };
+            } catch (e) { return { s: 0, j: null }; }
+          };
+          const plain = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          // Mismas reglas que la tienda (src/domain/packs.ts y centralone-core.ts), resumidas.
+          const passKind = (name) => {
+            const n = plain(name);
+            if (/\bpin\b/.test(n) || /\bplus\b/.test(n)) return null;
+            if (/semanal\s+b.{0,3}sica/.test(n)) return "Tarjeta Semanal Básica";
+            if (/semanal/.test(n)) return "Tarjeta Semanal";
+            if (/mensual/.test(n)) return "Tarjeta Mensual";
+            if (/booyah/.test(n) && /premium/.test(n)) return "Pase Booyah Premium";
+            return null;
+          };
+          const amountOf = (name) => {
+            if (/pase|pass\b|membres|member|semanal|weekly|mensual|monthly|nivel|level\s*up|evo|booyah/i.test(name) || !/diamant|diamond|💎/i.test(name)) return null;
+            const NUM = String.raw`(\d{1,3}(?:[.,]\d{3})+|\d+)`;
+            const num = (s) => Number(s.replace(/[.,](?=\d{3}(\D|$))/g, ""));
+            const b = new RegExp(`${NUM}\\s*\\+\\s*${NUM}(?!\\s*%)\\s*(?:bonus\\s*)?(?:diamant|diamond|💎)`, "i").exec(name);
+            if (b) return num(b[1]) + num(b[2]);
+            const m = new RegExp(`${NUM}\\s*(?:bonus\\s*)?(?:diamant|diamond|💎)`, "i").exec(name) ?? new RegExp(NUM).exec(name);
+            return m ? num(m[1]) : null;
+          };
+          const PLAYER = /^(game_?)?(player|user|account)?_?(id|uid)$|^player$|^uid$/i;
+          const schemaOf = (it) => (it.target_schema?.length ? it.target_schema : (it.target_fields || []).map((key) => ({ key, type: "text" })));
+          const byId = (it) => schemaOf(it).length > 0 && schemaOf(it).every((f) => PLAYER.test(f.key) || (f.type === "select" && (f.options || []).length >= 1));
+          const regionSlug = (raw) => {
+            const s = plain(raw || "global").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const alias = { latam: "latam", la: "latam", lat: "latam", latinoamerica: "latam", br: "brazil", bra: "brazil", brasil: "brazil", brazil: "brazil", eu: "eu", europe: "eu", europa: "eu", global: "global", ww: "global", worldwide: "global" };
+            if (alias[s]) return alias[s];
+            if (/(^|-)(latam|latin|latino|latinoamerica)(-|$)/.test(s)) return "latam";
+            if (/(^|-)(brazil|brasil)(-|$)/.test(s)) return "brazil";
+            if (/(^|-)(global|worldwide)(-|$)/.test(s)) return "global";
+            return s || "global";
+          };
+
+          (async () => {
+            const settings = Object.fromEntries((await db.setting.findMany()).map((s) => [s.key, s.value]));
+            const visible = String(settings.topupRegions || "latam").split(",").map((s) => s.trim()).filter(Boolean);
+            const usdtCop = Number(settings.usdtCop) > 0 ? Number(settings.usdtCop) : 3400;
+            const synced = settings.supplierSyncedAt ? Math.round((Date.now() - new Date(settings.supplierSyncedAt).getTime()) / 60000) : null;
+            console.log(`== tienda: regiones visibles: ${visible.join(", ")} · catálogo copiado hace ${synced == null ? "?" : synced + " min"}`);
+
+            const c = await call("/catalog");
+            if (c.s !== 200) { console.log(`✖ No se pudo leer el catálogo en vivo de Central One (HTTP ${c.s}).`); await db.$disconnect(); return; }
+            const items = new Map((c.j.items || []).map((i) => [i.product_id, i]));
+            console.log(`== catálogo en vivo de Central One: ${items.size} productos`);
+
+            const pkgs = await db.diamondPackage.findMany({ where: { active: true }, orderBy: [{ region: "asc" }, { sortOrder: "asc" }, { diamonds: "asc" }] });
+            const regions = [...new Set(pkgs.map((p) => p.region))];
+            let problems = 0, warnings = 0, validations = 0;
+            for (const region of regions) {
+              const list = pkgs.filter((p) => p.region === region);
+              const shown = visible.includes(region);
+              console.log("");
+              console.log(`== ${region} · ${shown ? "visible en la tienda" : "OCULTA (los clientes no la ven)"} · ${list.length} paquete(s) activo(s)`);
+              const diamondsSorted = list.filter((p) => p.diamonds > 0).sort((a, b) => a.diamonds + a.bonusDiamonds - (b.diamonds + b.bonusDiamonds));
+              for (const p of list) {
+                const total = p.diamonds + p.bonusDiamonds;
+                const label = p.diamonds > 0 ? `${p.diamonds}${p.bonusDiamonds ? ` + ${p.bonusDiamonds}` : ""} (${total} 💎)` : p.name;
+                const notes = [];
+                let bad = false, warn = false;
+                const it = p.providerSku ? items.get(p.providerSku) : null;
+                if (!p.providerSku) { notes.push("✖ sin producto del proveedor"); bad = true; }
+                else if (!it) { notes.push("✖ el producto ya no está en el catálogo de Central One"); bad = true; }
+                else {
+                  if (it.status && it.status !== "active") { notes.push(`✖ producto ${it.status}`); bad = true; }
+                  if (p.diamonds > 0) {
+                    const amount = amountOf(it.name);
+                    if (amount === total) notes.push("✔ cantidad");
+                    else { notes.push(`✖ el producto entrega ${amount ?? "?"} 💎`); bad = true; }
+                  } else {
+                    const kind = passKind(it.name);
+                    if (kind && kind === p.name) notes.push("✔ producto correcto");
+                    else { notes.push(`✖ el producto es «${it.name}»`); bad = true; }
+                  }
+                  const r = regionSlug(it.region || it.market);
+                  if (r === region || r === "global") notes.push("✔ región");
+                  else { notes.push(`✖ el producto es de ${it.region || it.market}`); bad = true; }
+                  if (it.in_stock === false) { notes.push("✖ agotado en Central One"); bad = true; } else notes.push("✔ con existencias");
+                  if (byId(it)) notes.push("✔ se entrega con el ID"); else { notes.push("✖ pide datos además del ID"); bad = true; }
+                  // Precio frente al costo (sin mostrar cifras).
+                  const cost = Number(it.reseller_price) * usdtCop;
+                  const margin = (p.price - cost) / p.price;
+                  if (!(cost > 0)) { notes.push("⚠ costo desconocido"); warn = true; }
+                  else if (margin < 0) { notes.push("✖ precio POR DEBAJO del costo"); bad = true; }
+                  else if (margin < 0.1) { notes.push("⚠ margen bajo (<10 %)"); warn = true; }
+                  else notes.push("✔ precio cubre el costo");
+                  if (shown && validations < 12) {
+                    validations++;
+                    const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : "123456789"]));
+                    const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: p.providerSku, target_payload }) });
+                    if (v.s === 200 && v.j?.status === "valid") notes.push("✔ verifica IDs");
+                    else { notes.push(`⚠ verificación de ID: ${v.s === 200 ? v.j?.status : "HTTP " + v.s}`); warn = true; }
+                  }
+                }
+                if (p.supplierOutOfStock) { notes.push("⚠ marcado agotado en la tienda"); warn = true; }
+                if (!p.available) { notes.push("⚠ marcado no disponible"); warn = true; }
+                if (p.isDemo) { notes.push("✖ PRECIO DEMO (no se puede comprar en producción)"); bad = true; }
+                if (p.compareAtPrice != null && p.compareAtPrice <= p.price) { notes.push("⚠ precio anterior no es mayor que el actual"); warn = true; }
+                if (p.diamonds > 0) {
+                  const i = diamondsSorted.indexOf(p);
+                  const prev = diamondsSorted[i - 1];
+                  if (prev && prev.price >= p.price) { notes.push(`✖ cuesta igual o menos que el paquete de ${prev.diamonds + prev.bonusDiamonds} 💎`); bad = true; }
+                }
+                if (bad) problems++; else if (warn) warnings++;
+                console.log(`  ${bad ? "✖" : warn ? "⚠" : "✔"} ${label}: ${notes.join(" · ")}`);
+              }
+            }
+            // Tarjetas y pases que Central One vende en las regiones visibles y la tienda aún no tiene.
+            const skus = new Set(pkgs.map((p) => p.providerSku));
+            const missing = new Set();
+            for (const it of items.values()) {
+              const kind = passKind(it.name);
+              if (kind && visible.includes(regionSlug(it.region || it.market)) && byId(it) && !skus.has(it.product_id) && !pkgs.some((p) => p.name === kind && p.region === regionSlug(it.region || it.market))) missing.add(kind);
+            }
+            console.log("");
+            if (missing.size) console.log(`ℹ Central One vende y la tienda aún no tiene: ${[...missing].join(", ")} (Panel → Paquetes → «Agregar tarjetas y pases»).`);
+            console.log(`== Resultado: ${pkgs.length} paquetes activos · ${problems} con problemas · ${warnings} con avisos`);
+            await db.$disconnect();
+          })();
+          JS
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/revisar-paquetes.cjs
+          rm -f /tmp/revisar-paquetes.cjs
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
