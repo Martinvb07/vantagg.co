@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, Box, Clock, Images, PackageCheck, Shirt, ShieldCheck } from "lucide-react";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
+import { CardSlides } from "@/components/store/card-slides";
 import { RankEmblem } from "@/components/brand/rank-emblem";
 import { DemoBadge } from "@/components/ui/primitives";
 import { formatMoney, formatNumber } from "@/lib/money";
@@ -11,11 +12,25 @@ import { rankLabel, regionInfo } from "@/domain/freefire";
 import { cn } from "@/lib/utils";
 import type { AccountCardView } from "@/server/catalog";
 
-/** Imagen con lo que más pesa al elegir: rango y nivel encima. */
+/** Imagen con lo que más pesa al elegir: rango y nivel encima. Con varias fotos, se deslizan. */
 function Cover({ a, className, sizes, priority = false, fill = false }: { a: AccountCardView; className?: string; sizes: string; priority?: boolean; fill?: boolean }) {
-  return (
-    <Link href={`/cuentas/${a.slug}`} className={cn("relative block overflow-hidden bg-ink-750", className)} tabIndex={-1} aria-hidden>
-      {a.image && fill ? (
+  const href = `/cuentas/${a.slug}`;
+  const slides = a.images.length > 1;
+  const cls = cn("relative block overflow-hidden bg-ink-750", className);
+  // Con varias fotos cada foto es su propio enlace (así se puede deslizar sin abrir la ficha).
+  const wrap = (body: ReactNode) =>
+    slides ? (
+      <div className={cls}>{body}</div>
+    ) : (
+      <Link href={href} className={cls} tabIndex={-1} aria-hidden>
+        {body}
+      </Link>
+    );
+  return wrap(
+    <>
+      {slides ? (
+        <CardSlides href={href} images={a.images} sizes={sizes} priority={priority} fill={fill} />
+      ) : a.image && fill ? (
         // Miniatura de alto fijo (vista de lista): recorta desde arriba, donde va el perfil del edit.
         <Image
           src={a.image.url}
@@ -46,17 +61,17 @@ function Cover({ a, className, sizes, priority = false, fill = false }: { a: Acc
           <AccountPlaceholder />
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 to-transparent" />
 
       {a.rank && (
-        <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink-950/75 py-1 pl-1 pr-2.5 text-[12px] font-semibold text-white ring-1 ring-white/10 backdrop-blur">
+        <span className="pointer-events-none absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full bg-ink-950/75 py-1 pl-1 pr-2.5 text-[12px] font-semibold text-white ring-1 ring-white/10 backdrop-blur">
           <RankEmblem rank={a.rank} className="size-5" />
           {rankLabel(a.rank)}
         </span>
       )}
       {a.isDemo && <DemoBadge className="absolute right-2.5 top-2.5" />}
 
-      <span className="absolute bottom-2.5 left-3 flex items-baseline gap-1 text-white drop-shadow">
+      <span className="pointer-events-none absolute bottom-2.5 left-3 flex items-baseline gap-1 text-white drop-shadow">
         {a.level != null && (
           <>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Nivel</span>
@@ -64,19 +79,19 @@ function Cover({ a, className, sizes, priority = false, fill = false }: { a: Acc
           </>
         )}
       </span>
-      {a.imagesCount > 1 && (
-        <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-md bg-ink-950/75 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
+      {a.imagesCount > 1 && !slides && (
+        <span className="pointer-events-none absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-md bg-ink-950/75 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
           <Images className="size-3" /> {a.imagesCount}
         </span>
       )}
       {a.reservedTemporarily && (
-        <span className="absolute inset-0 grid place-items-center bg-ink-950/55">
+        <span className="pointer-events-none absolute inset-0 grid place-items-center bg-ink-950/55">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-900 px-3 py-1 text-[12px] font-semibold text-warn-400 ring-1 ring-white/10">
             <Clock className="size-3.5" /> Reservada
           </span>
         </span>
       )}
-    </Link>
+    </>,
   );
 }
 

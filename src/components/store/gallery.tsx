@@ -13,7 +13,7 @@ const smooth = () => (typeof window !== "undefined" && window.matchMedia("(prefe
 /**
  * Galería de la ficha en carrusel: se desliza con el dedo, con el mouse (arrastrando), con las flechas
  * del teclado o con los botones; las miniaturas y los puntos siguen a la foto visible. Cada foto se ve
- * completa (sin recortes) sobre un fondo difuminado de la misma imagen, así el alto no salta entre fotos.
+ * completa con su proporción real y el carrusel toma su alto (sin franjas ni fondos de relleno).
  * No abre la imagen en tamaño completo.
  */
 export function Gallery({ images, title }: { images: Img[]; title: string }) {
@@ -21,9 +21,8 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
   const thumbs = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; left: number } | null>(null);
   const [i, setI] = useState(0);
-  // Proporción del carrusel: la de la primera foto (entre 4:5 vertical y 16:9 horizontal); las demás se
-  // ajustan dentro sin recortarse, así el alto no salta al pasar de foto.
-  const [ratio, setRatio] = useState(1);
+  // Alto del carrusel = alto de la foto visible (sin franjas ni espacio de más); cambia suave al pasar.
+  const [height, setHeight] = useState<number>();
   const n = images.length;
 
   const goTo = useCallback(
@@ -56,6 +55,19 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
       ro.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const measure = () => {
+      const slide = el.children[i] as HTMLElement | undefined;
+      if (slide?.offsetHeight) setHeight(slide.offsetHeight);
+    };
+    const ro = new ResizeObserver(measure); // también cuando termina de cargar la foto
+    Array.from(el.children).forEach((c) => ro.observe(c));
+    measure();
+    return () => ro.disconnect();
+  }, [i, n]);
 
   // La miniatura activa siempre queda a la vista.
   useEffect(() => {
@@ -119,7 +131,11 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
       >
         <div
           ref={track}
-          className={cn("flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", n > 1 && "cursor-grab active:cursor-grabbing")}
+          className={cn(
+            "flex snap-x snap-mandatory items-start overflow-x-auto overflow-y-hidden overscroll-x-contain transition-[height] duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            n > 1 && "cursor-grab active:cursor-grabbing",
+          )}
+          style={{ height }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
@@ -132,26 +148,21 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
               aria-roledescription="diapositiva"
               aria-label={`${idx + 1} de ${n}`}
               aria-hidden={idx !== i}
-              className="relative w-full shrink-0 snap-center snap-always overflow-hidden bg-ink-950"
-              style={{ aspectRatio: ratio }}
+              className="w-full shrink-0 snap-center snap-always"
             >
-              {/* Fondo: la misma foto difuminada, para que las fotos verticales o anchas no dejen franjas vacías */}
-              <Image src={img.url} alt="" fill sizes="80px" quality={30} unoptimized={img.url.endsWith(".svg")} className="scale-110 object-cover opacity-50 blur-2xl" draggable={false} aria-hidden />
               <Image
                 src={img.url}
                 alt={img.alt}
-                fill
+                width={0}
+                height={0}
                 priority={idx === 0}
                 loading={idx === 0 ? "eager" : "lazy"}
                 quality={90}
                 sizes="(min-width:1280px) 760px, (min-width:1024px) 58vw, 100vw"
                 unoptimized={img.url.endsWith(".svg")}
                 draggable={false}
-                onLoad={idx === 0 ? (e) => {
-                  const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-                  if (w && h) setRatio(Math.min(16 / 9, Math.max(4 / 5, w / h)));
-                } : undefined}
-                className="pointer-events-none object-contain"
+                style={{ width: "100%", height: "auto" }}
+                className="pointer-events-none block"
               />
             </div>
           ))}

@@ -89,6 +89,8 @@ export type AccountCardView = {
   isDemo: boolean;
   featured: boolean;
   image: { url: string; alt: string } | null;
+  /** Fotos para deslizar en la tarjeta (las primeras 8, en orden). */
+  images: Array<{ url: string; alt: string }>;
   imagesCount: number;
   tags: string[];
   currency: string;
@@ -104,7 +106,8 @@ export function listingAvailability(l: Pick<AccountListing, "status" | "reserved
 }
 
 function toCard(l: ListingWithRels): AccountCardView {
-  const img = [...l.images].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  const sorted = [...l.images].sort((a, b) => a.sortOrder - b.sortOrder);
+  const img = sorted[0];
   return {
     id: l.id,
     slug: l.slug,
@@ -121,6 +124,7 @@ function toCard(l: ListingWithRels): AccountCardView {
     isDemo: l.isDemo,
     featured: l.featured,
     image: img ? { url: img.url, alt: img.alt || l.title } : null,
+    images: sorted.slice(0, 8).map((i) => ({ url: i.url, alt: i.alt || l.title })),
     imagesCount: l.images.length,
     tags: l.tags.map((t) => t.tag),
     currency: l.currency,
