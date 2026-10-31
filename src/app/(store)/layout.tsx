@@ -9,6 +9,8 @@ import { getSettings } from "@/server/settings";
 import { publicPaymentOptions } from "@/server/integrations/payments";
 import { accountsVisible } from "@/server/catalog";
 import { CookieNotice } from "@/components/legal/cookie-notice";
+import { HalloweenDecor } from "@/components/store/halloween";
+import { isHalloween } from "@/domain/season";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, user, showAccounts] = await Promise.all([getSettings(), getCurrentUser().catch(() => null), accountsVisible()]);
@@ -16,9 +18,11 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   if (!showAccounts && /^\/cuentas(\/|$)/.test((await headers()).get("x-pathname") ?? "")) notFound();
   const payments = publicPaymentOptions();
   const wa = whatsappLink(settings.whatsapp, `Hola ${settings.storeName}, tengo una pregunta.`);
+  // Temporada: la decoración va encima del diseño de siempre y se apaga sola al terminar.
+  const halloween = isHalloween();
 
   return (
-    <>
+    <div data-season={halloween ? "halloween" : undefined}>
       {settings.announcement && (
         <div className="border-b border-white/[0.06] bg-ink-850 px-4 py-2 text-center text-[13px] text-fg-muted">{settings.announcement}</div>
       )}
@@ -28,7 +32,10 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         showAccounts={showAccounts}
         user={user ? { name: user.name, email: user.email, staff: isStaff(user.role), avatarUrl: user.avatarUrl, avatarPreset: user.avatarPreset } : null}
       />
-      <main id="contenido">{children}</main>
+      <main id="contenido" className={halloween ? "relative" : undefined}>
+        {halloween && <HalloweenDecor />}
+        {children}
+      </main>
       <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />
       <CookieNotice />
       {wa && (
@@ -45,6 +52,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           </a>
         </aside>
       )}
-    </>
+    </div>
   );
 }

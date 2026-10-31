@@ -4,6 +4,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { AccountGridCard } from "@/components/store/account-listing";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
+import { isHalloween } from "@/domain/season";
 import { packDetail, packTitle } from "@/domain/packs";
 import { RankEmblem } from "@/components/brand/rank-emblem";
 import { ProductTile } from "@/components/store/product-tile";
@@ -74,6 +75,10 @@ const SHORTCUTS = [
 export default async function HomePage() {
   const [packages, accounts, recent, settings, facets, heroBanners] = await Promise.all([getPackages(), getAccounts({ onlyAvailable: false, take: 12 }), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => [])]);
   const showAccounts = await accountsVisible();
+  // Temporada: el banner de Halloween va de primero (los del panel siguen igual detrás).
+  const banners = isHalloween()
+    ? [{ id: "temporada-halloween", title: "Noche de Halloween: recarga tus diamantes", imageUrl: "/promo/hero-halloween.svg", imageMobileUrl: "/promo/m/hero-halloween.svg", href: "/recargas" }, ...heroBanners]
+    : heroBanners;
   const visibleAccounts = showAccounts ? accounts.filter((a) => a.available || a.reservedTemporarily) : [];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
@@ -97,7 +102,7 @@ export default async function HomePage() {
 
       <Container className="space-y-8 pb-2 pt-4 sm:space-y-12 sm:pb-6 sm:pt-7">
         <div className="space-y-5">
-          {heroBanners.length > 0 && <HeroCarousel banners={heroBanners} />}
+          {banners.length > 0 && <HeroCarousel banners={banners} />}
 
           {/* Accesos rápidos */}
           {/* Celular: fila deslizable de íconos tipo app. Escritorio: rejilla de tarjetas. */}

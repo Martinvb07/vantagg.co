@@ -9,6 +9,7 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "promo
 const LIME = "#b9f43c";
 const LIME2 = "#dcff7a";
 const INK = "#030504";
+const ORANGE = "#ff8a1f";
 const HEAD = "Arial Black, Arial, Helvetica, sans-serif";
 const BODY = "Arial, Helvetica, sans-serif";
 
@@ -218,10 +219,10 @@ ${[-170, 0, 170]
 
 // ---------------------------------------------------------------- texto
 
-function tag(x, y, text, size = 22) {
+function tag(x, y, text, size = 22, fill = LIME) {
   const w = text.length * size * 0.78 + size * 1.2;
   const h = size * 1.6;
-  return `<g transform="translate(${x} ${y})"><path d="M0 0H${w}L${w - size * 0.5} ${h}H0Z" fill="${LIME}"/>
+  return `<g transform="translate(${x} ${y})"><path d="M0 0H${w}L${w - size * 0.5} ${h}H0Z" fill="${fill}"/>
 <text x="${size * 0.5}" y="${h * 0.72}" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="${size}" fill="${INK}" letter-spacing="1">${esc(text)}</text></g>`;
 }
 
@@ -231,7 +232,7 @@ function heading(x, y, lines, gap = 1.02) {
   return lines
     .map(([t, c, s], i) => {
       if (i > 0) yy += s * gap;
-      const fill = c === "l" ? LIME : "#fff";
+      const fill = c === "l" ? LIME : c === "o" ? ORANGE : "#fff";
       return `<text x="${x}" y="${yy}" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="${s}" fill="${fill}">${esc(t)}</text>`;
     })
     .join("");
@@ -426,6 +427,122 @@ side("soporte.svg", chat(), 885, 300, 1.8, `${heading(60, 200, [["SOPORTE", "w",
 ${sub(66, 340, "Personas reales que conocen", 26)}${sub(66, 374, "tu pedido por su número", 26)}
 ${cta(64, 412, "ESCRÍBENOS  →", 22)}`);
 
+// ---------------------------------------------------------------- Halloween (temporada)
+
+/** Calabaza con la V de la marca tallada (centrada en 0,0; ~230 de ancho). */
+function pumpkin() {
+  const lobe = (cx, rx, ry) => `<ellipse cx="${cx}" cy="0" rx="${rx}" ry="${ry}" fill="url(#pump)" stroke="#2a1203" stroke-width="4"/>`;
+  return `<ellipse cx="0" cy="92" rx="118" ry="16" fill="#000" opacity=".45"/>
+<path d="M-6 -76C-9 -98 -1 -112 14 -120L22 -110C10 -103 7 -92 9 -76Z" fill="#5d7a1e" stroke="#1d2a08" stroke-width="3.5" stroke-linejoin="round"/>
+${lobe(-66, 52, 76)}${lobe(66, 52, 76)}${lobe(-32, 54, 84)}${lobe(32, 54, 84)}${lobe(0, 52, 88)}
+<path d="M-96 -30C-104 0 -100 34 -84 54" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="7" stroke-linecap="round"/>
+<g filter="url(#soft)" opacity=".9"><path d="M-52 -30H-16L-34 -2Z M16 -30H52L34 -2Z" fill="#ffd34d"/><path d="M-50 14H-28L0 54L28 14H50L9 72H-9Z" fill="${LIME}"/></g>
+<path d="M-52 -30H-16L-34 -2Z M16 -30H52L34 -2Z" fill="#ffd34d" stroke="#2a1203" stroke-width="3" stroke-linejoin="round"/>
+<path d="M-50 14H-28L0 54L28 14H50L9 72H-9Z" fill="${LIME2}" stroke="#2a1203" stroke-width="3" stroke-linejoin="round"/>`;
+}
+
+/** Murciélago (silueta) en (x, y), escala s, giro r. */
+const bat = (x, y, s = 1, r = 0, o = 1) =>
+  `<g transform="translate(${x} ${y}) rotate(${r}) scale(${s})" opacity="${o}"><path d="M0 -6C3 -12 7 -12 9 -8C15 -16 27 -16 34 -6C28 -6 24 -2 22 3C18 -1 13 0 11 4C8 1 4 2 0 7C-4 2 -8 1 -11 4C-13 0 -18 -1 -22 3C-24 -2 -28 -6 -34 -6C-27 -16 -15 -16 -9 -8C-7 -12 -3 -12 0 -6ZM-4 -8L-3 -14L-1 -9ZM4 -8L3 -14L1 -9Z" fill="#0b0613"/></g>`;
+
+/**
+ * Telaraña en una esquina: (x, y) es la esquina, r el largo y `dir` hacia dónde se abre
+ * (1,1 = abajo-derecha desde la esquina superior izquierda; -1,1 = abajo-izquierda…).
+ */
+function web(x, y, r, dx = 1, dy = 1, color = "#fff", o = 0.35) {
+  const spokes = 6;
+  const angle = (i) => (Math.PI / 2) * (i / (spokes - 1));
+  const pt = (i, k) => [x + dx * Math.cos(angle(i)) * r * k, y + dy * Math.sin(angle(i)) * r * k];
+  const lines = Array.from({ length: spokes }, (_, i) => { const [a, b] = pt(i, 1); return `M${x} ${y}L${a.toFixed(1)} ${b.toFixed(1)}`; }).join("");
+  const rings = [0.28, 0.5, 0.72, 0.94]
+    .map((k) => {
+      let d = "";
+      for (let i = 0; i < spokes; i++) {
+        const [a, b] = pt(i, k);
+        if (i === 0) d += `M${a.toFixed(1)} ${b.toFixed(1)}`;
+        else {
+          // Hilo curvado hacia la esquina, como una telaraña real.
+          const [pa, pb] = pt(i - 1, k);
+          const [ma, mb] = pt(i - 0.5, k * 0.86);
+          d += `Q${ma.toFixed(1)} ${mb.toFixed(1)} ${a.toFixed(1)} ${b.toFixed(1)}`;
+          void pa; void pb;
+        }
+      }
+      return d;
+    })
+    .join("");
+  return `<path d="${lines}${rings}" fill="none" stroke="${color}" stroke-opacity="${o}" stroke-width="${Math.max(1, r / 90)}" stroke-linecap="round"/>`;
+}
+
+/** Araña colgando de su hilo desde arriba (x, hasta y). */
+function spider(x, y, s = 1, color = "#3b2b55") {
+  const legs = [-1, 1]
+    .map((side) => [-6, -2, 2, 6].map((k, i) => `M${side * 5} ${k}Q${side * (14 + i * 2)} ${k - 8} ${side * (20 + i * 2)} ${k + 4}`).join(""))
+    .join("");
+  return `<path d="M${x} 0V${y - 10 * s}" stroke="#ffffff" stroke-opacity=".35" stroke-width="1.4"/>
+<g transform="translate(${x} ${y}) scale(${s})"><path d="${legs}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+<ellipse cx="0" cy="0" rx="8" ry="10" fill="${color}"/><circle cx="0" cy="-11" r="5.5" fill="${color}"/><circle cx="-2" cy="-12" r="1.2" fill="#ff8a1f"/><circle cx="2" cy="-12" r="1.2" fill="#ff8a1f"/></g>`;
+}
+
+/** Noche de Halloween: cielo morado, luna naranja, la V de la marca y nubes. */
+function svgNight(w, h, { mx, my, mr, vx, vs = 1 }, body) {
+  const vw = 400 * vs;
+  const vh = 330 * vs;
+  const v = `M${vx - vw / 2} -10H${vx - vw / 2 + 92 * vs}L${vx} ${vh * 0.62}L${vx + vw / 2 - 92 * vs} -10H${vx + vw / 2}L${vx + 16 * vs} ${vh}H${vx - 16 * vs}Z`;
+  const stars = Array.from({ length: 26 }, (_, i) => `<circle cx="${(i * 397) % w}" cy="${(i * 131) % (h * 0.55)}" r="${i % 3 ? 1.4 : 2.2}" fill="#fff" opacity="${0.25 + (i % 4) * 0.15}"/>`).join("");
+  const clouds = [0.03, 0.15, 0.84, 0.97].map((p, i) => `<circle cx="${w * p}" cy="${h + 10}" r="${h * [0.22, 0.18, 0.2, 0.24][i]}" fill="#1a0b26" opacity=".95"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#1d0d2e"/><stop offset="1" stop-color="#06030b"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${LIME}" stop-opacity=".22"/><stop offset="1" stop-color="${LIME}" stop-opacity=".02"/></linearGradient>
+<radialGradient id="moon" cx="0.4" cy="0.35"><stop offset="0" stop-color="#fff1c4"/><stop offset=".6" stop-color="#ffc061"/><stop offset="1" stop-color="#f08a1c"/></radialGradient>
+<radialGradient id="moonglow"><stop offset="0" stop-color="#ff9a2e" stop-opacity=".45"/><stop offset="1" stop-color="#ff9a2e" stop-opacity="0"/></radialGradient>
+<linearGradient id="pump" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#ffb24a"/><stop offset=".55" stop-color="#ef6b0c"/><stop offset="1" stop-color="#a53d06"/></linearGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="${w}" height="${h}" fill="url(#bg)"/>
+${stars}
+<circle cx="${mx}" cy="${my}" r="${mr * 2.4}" fill="url(#moonglow)"/>
+<circle cx="${mx}" cy="${my}" r="${mr}" fill="url(#moon)"/>
+<circle cx="${mx - mr * 0.3}" cy="${my + mr * 0.15}" r="${mr * 0.16}" fill="#e7962f" opacity=".45"/><circle cx="${mx + mr * 0.25}" cy="${my - mr * 0.3}" r="${mr * 0.1}" fill="#e7962f" opacity=".4"/>
+<path d="${v}" fill="url(#v)"/>
+${clouds}
+${body}
+</svg>
+`;
+}
+
+const halloweenArt = (x, y, s) => `${place(`<circle cx="0" cy="10" r="120" fill="url(#gemglow)"/>${ringBack(0, 92, 110, 18)}${pumpkin()}${gems([[-128, 36, 30, -20], [124, 30, 32, 18], [-150, -40, 18, -14], [150, -54, 16, 16], [96, 74, 18, 12, true], [-100, 78, 16, -12, true]])}${ringFront(0, 92, 110, 18)}`, x, y, s)}`;
+
+add("hero-halloween.svg", svgNight(HERO.w, HERO.h, { mx: 1420, my: 104, mr: 70, vx: 1250, vs: 1.2 }, `${web(1600, 0, 190, -1, 1)}${web(0, 0, 130, 1, 1, "#fff", 0.22)}${spider(930, 170, 1.4)}${halloweenArt(1240, 262, 1.4)}
+${bat(1030, 92, 1.3, -12)}${bat(1100, 52, 0.8, 8, 0.85)}${bat(1500, 210, 1, -6, 0.9)}${bat(1330, 40, 0.7, 14, 0.8)}${spark(1560, 330, 1.2)}
+${tag(96, 70, "HALLOWEEN", 22, ORANGE)}
+${heading(90, 190, [["NOCHE DE", "w", 70], ["HALLOWEEN", "o", 104]])}
+${sub(96, 336, "Recarga tus diamantes · directo a tu ID", 26)}
+${cta(94, 368, "RECARGAR  →", 20)}`));
+
+add("m/hero-halloween.svg", svgNight(MOB.w, MOB.h, { mx: 690, my: 80, mr: 52, vx: 560, vs: 0.85 }, `${web(800, 0, 150, -1, 1)}${spider(300, 150, 1.1)}${halloweenArt(540, 190, 0.98)}
+${bat(380, 70, 1, -10)}${bat(430, 34, 0.65, 10, 0.85)}${bat(740, 200, 0.8, -6, 0.9)}
+${tag(46, 40, "HALLOWEEN", 20, ORANGE)}
+${heading(40, 404, [["NOCHE DE", "w", 56], ["HALLOWEEN", "o", 82]])}
+${sub(46, 520, "Recarga tus diamantes · directo a tu ID", 22)}
+${cta(44, 534, "RECARGAR  →", 17)}`));
+
+// Piezas sueltas para decorar la tienda (fondo transparente).
+add("../temporada/telarana.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">${web(0, 0, 196, 1, 1, "#ffffff", 0.55)}</svg>\n`);
+add("../temporada/arana.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 0 60 120" width="60" height="120">${spider(0, 100, 1.3)}</svg>\n`);
+add("../temporada/murcielago.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-36 -18 72 30" width="72" height="30">${bat(0, 0, 1).replace('fill="#0b0613"', 'fill="#120a1c"')}</svg>\n`);
+
+// Calabaza suelta para las portadas de los paquetes (fondo transparente).
+add("../temporada/calabaza.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-130 -130 260 240" width="260" height="240">
+<defs><linearGradient id="pump" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#ffb24a"/><stop offset=".55" stop-color="#ef6b0c"/><stop offset="1" stop-color="#a53d06"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+${pumpkin()}
+</svg>
+`);
+
 // ---------------------------------------------------------------- escribir
 
 for (const [name, content] of Object.entries(files)) {
@@ -433,4 +550,4 @@ for (const [name, content] of Object.entries(files)) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
 }
-console.log(`${Object.keys(files).length} banners generados en public/promo`);
+console.log(`${Object.keys(files).length} archivos generados (public/promo y public/temporada)`);

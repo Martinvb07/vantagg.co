@@ -101,6 +101,9 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
             </g>
           </svg>
           <CoverArt tier={5} className="pointer-events-none absolute -right-6 -top-4 w-32 opacity-90 sm:right-8 sm:top-1/2 sm:w-52 sm:-translate-y-1/2 sm:opacity-100" />
+          {/* Halloween: telaraña en la esquina (solo en temporada) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/temporada/telarana.svg" alt="" aria-hidden className="halloween-only pointer-events-none absolute left-0 top-0 w-24 opacity-60 sm:w-32" />
           <div className="relative max-w-xl">
             <p className="max-w-[70%] text-[26px] font-extrabold italic leading-tight tracking-tight text-white sm:max-w-none sm:text-[34px]">
               ¿LISTO PARA <span className="text-volt-400">RECARGAR?</span>

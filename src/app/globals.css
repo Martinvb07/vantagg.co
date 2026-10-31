@@ -327,3 +327,32 @@
   select,
   textarea { font-size: 16px; }
 }
+
+/* ---------------------------------------------------------------------------------------------------
+   Temporada de Halloween (src/domain/season.ts): solo con data-season="halloween" en el contenedor de la
+   tienda. Fuera de temporada estas piezas no se muestran y el diseño queda como siempre.
+--------------------------------------------------------------------------------------------------- */
+.halloween-only { display: none; }
+[data-season="halloween"] .halloween-only { display: block; }
+
+@keyframes halloween-bat {
+  0% { transform: translate(0, 0) rotate(-4deg); }
+  25% { transform: translate(-60px, 14px) rotate(6deg); }
+  50% { transform: translate(-130px, -6px) rotate(-3deg); }
+  75% { transform: translate(-60px, -18px) rotate(5deg); }
+  100% { transform: translate(0, 0) rotate(-4deg); }
+}
+@keyframes halloween-flap {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.55); }
+}
+@keyframes halloween-spider {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(18px); }
+}
+.halloween-bat { animation: halloween-bat 14s ease-in-out infinite; }
+.halloween-bat > img { animation: halloween-flap 0.5s ease-in-out infinite; transform-origin: center; }
+.halloween-spider { animation: halloween-spider 5s ease-in-out infinite; transform-origin: top center; }
+@media (prefers-reduced-motion: reduce) {
+  .halloween-bat, .halloween-bat > img, .halloween-spider { animation: none; }
+}
