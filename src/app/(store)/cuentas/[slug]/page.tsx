@@ -25,7 +25,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const a = await getAccountBySlug(slug);
   if (!a) return { title: "Cuenta no encontrada" };
-  const description = `${a.title}. Nivel ${a.level ?? "—"}, ${a.skinsCount ?? "—"} skins, rango ${rankLabel(a.rank) ?? "—"}. ${a.description.slice(0, 110)}`;
+  // Solo los datos que se conocen (nada de «Nivel —»).
+  const facts = [a.level != null && `nivel ${a.level}`, a.skinsCount != null && `${a.skinsCount} skins`, a.rank && `rango ${rankLabel(a.rank)}`].filter(Boolean).join(", ");
+  const description = [a.title, facts && facts.charAt(0).toUpperCase() + facts.slice(1), a.description.trim().slice(0, 110)].filter(Boolean).join(". ");
   return {
     title: a.title,
     description,
