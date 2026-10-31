@@ -32,8 +32,6 @@ const storageHost = (() => {
 const nextConfig: NextConfig = {
   // Permite compilar una copia de producción aparte (NEXT_DIST_DIR=.next-prod) sin pisar la del modo desarrollo.
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  // Imagen de producción (Dockerfile): servidor autónomo con solo lo necesario (NEXT_OUTPUT=standalone).
-  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],

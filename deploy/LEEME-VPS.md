@@ -1,6 +1,6 @@
 # VANTA en un VPS Ubuntu con PM2 + nginx (vantagg.co)
 
-Alternativa a Docker (DESPLIEGUE.md). La tienda corre con PM2 en `127.0.0.1:3020`, nginx la publica con HTTPS y cada push a `main` se despliega solo con GitHub Actions (`.github/workflows/deploy.yml`).
+Así corre la tienda en producción (el resto de la guía está en DESPLIEGUE.md). La tienda corre con PM2 en `127.0.0.1:3020`, nginx la publica con HTTPS y cada push a `main` se despliega solo con GitHub Actions (`.github/workflows/deploy.yml`).
 
 ## 1. Servidor base (como root)
 

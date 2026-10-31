@@ -1,0 +1,55 @@
+name: Borrar copia vieja del .env en el VPS
+
+# Manual y de un solo uso: borra .env.antes-avisos (copia del .env con las claves de antes) de la carpeta de
+# la tienda. No muestra su contenido; solo dice si existía. También lista (sin abrirlas) otras copias .env.*
+# que queden, para revisarlas. El repositorio es público: no se imprime ningún valor.
+on:
+  workflow_dispatch:
+
+jobs:
+  limpiar:
+    name: Borrar .env.antes-avisos
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Borrar la copia
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          cd "$VPS_PATH"
+          if [ -f .env.antes-avisos ]; then
+            (shred -u .env.antes-avisos 2>/dev/null || rm -f .env.antes-avisos)
+            [ -e .env.antes-avisos ] && { echo "✖ no se pudo borrar .env.antes-avisos"; exit 1; }
+            echo "✔ .env.antes-avisos borrado"
+          else
+            echo "✔ .env.antes-avisos ya no existía"
+          fi
+          echo "Otras copias .env.* que quedan (solo nombres):"
+          ls -1a | grep -E '^\.env\.' || echo "  (ninguna)"
+          [ -f .env ] && echo "✔ .env sigue en su lugar" || { echo "✖ falta .env"; exit 1; }
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

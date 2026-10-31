@@ -209,7 +209,7 @@ Mientras `PAYMENT_PROVIDER` esté vacío nadie puede comprar.
 
 ## 6. Producción
 
-La guía completa está en [DESPLIEGUE.md](DESPLIEGUE.md): servidor con Docker (`Dockerfile`, `deploy/`), variables, importación de la configuración (`npm run config:exportar` / `config:importar`), correos, Bold, RechargeGame, Google, tareas programadas, respaldos y monitoreo (`/api/health` y avisos de errores por correo).
+La guía completa está en [DESPLIEGUE.md](DESPLIEGUE.md): variables, importación de la configuración (`npm run config:exportar` / `config:importar`), correos, Bold, Central One, Google, tareas programadas, respaldos y monitoreo (`/api/health` y avisos de errores por correo). La instalación del servidor (PM2 + nginx + despliegue automático) está en [deploy/LEEME-VPS.md](deploy/LEEME-VPS.md).
 
 Antes de anunciar, `npm run verificar:produccion` debe terminar sin bloqueantes. Notas:
 - Usa **una sola instancia**: límites de intentos, presencia del chat y avisos agrupados viven en memoria. Si algún día necesitas varias réplicas, muévelos a Redis/Upstash.
