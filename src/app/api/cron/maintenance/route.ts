@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
-import { expireStaleOrders, pollPendingDeliveries, pollPendingPayments, retryStuckDeliveries } from "@/server/orders";
+import { expireStaleOrders, pollPendingDeliveries, pollPendingPayments, retryStuckDeliveries, sendPaymentReminders } from "@/server/orders";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { ensureFreshCatalog } from "@/server/supplier";
 
@@ -24,11 +24,12 @@ export async function GET(req: Request) {
   const supplier = !!activeTopUpProvider()?.wholesale;
   // Primero se confirman los pagos que la pasarela ya aprobó; luego se vencen los que siguen sin pagar.
   const paymentsConfirmed = await pollPendingPayments().catch(() => 0);
-  const [expired, deliveries, retried, catalogSynced] = await Promise.all([
+  const [expired, remindersSent, deliveries, retried, catalogSynced] = await Promise.all([
     expireStaleOrders(),
+    sendPaymentReminders().catch(() => 0),
     pollPendingDeliveries(),
     retryStuckDeliveries(),
     supplier ? ensureFreshCatalog() : Promise.resolve(false),
   ]);
-  return NextResponse.json({ ok: true, expired, paymentsConfirmed, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced });
+  return NextResponse.json({ ok: true, expired, paymentsConfirmed, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced });
 }

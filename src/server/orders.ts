@@ -797,6 +797,28 @@ async function releaseReservation(orderId: string) {
 // Mantenimiento (cron)
 // ---------------------------------------------------------------------
 
+/**
+ * Recordatorio de pago: un correo por pedido que llegó a la pasarela pero no se pagó, cuando pasó un tercio
+ * del tiempo para pagar (20 min en recargas) y todavía le quedan al menos 8 min. Una sola vez por pedido.
+ */
+export async function sendPaymentReminders(now = new Date()): Promise<number> {
+  const candidates = await db.order.findMany({
+    where: {
+      status: "PENDING_PAYMENT",
+      createdAt: { gte: new Date(now.getTime() - 3 * 3600_000), lte: new Date(now.getTime() - 7 * 60_000) },
+      expiresAt: { gt: new Date(now.getTime() + 8 * 60_000) },
+      events: { some: { type: "CHECKOUT_STARTED" } },
+      notifications: { none: { template: "payment_reminder" } },
+    },
+    select: { id: true, createdAt: true, expiresAt: true },
+    orderBy: { createdAt: "asc" },
+    take: 50,
+  });
+  const due = candidates.filter((o) => now.getTime() - o.createdAt.getTime() >= (o.expiresAt.getTime() - o.createdAt.getTime()) / 3);
+  for (const o of due) await notifyOrder(o.id, "payment_reminder").catch(() => {});
+  return due.length;
+}
+
 export async function expireStaleOrders() {
   const stale = await db.order.findMany({
     where: { status: "PENDING_PAYMENT", expiresAt: { lt: new Date() } },

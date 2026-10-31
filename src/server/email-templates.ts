@@ -221,8 +221,9 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 // Pedidos
 // ---------------------------------------------------------------------
 
-export type OrderTemplate = "order_created" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled";
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean };
+export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled";
+/** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). */
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
@@ -237,6 +238,19 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
     order_created: {
       subject: `Recibimos tu pedido ${o.number}`,
       block: { badge: "Pedido recibido", tone: "info", steps: steps(1), title: "Recibimos tu pedido", intro: "Tu pedido quedó registrado. Apenas la pasarela confirme el pago empezamos la entrega.", preheader: `Pedido ${o.number} · ${o.total}`, cta: view, note: test },
+    },
+    payment_reminder: {
+      subject: `Tu pedido te espera · ${o.number}`,
+      block: {
+        badge: "Pago pendiente",
+        tone: "warning",
+        steps: steps(1),
+        title: "Tu pedido te espera",
+        intro: `${account ? "La cuenta sigue reservada para ti, pero aún no recibimos el pago." : "Aún no recibimos el pago de tu recarga."}${o.expiresAt ? ` Puedes completarlo hasta las ${o.expiresAt}; después el pedido se cancela solo.` : ""}`,
+        preheader: `Completa el pago de ${o.item}`,
+        cta: { label: "Completar pago", url: o.link },
+        note: test ?? "Si ya pagaste, ignora este correo: la confirmación de la pasarela puede tardar unos minutos.",
+      },
     },
     payment_confirmed: {
       subject: `Pago confirmado · ${o.number}`,

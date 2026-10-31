@@ -60,7 +60,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, fulfillOrder, retryDelivery } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, fulfillOrder, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getOrderForCustomer } from "@/server/order-view";
 import { POST as webhook } from "@/app/api/webhooks/[provider]/route";
 
@@ -403,6 +403,33 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await getOrderForCustomer(order.number, order.trackingToken.slice(0, -1), null)).toBeNull();
     expect(await getOrderForCustomer(order.number, undefined, other)).toBeNull();
     expect(await getOrderForCustomer(order.number, order.trackingToken, null)).not.toBeNull();
+  });
+
+  it("recordatorio de pago: a los 20 min, solo si aún hay tiempo para pagar, y una sola vez", async () => {
+    const now = new Date();
+    const at = async (minAgo: number, expiresInMin: number) => {
+      const { order } = await makeOrder();
+      await db.order.update({ where: { id: order.id }, data: { createdAt: new Date(now.getTime() - minAgo * 60_000), expiresAt: new Date(now.getTime() + expiresInMin * 60_000) } });
+      return order;
+    };
+    const due = await at(25, 35);
+    const early = await at(5, 55);
+    const almostExpired = await at(55, 5);
+    const paid = await at(25, 35);
+    await db.order.update({ where: { id: paid.id }, data: { status: "PAID" } });
+
+    await sendPaymentReminders(now);
+    const sent = () => fakes.notify.notifyOrder.mock.calls.filter((c) => (c as unknown[])[1] === "payment_reminder").map((c) => (c as unknown[])[0]);
+    expect(sent()).toContain(due.id);
+    expect(sent()).not.toContain(early.id);
+    expect(sent()).not.toContain(almostExpired.id);
+    expect(sent()).not.toContain(paid.id);
+
+    // Ya enviado (queda registrado en Notification): no se repite.
+    await db.notification.create({ data: { orderId: due.id, channel: "email", recipient: "cliente@example.com", template: "payment_reminder" } });
+    vi.clearAllMocks();
+    await sendPaymentReminders(now);
+    expect(sent()).not.toContain(due.id);
   });
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {

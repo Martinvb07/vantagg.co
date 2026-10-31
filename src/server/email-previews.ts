@@ -9,11 +9,11 @@ export const EMAIL_PREVIEWS: Array<{ key: string; label: string; group: string; 
   { key: "password_reset", label: "Recuperar contraseña", group: "Cuenta", render: (b) => T.passwordResetEmail(b, { link: `${env.appUrl}/recuperar/nueva?t=EJEMPLO`, minutes: 30 }) },
   { key: "welcome", label: "Bienvenida", group: "Cuenta", render: (b) => T.welcomeEmail(b, { name: "Camila Torres" }) },
   { key: "password_changed", label: "Contraseña cambiada", group: "Cuenta", render: (b) => T.passwordChangedEmail(b, { when: "4 de octubre de 2026, 6:30 p. m.", how: "perfil" }) },
-  ...(["order_created", "payment_confirmed", "delivered", "delivery_failed", "refunded", "cancelled"] as const).map((t) => ({
+  ...(["order_created", "payment_reminder", "payment_confirmed", "delivered", "delivery_failed", "refunded", "cancelled"] as const).map((t) => ({
     key: `topup_${t}`,
-    label: { order_created: "Pedido creado", payment_confirmed: "Pago confirmado", delivered: "Recarga entregada", delivery_failed: "Problema de entrega", refunded: "Reembolso", cancelled: "Pedido cancelado" }[t],
+    label: { order_created: "Pedido creado", payment_reminder: "Recordatorio de pago", payment_confirmed: "Pago confirmado", delivered: "Recarga entregada", delivery_failed: "Problema de entrega", refunded: "Reembolso", cancelled: "Pedido cancelado" }[t],
     group: "Pedidos de diamantes",
-    render: (b: T.Brand) => T.orderEmail(b, t, { number: "VX-7K2M-9QHT", type: "TOPUP", item: "520 + 52 Bonus diamantes", total: "$ 16.000", playerId: "123456789", link: `${env.appUrl}/pedido/VX-7K2M-9QHT?t=EJEMPLO`, isTest: false }),
+    render: (b: T.Brand) => T.orderEmail(b, t, { number: "VX-7K2M-9QHT", type: "TOPUP", item: "520 + 52 Bonus diamantes", total: "$ 16.000", playerId: "123456789", link: `${env.appUrl}/pedido/VX-7K2M-9QHT?t=EJEMPLO`, isTest: false, expiresAt: "3:45 p. m." }),
   })),
   { key: "account_paid", label: "Cuenta pagada (chat)", group: "Pedidos de cuentas", render: (b) => T.orderEmail(b, "payment_confirmed", { number: "VX-CY29-JZRW", type: "ACCOUNT", item: "Cuenta Heroico · Nivel 68", total: "$ 180.000", link: `${env.appUrl}/pedido/VX-CY29-JZRW?t=EJEMPLO`, isTest: false }) },
   { key: "account_delivered", label: "Cuenta entregada", group: "Pedidos de cuentas", render: (b) => T.orderEmail(b, "delivered", { number: "VX-CY29-JZRW", type: "ACCOUNT", item: "Cuenta Heroico · Nivel 68", total: "$ 180.000", link: `${env.appUrl}/pedido/VX-CY29-JZRW?t=EJEMPLO`, isTest: false }) },
