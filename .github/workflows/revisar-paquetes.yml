@@ -102,6 +102,10 @@ jobs:
             console.log(`== catálogo en vivo de Central One: ${items.size} productos`);
 
             const pkgs = await db.diamondPackage.findMany({ where: { active: true }, orderBy: [{ region: "asc" }, { sortOrder: "asc" }, { diamonds: "asc" }] });
+            // ID para la verificación gratuita: el de un pedido anterior (las tarjetas rechazan IDs inventados), o uno de ejemplo.
+            const realId = (await db.order.findFirst({ where: { type: "TOPUP", playerId: { not: null } }, orderBy: { createdAt: "desc" }, select: { playerId: true } }))?.playerId;
+            const testId = realId && /^\d{6,12}$/.test(realId) ? realId : "123456789";
+            console.log(`== ID para verificar: ${testId === "123456789" ? "de ejemplo" : `${testId.slice(0, 2)}****${testId.slice(-2)} (de un pedido anterior)`}`);
             const regions = [...new Set(pkgs.map((p) => p.region))];
             let problems = 0, warnings = 0, validations = 0;
             for (const region of regions) {
@@ -143,7 +147,7 @@ jobs:
                   else notes.push("✔ precio cubre el costo");
                   if (shown && validations < 12) {
                     validations++;
-                    const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : "123456789"]));
+                    const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : testId]));
                     const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: p.providerSku, target_payload }) });
                     if (v.s === 200 && v.j?.status === "valid") notes.push("✔ verifica IDs");
                     else {
@@ -167,28 +171,6 @@ jobs:
                 console.log(`  ${bad ? "✖" : warn ? "⚠" : "✔"} ${label}: ${notes.join(" · ")}`);
               }
             }
-            // Tarjetas y pases: la verificación del ID se compara con IDs reales de pedidos anteriores (consulta
-            // gratuita, sin comprar; los IDs salen tapados), para saber si «invalid» es del ID de prueba o del producto.
-            const passPkgs = pkgs.filter((p) => p.diamonds === 0 && visible.includes(p.region) && p.providerSku && items.get(p.providerSku));
-            const diamondRef = pkgs.find((p) => p.diamonds > 0 && visible.includes(p.region) && p.providerSku && items.get(p.providerSku));
-            if (passPkgs.length && diamondRef) {
-              const ids = [...new Set((await db.order.findMany({ where: { type: "TOPUP", playerId: { not: null } }, orderBy: { createdAt: "desc" }, take: 40, select: { playerId: true } })).map((o) => o.playerId))].filter((x) => /^\d{6,12}$/.test(x)).slice(0, 3);
-              const mask = (id) => `${id.slice(0, 2)}****${id.slice(-2)}`;
-              const check = async (pkg, id) => {
-                const it = items.get(pkg.providerSku);
-                const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : id]));
-                const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: pkg.providerSku, target_payload }) });
-                return v.s === 200 ? v.j?.status : `HTTP ${v.s}`;
-              };
-              console.log("");
-              console.log(`== verificación de tarjetas con ${ids.length} ID(s) real(es) de pedidos anteriores`);
-              for (const id of ids) {
-                const row = [`diamantes: ${await check(diamondRef, id)}`];
-                for (const p of passPkgs) row.push(`${p.name}: ${await check(p, id)}`);
-                console.log(`  ID ${mask(id)} → ${row.join(" · ")}`);
-              }
-            }
-
             // Tarjetas y pases que Central One vende en las regiones visibles y la tienda aún no tiene.
             const skus = new Set(pkgs.map((p) => p.providerSku));
             const missing = new Set();
