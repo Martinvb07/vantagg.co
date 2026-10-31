@@ -625,7 +625,7 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
   const values: Partial<Record<SettingKey, string>> = {};
   for (const key of Object.keys(SETTING_DEFAULTS) as SettingKey[]) {
     if (MANAGED_SETTING_KEYS.has(key)) continue; // se gestionan en Paquetes / Proveedor
-    if (key === "showGarenaDisclaimer") values[key] = bool(form, key) ? "true" : "false";
+    if (key === "showGarenaDisclaimer" || key === "maintenanceMode") values[key] = bool(form, key) ? "true" : "false";
     else if (key === "accountsMode") values[key] = ["auto", "on", "off"].includes(str(form, key)) ? str(form, key) : "auto";
     else if (key === "paymentMethods") values[key] = parsePaymentMethods(form.getAll("paymentMethods").map(String).join(",") || "none").join(",");
     else values[key] = str(form, key).slice(0, 400);

@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Wrench } from "lucide-react";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { getCurrentUser, isStaff } from "@/lib/auth";
@@ -11,6 +11,7 @@ import { accountsVisible } from "@/server/catalog";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { HalloweenDecor } from "@/components/store/halloween";
 import { isHalloween } from "@/domain/season";
+import { maintenanceNotice } from "@/domain/maintenance";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, user, showAccounts] = await Promise.all([getSettings(), getCurrentUser().catch(() => null), accountsVisible()]);
@@ -20,9 +21,16 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   const wa = whatsappLink(settings.whatsapp, `Hola ${settings.storeName}, tengo una pregunta.`);
   // Temporada: la decoración va encima del diseño de siempre y se apaga sola al terminar.
   const halloween = isHalloween();
+  const paused = maintenanceNotice(settings);
 
   return (
     <div data-season={halloween ? "halloween" : undefined}>
+      {paused && (
+        <div role="status" data-maintenance className="flex items-center justify-center gap-2 border-b border-warn-400/25 bg-warn-400/[0.08] px-4 py-2.5 text-center text-[13px] font-medium text-fg">
+          <Wrench aria-hidden className="size-4 shrink-0 text-warn-400" />
+          <span>{paused}</span>
+        </div>
+      )}
       {settings.announcement && (
         <div className="border-b border-white/[0.06] bg-ink-850 px-4 py-2 text-center text-[13px] text-fg-muted">{settings.announcement}</div>
       )}

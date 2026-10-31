@@ -29,6 +29,8 @@ type Props = {
   initialRegion: string;
   payments: PublicPaymentOption[];
   topupEnabled: boolean;
+  /** Aviso de mantenimiento: la tienda se ve, pero no vende. */
+  pausedNotice?: string | null;
   initialSlug?: string;
   initialPlayerId?: string;
   defaultEmail?: string;
@@ -109,7 +111,7 @@ function PackageOption({ p, selected, onSelect }: { p: PackageView; selected: bo
   );
 }
 
-export function TopUpCheckout({ packages: allPackages, regions, initialRegion, payments, topupEnabled, initialSlug, initialPlayerId, defaultEmail, methods }: Props) {
+export function TopUpCheckout({ packages: allPackages, regions, initialRegion, payments, topupEnabled, pausedNotice, initialSlug, initialPlayerId, defaultEmail, methods }: Props) {
   const router = useRouter();
   const initial = allPackages.find((p) => p.slug === initialSlug && p.available) ?? null;
   const [region, setRegion] = useState(initial?.region ?? initialRegion);
@@ -261,8 +263,8 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
     <div className="overflow-hidden rounded-[16px] bg-ink-850 ring-1 ring-white/[0.08]">
       {(closed || payClosed) && (
         <div className="p-4 sm:px-6">
-          <Alert tone={!topupEnabled ? "warning" : "info"} title={!topupEnabled ? "Recargas temporalmente no disponibles" : "Estamos activando los pagos"}>
-            {!topupEnabled ? "Puedes ver los precios, pero no es posible comprar en este momento." : "Muy pronto podrás comprar aquí. Mientras tanto puedes ver los paquetes y precios."}
+          <Alert tone={!topupEnabled ? "warning" : "info"} title={pausedNotice ? "Tienda en mantenimiento" : !topupEnabled ? "Recargas temporalmente no disponibles" : "Estamos activando los pagos"}>
+            {pausedNotice ?? (!topupEnabled ? "Puedes ver los precios, pero no es posible comprar en este momento." : "Muy pronto podrás comprar aquí. Mientras tanto puedes ver los paquetes y precios.")}
           </Alert>
         </div>
       )}

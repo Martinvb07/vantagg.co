@@ -24,6 +24,8 @@ export const SETTING_DEFAULTS = {
   announcement: "",
   paymentMethods: "debito,credito,nequi,pse",
   accountsMode: "auto", // sección de cuentas: auto (solo si hay cuentas publicadas) | on | off
+  maintenanceMode: "false", // "true": la tienda se ve, pero no acepta compras nuevas ni pagos de pedidos pendientes
+  maintenanceMessage: "", // texto para los clientes durante el mantenimiento (vacío: uno genérico)
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)

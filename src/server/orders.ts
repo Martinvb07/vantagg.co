@@ -9,6 +9,7 @@ import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validati
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
 import { PASS_INFO, passOf } from "@/domain/packs";
+import { maintenanceNotice } from "@/domain/maintenance";
 import { costInCop, parseRegionList, regionLabel } from "@/domain/topup-regions";
 import { getPaymentProvider } from "./integrations/payments";
 import type { VerifiedPayment } from "./integrations/payments/types";
@@ -92,6 +93,9 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
 
   const topup = activeTopUpProvider();
   if (!topup) return { ok: false, error: "Las recargas automáticas no están habilitadas en este momento." };
+
+  const paused = maintenanceNotice(await getSettings());
+  if (paused) return { ok: false, error: paused };
 
   const payment = getPaymentProvider(data.paymentProvider);
   if (!payment?.isEnabled()) return { ok: false, error: "El medio de pago seleccionado no está disponible." };
@@ -205,6 +209,9 @@ export async function createAccountOrder(input: unknown, userId: string | null):
   const replay = await existingByIdempotency(data.idempotencyKey);
   if (replay) return replay;
 
+  const paused = maintenanceNotice(await getSettings());
+  if (paused) return { ok: false, error: paused };
+
   const payment = getPaymentProvider(data.paymentProvider);
   if (!payment?.isEnabled()) return { ok: false, error: "El medio de pago seleccionado no está disponible." };
 
@@ -314,6 +321,8 @@ export async function resumeCheckout(orderId: string): Promise<CreateOrderResult
   const order = await db.order.findUnique({ where: { id: orderId } });
   if (!order || order.status !== "PENDING_PAYMENT") return { ok: false, error: "Este pedido ya no admite pagos." };
   if (order.expiresAt < new Date()) return { ok: false, error: "El tiempo para pagar este pedido terminó. Crea uno nuevo." };
+  const paused = maintenanceNotice(await getSettings());
+  if (paused) return { ok: false, error: paused };
   return startCheckout(order);
 }
 
@@ -812,6 +821,8 @@ async function releaseReservation(orderId: string) {
  * del tiempo para pagar (20 min en recargas) y todavía le quedan al menos 8 min. Una sola vez por pedido.
  */
 export async function sendPaymentReminders(now = new Date()): Promise<number> {
+  // En mantenimiento no se pide pagar: no se podría entregar.
+  if (maintenanceNotice(await getSettings())) return 0;
   const candidates = await db.order.findMany({
     where: {
       status: "PENDING_PAYMENT",

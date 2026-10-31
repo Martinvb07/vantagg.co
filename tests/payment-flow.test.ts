@@ -61,7 +61,8 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, fulfillOrder, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { getSettings } from "@/server/settings";
 import { getOrderForCustomer } from "@/server/order-view";
 import { POST as webhook } from "@/app/api/webhooks/[provider]/route";
 
@@ -444,6 +445,35 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     vi.clearAllMocks();
     await sendPaymentReminders(now);
     expect(sent()).not.toContain(due.id);
+  });
+
+  it("modo mantenimiento: no crea pedidos, no reabre pagos ni pide pagar; lo ya pagado se entrega igual", async () => {
+    const { order, linkId } = await makeOrder();
+    await db.order.update({ where: { id: order.id }, data: { createdAt: new Date(Date.now() - 25 * 60_000), expiresAt: new Date(Date.now() + 35 * 60_000) } });
+    const settings = vi.mocked(getSettings);
+    const normal = await settings();
+    settings.mockResolvedValue({ ...normal, maintenanceMode: "true", maintenanceMessage: "Volvemos en un rato." } as Awaited<ReturnType<typeof getSettings>>);
+    try {
+      const before = await db.order.count();
+      const topup = await createTopUpOrder({ packageId: "cualquiera", playerId: "123456789", email: "cliente@example.com", paymentProvider: "bold", idempotencyKey: crypto.randomUUID(), acceptTerms: true }, null);
+      const account = await createAccountOrder({ accountId: "cualquiera", email: "cliente@example.com", name: "Cliente", phone: "3001234567", paymentProvider: "bold", idempotencyKey: crypto.randomUUID(), acceptTerms: true }, null);
+      expect(topup).toEqual({ ok: false, error: "Volvemos en un rato." });
+      expect(account).toEqual({ ok: false, error: "Volvemos en un rato." });
+      expect(await db.order.count()).toBe(before);
+
+      expect(await resumeCheckout(order.id)).toEqual({ ok: false, error: "Volvemos en un rato." });
+      expect(await sendPaymentReminders()).toBe(0);
+      expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(order.id, "payment_reminder");
+
+      // Un pago que ya se hizo antes de pausar se confirma y se entrega como siempre.
+      payLink(linkId, `TX-${RUN}-mant`);
+      const r = await postWebhook(boldEvent("SALE_APPROVED", order.number, `TX-${RUN}-mant`, 4900));
+      expect(r.status).toBe(200);
+      expect(await statusOf(order.id)).toBe("DELIVERED");
+      expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
+    } finally {
+      settings.mockResolvedValue(normal);
+    }
   });
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {

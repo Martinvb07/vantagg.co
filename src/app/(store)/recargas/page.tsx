@@ -15,6 +15,7 @@ import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
 import { BannerSlot } from "@/components/store/banner-slot";
 import { parsePaymentMethods } from "@/domain/payment-methods";
+import { maintenanceNotice } from "@/domain/maintenance";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
   const methods = parsePaymentMethods(settings.paymentMethods);
   const payments = publicPaymentOptions();
   const topup = activeTopUpProvider();
+  const paused = maintenanceNotice(settings);
   // «Desde $X» y datos para buscadores: diamantes de la región principal (las tarjetas y pases van aparte).
   const prices = packages.filter((p) => p.available && p.region === mainRegion && !p.pass).map((p) => p.quote.price);
 
@@ -121,7 +123,7 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
             {packages.length === 0 ? (
               <EmptyState title="No hay paquetes disponibles" description="El catálogo de recargas se está actualizando. Intenta más tarde." />
             ) : (
-              <TopUpCheckout packages={packages} regions={regions} initialRegion={initialRegion} payments={payments} topupEnabled={!!topup} initialSlug={paquete} initialPlayerId={(id ?? savedId ?? undefined)?.slice(0, 12)} defaultEmail={user?.email} methods={methods} />
+              <TopUpCheckout packages={packages} regions={regions} initialRegion={initialRegion} payments={payments} topupEnabled={!!topup && !paused} pausedNotice={paused} initialSlug={paquete} initialPlayerId={(id ?? savedId ?? undefined)?.slice(0, 12)} defaultEmail={user?.email} methods={methods} />
             )}
           </div>
         </div>

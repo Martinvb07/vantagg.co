@@ -15,6 +15,7 @@ import { publicPaymentOptions } from "@/server/integrations/payments";
 import { AccountCheckoutForm } from "./account-checkout-form";
 import { getSettings } from "@/server/settings";
 import { parsePaymentMethods } from "@/domain/payment-methods";
+import { maintenanceNotice } from "@/domain/maintenance";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Comprar cuenta", robots: { index: false, follow: false } };
@@ -25,7 +26,7 @@ export default async function BuyAccountPage({ params }: { params: Promise<{ slu
   const profile = user ? await db.user.findUnique({ where: { id: user.id }, select: { phone: true } }) : null;
   if (!a) notFound();
   const payments = publicPaymentOptions();
-  const blocked = a.sold ? "Esta cuenta ya fue vendida." : !a.available ? "Esta cuenta está reservada en otro checkout en este momento." : isProduction && a.isDemo ? "Las publicaciones de demostración no se pueden comprar." : payments.length === 0 ? "Estamos activando los pagos. Muy pronto podrás comprar esta cuenta." : null;
+  const blocked = maintenanceNotice(settings) ?? (a.sold ? "Esta cuenta ya fue vendida." : !a.available ? "Esta cuenta está reservada en otro checkout en este momento." : isProduction && a.isDemo ? "Las publicaciones de demostración no se pueden comprar." : payments.length === 0 ? "Estamos activando los pagos. Muy pronto podrás comprar esta cuenta." : null);
 
   return (
     <Container className="max-w-[1040px] py-8 sm:py-12">

@@ -5,6 +5,7 @@ import { getSettings } from "@/server/settings";
 import { db } from "@/lib/db";
 import { saveSettingsAction } from "@/app/actions/admin";
 import { PAYMENT_METHODS, parsePaymentMethods } from "@/domain/payment-methods";
+import { MAINTENANCE_DEFAULT_MESSAGE } from "@/domain/maintenance";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustes de la tienda" };
@@ -16,6 +17,16 @@ export default async function SettingsAdmin() {
     <>
       <PageHeader title="Ajustes de la tienda" description="Marca, datos de la empresa y canales de contacto. Los campos vacíos no se muestran en la tienda." />
       <ActionForm action={saveSettingsAction} className="max-w-3xl space-y-6">
+        <Panel title="Modo mantenimiento">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            La tienda se sigue viendo, pero no acepta compras nuevas ni pagos de pedidos pendientes. Los pedidos ya pagados se siguen entregando. Úsalo cuando el proveedor no pueda entregar.
+          </p>
+          <Check name="maintenanceMode" label="Activar el modo mantenimiento (pausar las ventas)" defaultChecked={s.maintenanceMode === "true"} />
+          <Field label="Mensaje para los clientes (opcional)" hint={`Si está vacío: «${MAINTENANCE_DEFAULT_MESSAGE}»`} className="mt-4">
+            <input name="maintenanceMessage" defaultValue={s.maintenanceMessage} maxLength={240} className="field" />
+          </Field>
+        </Panel>
+
         <Panel title="Marca">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Nombre de la tienda">

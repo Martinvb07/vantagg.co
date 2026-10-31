@@ -1,0 +1,86 @@
+name: Modo mantenimiento
+
+# Manual. Activa o desactiva el modo mantenimiento de la tienda (lo mismo que Panel → Ajustes → Modo mantenimiento):
+# la tienda se sigue viendo, pero no acepta compras nuevas ni pagos de pedidos pendientes; lo ya pagado se entrega.
+# Solo cambia ese ajuste: no toca pedidos, pagos, precios ni credenciales. Efecto inmediato, sin reiniciar.
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "¿Activar o desactivar?"
+        type: choice
+        options: [activar, desactivar]
+        default: activar
+      mensaje:
+        description: "Mensaje para los clientes (opcional; vacío = se conserva el actual o uno genérico)"
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  mantenimiento:
+    name: Modo mantenimiento
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Aplicar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          ACCION: ${{ inputs.accion }}
+          MENSAJE: ${{ inputs.mensaje }}
+        run: |
+          set -euo pipefail
+          # El mensaje viaja en base64 para que ninguna comilla o símbolo rompa el comando remoto.
+          MENSAJE_B64=$(printf '%s' "$MENSAJE" | head -c 240 | base64 -w0)
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' ACCION='$ACCION' MENSAJE_B64='$MENSAJE_B64' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          cat > /tmp/mantenimiento.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const on = process.env.ACCION === "activar";
+          const msg = Buffer.from(process.env.MENSAJE_B64 || "", "base64").toString("utf8").trim();
+          const put = (key, value) => db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
+          (async () => {
+            await put("maintenanceMode", on ? "true" : "false");
+            if (msg) await put("maintenanceMessage", msg);
+            const rows = await db.setting.findMany({ where: { key: { in: ["maintenanceMode", "maintenanceMessage"] } } });
+            const v = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+            console.log(v.maintenanceMode === "true" ? "✔ Modo mantenimiento ACTIVADO: la tienda no acepta compras." : "✔ Modo mantenimiento DESACTIVADO: la tienda vende con normalidad.");
+            console.log(`  Mensaje: ${v.maintenanceMessage ? v.maintenanceMessage : "(genérico)"}`);
+          })()
+            .catch((e) => { console.error("✖ No se pudo cambiar el ajuste:", e.message); process.exitCode = 1; })
+            .finally(() => db.$disconnect());
+          JS
+          ACCION="$ACCION" MENSAJE_B64="$MENSAJE_B64" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/mantenimiento.cjs
+          rm -f /tmp/mantenimiento.cjs
+          # Comprobación desde fuera: la portada debe mostrar (o dejar de mostrar) el aviso.
+          sleep 2
+          if curl -fsS --max-time 20 http://127.0.0.1:3020/ -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' | grep -q 'data-maintenance'; then
+            echo "  Portada: muestra el aviso de mantenimiento."
+          else
+            echo "  Portada: sin aviso de mantenimiento."
+          fi
+          ENDSSH
+          rm -f ~/.ssh/deploy_key
