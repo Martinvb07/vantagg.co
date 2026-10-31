@@ -17,9 +17,6 @@
     "config:exportar": "node scripts/config-exportar.mjs",
     "config:importar": "node scripts/config-importar.mjs"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@prisma/client": "6.19.3",
     "country-flag-icons": "^1.6.20",
@@ -46,6 +43,7 @@
     "vitest": "3.2.7"
   },
   "overrides": {
-    "postcss": "^8.5.28"
+    "postcss": "^8.5.28",
+    "deepmerge-ts": "8.0.2"
   }
 }
