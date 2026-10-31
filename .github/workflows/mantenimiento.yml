@@ -75,12 +75,16 @@ jobs:
           JS
           ACCION="$ACCION" MENSAJE_B64="$MENSAJE_B64" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/mantenimiento.cjs
           rm -f /tmp/mantenimiento.cjs
-          # Comprobación desde fuera: la portada debe mostrar (o dejar de mostrar) el aviso.
+          # Comprobación como cliente: la portada y la página de recargas deben mostrar (o dejar de mostrar) el aviso.
+          # (Se descarga la página entera antes de buscar: un grep que corta la descarga daría un falso «sin aviso».)
           sleep 2
-          if curl -fsS --max-time 20 http://127.0.0.1:3020/ -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' | grep -q 'data-maintenance'; then
-            echo "  Portada: muestra el aviso de mantenimiento."
-          else
-            echo "  Portada: sin aviso de mantenimiento."
-          fi
+          for ruta in / /recargas; do
+            pagina=$(curl -sS --max-time 20 http://127.0.0.1:3020$ruta -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' || true)
+            case "$pagina" in
+              "") echo "  $ruta: no respondió." ;;
+              *data-maintenance*) echo "  $ruta: muestra el aviso de mantenimiento." ;;
+              *) echo "  $ruta: sin aviso de mantenimiento." ;;
+            esac
+          done
           ENDSSH
           rm -f ~/.ssh/deploy_key
