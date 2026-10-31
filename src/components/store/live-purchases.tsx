@@ -300,14 +300,13 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
           {hud.length > 0 && (
             <dl className={cn("mt-5 grid gap-2.5 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
               {hud.map(({ icon: Icon, value, label }) => (
-                <div key={label} className="-skew-x-[10deg] rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
-                  <div className="flex skew-x-[10deg] flex-col-reverse">
-                    <dt className="mt-1.5 flex items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
-                      <Icon className="mt-px size-3 shrink-0 text-volt-300" />
-                      {label}
-                    </dt>
-                    <dd className="whitespace-nowrap font-display text-[15px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px]">{value}</dd>
-                  </div>
+                // Un solo div por par dt/dd (lo que permite <dl>): el sesgo de la tarjeta se compensa en cada texto.
+                <div key={label} className="flex -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
+                  <dt className="mt-1.5 flex skew-x-[10deg] items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
+                    <Icon className="mt-px size-3 shrink-0 text-volt-300" />
+                    {label}
+                  </dt>
+                  <dd className="skew-x-[10deg] whitespace-nowrap font-display text-[15px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px]">{value}</dd>
                 </div>
               ))}
             </dl>

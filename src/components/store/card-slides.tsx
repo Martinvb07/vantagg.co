@@ -44,8 +44,10 @@ export function CardSlides({ href, images, sizes, priority = false, fill = false
 
   return (
     <>
+      {/* Decorativas para lectores de pantalla: el título de la tarjeta ya es el enlace a la ficha. */}
       <div
         ref={track}
+        aria-hidden
         className={cn("flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", fill && "absolute inset-0")}
       >
         {images.map((img, idx) => (

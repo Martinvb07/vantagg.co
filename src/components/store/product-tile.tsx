@@ -68,7 +68,7 @@ export function ProductTile({
       </div>
     </>
   );
-  if (disabled) return <div className="group block opacity-70">{body}</div>;
+  if (disabled) return <div className="group block [&>div:first-child]:opacity-60">{body}</div>;
   return (
     <Link href={href} className="group block rounded-[12px] outline-offset-4">
       {body}

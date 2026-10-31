@@ -116,23 +116,24 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
     <div className="select-none [-webkit-touch-callout:none]">
       <div
         className="surface group relative overflow-hidden"
-        role="region"
-        aria-roledescription="carrusel"
-        aria-label={`Imágenes de ${title}`}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: n - 1 }[e.key];
-          if (to === undefined) return;
-          e.preventDefault();
-          goTo(to);
-        }}
         // Sin menú de «abrir imagen» ni vista ampliada del navegador.
         onContextMenu={(e) => e.preventDefault()}
       >
+        {/* La franja que se desliza es la que recibe el foco (teclado y lectores de pantalla). */}
         <div
           ref={track}
+          role="region"
+          aria-roledescription="carrusel"
+          aria-label={`Imágenes de ${title}`}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: n - 1 }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            goTo(to);
+          }}
           className={cn(
-            "flex snap-x snap-mandatory items-start overflow-x-auto overflow-y-hidden overscroll-x-contain transition-[height] duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "flex snap-x snap-mandatory items-start overflow-x-auto overflow-y-hidden overscroll-x-contain outline-none transition-[height] duration-300 [scrollbar-width:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-volt-400 [&::-webkit-scrollbar]:hidden",
             n > 1 && "cursor-grab active:cursor-grabbing",
           )}
           style={{ height }}
