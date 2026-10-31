@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Sora } from "next/font/google";
+import localFont from "next/font/local";
 import { headers } from "next/headers";
 import "./globals.css";
 import { Suspense } from "react";
@@ -9,9 +9,10 @@ import { getSettings } from "@/server/settings";
 import { accountsVisible } from "@/server/catalog";
 import { env } from "@/lib/env";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const sora = Sora({ subsets: ["latin"], variable: "--font-sora", display: "swap", weight: ["400", "500", "600", "700"] });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face", display: "swap", weight: ["400", "500", "600"] });
+// Fuentes incluidas en el repositorio (src/fonts, licencia OFL): el build no depende de descargar de Google.
+const inter = localFont({ src: "../fonts/inter-latin-wght-normal.woff2", variable: "--font-inter", display: "swap", weight: "100 900" });
+const sora = localFont({ src: "../fonts/sora-latin-wght-normal.woff2", variable: "--font-sora", display: "swap", weight: "100 800" });
+const mono = localFont({ src: "../fonts/jetbrains-mono-latin-wght-normal.woff2", variable: "--font-mono-face", display: "swap", weight: "100 800" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const [s, withAccounts] = await Promise.all([getSettings(), accountsVisible()]);
