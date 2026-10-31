@@ -146,7 +146,12 @@ jobs:
                     const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : "123456789"]));
                     const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: p.providerSku, target_payload }) });
                     if (v.s === 200 && v.j?.status === "valid") notes.push("✔ verifica IDs");
-                    else { notes.push(`⚠ verificación de ID: ${v.s === 200 ? v.j?.status : "HTTP " + v.s}`); warn = true; }
+                    else {
+                      // Motivo que da Central One (sin datos de la cuenta): sirve para saber si es el ID de prueba o el producto.
+                      const why = v.s === 200 ? [v.j?.status, v.j?.reason, v.j?.code, v.j?.message].filter(Boolean).join(" / ") : `HTTP ${v.s} ${v.j?.error?.code ?? ""}`;
+                      notes.push(`⚠ verificación de ID: ${why}`);
+                      warn = true;
+                    }
                   }
                 }
                 if (p.supplierOutOfStock) { notes.push("⚠ marcado agotado en la tienda"); warn = true; }
