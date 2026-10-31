@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, ChevronsRight, Gem, Users, Zap } from "lucide-react";
+import { BadgeCheck, ChevronsRight, Gem, Ticket, Users, Zap } from "lucide-react";
 import type { LiveData, LivePurchase } from "@/server/catalog";
 import { LogoMark } from "@/components/brand/logo";
 import { timeAgo } from "@/components/store/time-ago";
@@ -41,12 +41,12 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
         )}
       >
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-[12px] bg-white/[0.06] ring-1 ring-white/10", latest && "bg-volt-400/15 ring-volt-400/30")}>
-          {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : <Users className="size-5 text-violet-300" />}
+          {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : p.title ? <Ticket className="size-5 text-volt-300" /> : <Users className="size-5 text-violet-300" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-1.5">
-            <span className="font-display text-[17px] font-extrabold tabular-nums leading-none">{amount ?? "Cuenta"}</span>
-            <span className="text-[12.5px] text-fg-muted">{amount ? "diamantes" : "Free Fire"}</span>
+            <span className={cn("font-display font-extrabold tabular-nums leading-none", p.title ? "truncate text-[15px]" : "text-[17px]")}>{amount ?? p.title ?? "Cuenta"}</span>
+            <span className="shrink-0 text-[12.5px] text-fg-muted">{amount ? "diamantes" : "Free Fire"}</span>
           </span>
           <span className="mt-1.5 block truncate font-mono text-[12px] text-sky-100/70">{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
         </span>
@@ -77,6 +77,10 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
             <span className="flex shrink-0 items-center gap-1 font-display font-extrabold tabular-nums">
               <Gem className={cn("size-4", gemTone(p.diamonds!))} strokeWidth={2.3} />
               {amount}
+            </span>
+          ) : p.title ? (
+            <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">
+              <Ticket className="size-4 text-volt-300" /> {p.title}
             </span>
           ) : (
             <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">

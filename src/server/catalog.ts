@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { hmacSha256Hex } from "@/lib/crypto";
 import { getAuthSecret } from "@/lib/env";
 import { quotePrice, type PriceQuote } from "@/domain/pricing";
+import { PASS_INFO, passOf, type PassKind } from "@/domain/packs";
 import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
 import { formatNumber } from "@/lib/money";
 import { getSettings } from "./settings";
@@ -16,7 +17,7 @@ import { getSettings } from "./settings";
 export type PackageView = Pick<
   DiamondPackage,
   "id" | "slug" | "name" | "diamonds" | "bonusDiamonds" | "currency" | "label" | "available" | "featured" | "isDemo" | "region"
-> & { quote: PriceQuote };
+> & { quote: PriceQuote; /** Tarjeta o pase (null en paquetes de diamantes). */ pass: PassKind | null };
 
 export type TopupRegionView = { slug: string; label: string; flag: string | null; packages: number };
 
@@ -50,7 +51,7 @@ export async function getPackages(opts: { featuredOnly?: boolean; regions?: stri
     where: { active: true, region: { in: regions }, ...(opts.featuredOnly ? { featured: true } : {}) },
     orderBy: [{ sortOrder: "asc" }, { diamonds: "asc" }],
   });
-  return rows.map((r) => ({
+  const views = rows.map((r) => ({
     id: r.id,
     slug: r.slug,
     name: r.name,
@@ -63,7 +64,11 @@ export async function getPackages(opts: { featuredOnly?: boolean; regions?: stri
     isDemo: r.isDemo,
     region: r.region,
     quote: quotePrice(r.price, r.compareAtPrice),
+    pass: passOf(r),
   }));
+  // Primero los diamantes (en su orden) y al final las tarjetas y pases.
+  const rank = (v: PackageView) => (v.pass ? 1000 + PASS_INFO[v.pass].sort : 0);
+  return views.map((v, i) => ({ v, i })).sort((a, b) => rank(a.v) - rank(b.v) || a.i - b.i).map(({ v }) => v);
 }
 
 // ---------------------------------------------------------------------
@@ -241,8 +246,10 @@ export async function getRelatedAccounts(excludeId: string, take = 3) {
 export type LivePurchase = {
   key: string;
   kind: "TOPUP" | "ACCOUNT";
-  diamonds: number | null; // total recibido (base + bonus); null en cuentas
+  diamonds: number | null; // total recibido (base + bonus); null en cuentas y tarjetas
   bonus: number | null;
+  /** Nombre de la tarjeta o el pase (null en diamantes y cuentas). */
+  title: string | null;
   player: string | null;
   at: string; // momento de la entrega (ISO)
   deliverySec: number | null; // del pago a la entrega
@@ -257,7 +264,7 @@ function maskPlayerId(id: string | null): string | null {
   return `${d.slice(0, 2)}****${d.slice(-2)}`;
 }
 
-type Snap = { diamonds?: number; bonusDiamonds?: number };
+type Snap = { name?: string; diamonds?: number; bonusDiamonds?: number };
 const DELIVERED = { status: "DELIVERED", isTest: false, deliveredAt: { not: null } } as const;
 
 /** Últimas entregas completadas (reales, no de prueba) y cifras de confianza para la tienda. */
@@ -283,13 +290,15 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
   const secs = (paid: Date | null, done: Date | null) => (paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null);
   const items = rows.map((r): LivePurchase => {
     const snap = (r.itemSnapshot ?? {}) as Snap;
-    const topup = r.type === "TOPUP" && typeof snap.diamonds === "number";
+    const topup = r.type === "TOPUP" && typeof snap.diamonds === "number" && snap.diamonds > 0;
+    const pass = r.type === "TOPUP" && snap.diamonds === 0 ? (snap.name ?? "Tarjeta Free Fire") : null;
     return {
       // Clave estable para la lista sin exponer el número de pedido (con llave: no se puede adivinar el número).
       key: hmacSha256Hex(getAuthSecret(), `entrega:${r.number}`).slice(0, 16),
       kind: r.type,
       diamonds: topup ? snap.diamonds! + (snap.bonusDiamonds ?? 0) : null,
       bonus: topup ? (snap.bonusDiamonds ?? 0) : null,
+      title: pass,
       player: maskPlayerId(r.playerId),
       at: r.deliveredAt!.toISOString(),
       deliverySec: secs(r.paidAt, r.deliveredAt),

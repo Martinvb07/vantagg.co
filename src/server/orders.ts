@@ -8,6 +8,7 @@ import { formatNumber } from "@/lib/money";
 import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validation";
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
+import { PASS_INFO, passOf } from "@/domain/packs";
 import { costInCop, parseRegionList, regionLabel } from "@/domain/topup-regions";
 import { getPaymentProvider } from "./integrations/payments";
 import type { VerifiedPayment } from "./integrations/payments/types";
@@ -119,6 +120,13 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
     }
     // Central One da el apodo actual (se guarda en el pedido); el de RechargeGame era viejo y no se guarda.
     nickname = topup.wholesale?.playerCheck === "per-product" ? (c.nickname ?? null) : null;
+    // Tarjeta o pase: se comprueba con ese mismo producto que la cuenta pueda recibirlo (p. ej. sin otra activa).
+    if (passOf(pkg) && topup.wholesale?.playerCheck === "per-product") {
+      const v = await topup.validatePlayer(data.playerId, { productKey: pkg.providerSku, region: regionName });
+      if (v.verifiable && !v.valid) {
+        return { ok: false, error: `Esta cuenta no puede recibir la ${PASS_INFO[passOf(pkg)!].title} ahora mismo. Si ya tiene una activa, espera a que termine.` };
+      }
+    }
   } else {
     const player = await topup.validatePlayer(data.playerId);
     if (player.verifiable && !player.valid) return { ok: false, error: player.message ?? "El ID de jugador no existe." };
@@ -149,7 +157,8 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
         playerNickname: nickname,
         itemSnapshot: {
           kind: "TOPUP",
-          name: `${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes Free Fire`,
+          name: passOf(pkg) ? `${PASS_INFO[passOf(pkg)!].title} Free Fire` : `${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes Free Fire`,
+          pass: passOf(pkg),
           diamonds: pkg.diamonds,
           bonusDiamonds: pkg.bonusDiamonds,
           sku: pkg.providerSku,
@@ -550,11 +559,12 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
       where: { id: order.id, status: { in: ["PAID", "PROCESSING", "DELIVERY_FAILED"] } },
       data: { status: "DELIVERED", deliveredAt: new Date() },
     });
-    const snap = order.itemSnapshot as { diamonds: number; bonusDiamonds?: number };
+    const snap = order.itemSnapshot as { name?: string; diamonds: number; bonusDiamonds?: number };
     const total = snap.diamonds + (snap.bonusDiamonds ?? 0);
+    const what = total > 0 ? `${formatNumber(total)} diamantes` : (snap.name ?? "la recarga");
     const message = r.simulated
       ? `Entrega SIMULADA (DEMO): el proveedor de prueba no envía diamantes reales.`
-      : `El proveedor confirmó la entrega de ${formatNumber(total)} diamantes al ID ${order.playerId}.`;
+      : `El proveedor confirmó la entrega de ${what} al ID ${order.playerId}.`;
     await addEvent(order.id, "DELIVERED", message, actor, { public: true, data: { providerRef: r.providerRef, simulated: r.simulated } });
     void notifyOrder(order.id, "delivered").catch(() => {});
     return;

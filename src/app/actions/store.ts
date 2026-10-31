@@ -16,6 +16,7 @@ import { regionLabel } from "@/domain/topup-regions";
 import { accountsVisible, listingAvailability } from "@/server/catalog";
 import { notifyClaim, notifyStaffTicket, notifyTicketReceived } from "@/server/notifications";
 import { caughtByHoneypot } from "@/lib/honeypot";
+import { PASS_INFO, passOf } from "@/domain/packs";
 
 async function limited(bucket: string, limit: number, windowMs: number) {
   const r = rateLimit(`${bucket}:${await clientIp()}`, limit, windowMs);
@@ -246,7 +247,7 @@ export async function getCartLinesAction(refs: Array<{ kind: string; id: string 
     lines.push({
       kind: "package",
       id: p.id,
-      title: `${p.diamonds + p.bonusDiamonds} diamantes Free Fire`,
+      title: passOf(p) ? `${PASS_INFO[passOf(p)!].title} Free Fire` : `${p.diamonds + p.bonusDiamonds} diamantes Free Fire`,
       href: `/recargas?paquete=${p.slug}`,
       checkoutHref: `/recargas?paquete=${p.slug}`,
       image: null,

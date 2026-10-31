@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { PASS_INFO, passKindOf } from "@/domain/packs";
 import { activeWholesale } from "./integrations/topup";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
@@ -182,6 +183,47 @@ export async function importRegionPackages(regionSlug: string, opts: { reprice?:
     created++;
   }
   return { created, repriced };
+}
+
+/** Tarjetas y pases del catálogo de una región que la tienda puede vender (entregables con el ID). */
+export async function supplierPasses(regionSlug: string) {
+  const rows = await db.supplierProduct.findMany({ where: { game: GAME, regionSlug, delivery: "player_id" }, orderBy: { priceCents: "asc" } });
+  return rows.map((p) => ({ product: p, kind: passKindOf(p.name) })).filter((x): x is { product: (typeof rows)[number]; kind: NonNullable<ReturnType<typeof passKindOf>> } => !!x.kind && !x.product.amount);
+}
+
+/**
+ * Crea en la tienda las tarjetas y pases de una región (sin diamantes: diamonds = 0, con su nombre).
+ * Precio inicial: costo × tasa + margen general, como los diamantes; luego se ajusta en Paquetes.
+ * Las que ya existen no se tocan.
+ */
+export async function importRegionPasses(regionSlug: string): Promise<{ created: number; names: string[] }> {
+  const { usdtCop, margin } = await supplierRate();
+  const found = await supplierPasses(regionSlug);
+  const existing = new Set((await db.diamondPackage.findMany({ where: { providerSku: { in: found.map((f) => f.product.productKey) } }, select: { providerSku: true } })).map((p) => p.providerSku));
+  const names: string[] = [];
+  for (const { product, kind } of found) {
+    if (existing.has(product.productKey) || names.includes(PASS_INFO[kind].title)) continue;
+    let slug = `${kind === "weekly-lite" ? "tarjeta-semanal-basica" : kind === "weekly" ? "tarjeta-semanal" : kind === "monthly" ? "tarjeta-mensual" : "pase-booyah"}${regionSlug === DEFAULT_TOPUP_REGION ? "" : `-${regionSlug}`}`;
+    if (await db.diamondPackage.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
+    await db.diamondPackage.create({
+      data: {
+        slug,
+        name: PASS_INFO[kind].title,
+        diamonds: 0,
+        bonusDiamonds: 0,
+        price: suggestedPrice(product.priceCents, usdtCop, margin),
+        region: regionSlug,
+        providerSku: product.productKey,
+        costCents: product.priceCents,
+        supplierOutOfStock: product.outOfStock,
+        sortOrder: 100 + PASS_INFO[kind].sort,
+        active: true,
+        available: true,
+      },
+    });
+    names.push(PASS_INFO[kind].title);
+  }
+  return { created: names.length, names };
 }
 
 // Cambios a la lista de regiones activas, uno a la vez (dos clics seguidos no deben pisarse).

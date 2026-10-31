@@ -8,6 +8,7 @@
  * de prueba; los webhooks pasan por la ruta real /api/webhooks/bold con la verificación de firma real.
  */
 import { createHmac } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const cfg = vi.hoisted(() => {
@@ -85,7 +86,7 @@ function fakeFetch(input: string | URL | Request) {
 }
 
 // --- Utilidades -----------------------------------------------------------
-async function makeOrder(opts: { total?: number; packageId?: string } = {}) {
+async function makeOrder(opts: { total?: number; packageId?: string; snapshot?: Prisma.InputJsonObject } = {}) {
   seq++;
   const total = opts.total ?? 4900;
   const linkId = `LNK_${RUN}_${seq}`;
@@ -99,7 +100,7 @@ async function makeOrder(opts: { total?: number; packageId?: string } = {}) {
       customerEmail: "cliente@example.com",
       playerId: "123456789",
       packageId: opts.packageId ?? null,
-      itemSnapshot: { kind: "TOPUP", name: "110 diamantes Free Fire", diamonds: 100, bonusDiamonds: 10, sku: "sku-110", region: "latam", regionName: "LATAM", costCents: null, isDemo: false },
+      itemSnapshot: opts.snapshot ?? { kind: "TOPUP", name: "110 diamantes Free Fire", diamonds: 100, bonusDiamonds: 10, sku: "sku-110", region: "latam", regionName: "LATAM", costCents: null, isDemo: false },
       subtotal: total,
       total,
       currency: "COP",
@@ -277,6 +278,19 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     await postWebhook(boldEvent("SALE_APPROVED", order.number, `TX-${RUN}-snap`, 4900));
     expect(await statusOf(order.id)).toBe("DELIVERED");
     expect(fakes.topup.createTopUp.mock.calls[0][0]).toMatchObject({ sku: "sku-110", diamonds: 100 });
+  });
+
+  it("una tarjeta (sin diamantes) se entrega con su producto y se nombra por lo que es", async () => {
+    const { order, linkId } = await makeOrder({
+      snapshot: { kind: "TOPUP", name: "Tarjeta Semanal Free Fire", pass: "weekly", diamonds: 0, bonusDiamonds: 0, sku: "sku-semanal", region: "latam", regionName: "LATAM", costCents: null, isDemo: false },
+    });
+    payLink(linkId, `TX-${RUN}-tarjeta`);
+    await postWebhook(boldEvent("SALE_APPROVED", order.number, `TX-${RUN}-tarjeta`, 4900));
+    expect(await statusOf(order.id)).toBe("DELIVERED");
+    expect(fakes.topup.createTopUp.mock.calls[0][0]).toMatchObject({ sku: "sku-semanal", diamonds: 0 });
+    const delivered = await db.orderEvent.findFirstOrThrow({ where: { orderId: order.id, type: "DELIVERED" } });
+    expect(delivered.message).toContain("Tarjeta Semanal Free Fire");
+    expect(delivered.message).not.toContain("0 diamantes");
   });
 
   it("corte de red con el proveedor: el reintento usa la MISMA clave idempotente", async () => {

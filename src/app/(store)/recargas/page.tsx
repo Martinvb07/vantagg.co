@@ -36,8 +36,8 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
   const methods = parsePaymentMethods(settings.paymentMethods);
   const payments = publicPaymentOptions();
   const topup = activeTopUpProvider();
-  // «Desde $X» y datos para buscadores: región principal (la de la mayoría de clientes).
-  const prices = packages.filter((p) => p.available && p.region === mainRegion).map((p) => p.quote.price);
+  // «Desde $X» y datos para buscadores: diamantes de la región principal (las tarjetas y pases van aparte).
+  const prices = packages.filter((p) => p.available && p.region === mainRegion && !p.pass).map((p) => p.quote.price);
 
   return (
     <>

@@ -4,6 +4,7 @@ import { formatMoney, formatNumber, packageTitle } from "@/lib/money";
 import { FAQ } from "@/content/faq";
 import { FF_RANKS, FF_REGIONS, rankLabel, regionInfo } from "@/domain/freefire";
 import { quotePrice } from "@/domain/pricing";
+import { PASS_INFO, packDetail, packTitle } from "@/domain/packs";
 import { accountsVisible, listingAvailability, getPackages } from "./catalog";
 
 /**
@@ -63,6 +64,8 @@ const SECTIONS: Array<{ title: string; subtitle: string; href: string; icon: Sea
 ];
 
 const PACKAGE_KW = ["diamantes", "diamante", "recarga", "recargar", "paquete", "paquetes", "dimas", "bonus"];
+/** Palabras de las tarjetas y el pase («semanal», «mensual», «booyah»…). */
+const PASS_KW = ["tarjeta", "tarjetas", "semanal", "mensual", "membresia", "membresias", "pase", "booyah", "basica"];
 const ACCOUNT_KW = ["cuentas", "cuenta", "perfil", "perfiles"];
 
 export async function smartSearch(raw: string): Promise<SearchResult> {
@@ -101,14 +104,19 @@ export async function smartSearch(raw: string): Promise<SearchResult> {
     .map(({ s }): SearchHit => ({ key: `s:${s.href}`, title: s.title, subtitle: s.subtitle, href: s.href, icon: s.icon }));
 
   // Paquetes: por cantidad ("520", "5600") o por intención ("diamantes")
+  const wantsPasses = tokens.some((t) => tokenHits(t, PASS_KW));
   const pkgHits = packages
-    .filter((p) => !wantsAccounts && (numbers.length ? numbers.some((n) => String(p.diamonds).startsWith(n) || String(p.diamonds + p.bonusDiamonds).startsWith(n)) : wantsPackages && !content.length))
+    .filter((p) =>
+      p.pass
+        ? wantsPasses && content.every((t) => tokenHits(t, PASS_KW) || tokenHits(t, words(PASS_INFO[p.pass!].title)))
+        : !wantsAccounts && !wantsPasses && (numbers.length ? numbers.some((n) => String(p.diamonds).startsWith(n) || String(p.diamonds + p.bonusDiamonds).startsWith(n)) : wantsPackages && !content.length),
+    )
     .slice(0, 6)
     .map(
       (p): SearchHit => ({
         key: `p:${p.slug}`,
-        title: packageTitle(p.diamonds, p.bonusDiamonds),
-        subtitle: `Recibes ${formatNumber(p.diamonds + p.bonusDiamonds)} diamantes`,
+        title: packTitle(p, packageTitle),
+        subtitle: packDetail(p, formatNumber),
         href: `/recargas?paquete=${p.slug}`,
         icon: "gem",
         price: formatMoney(p.quote.price, p.currency),

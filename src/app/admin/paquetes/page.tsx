@@ -9,6 +9,9 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { applyBonusAllAction, deletePackageAction, savePackageAction, topupCoverAction } from "@/app/actions/admin";
+import { importPassesAction } from "@/app/actions/supplier";
+import { PASS_INFO, passOf } from "@/domain/packs";
+import { supplierPasses } from "@/server/supplier";
 import { getSettings } from "@/server/settings";
 import { activeWholesale } from "@/server/integrations/topup";
 import { costInCop, marginOf, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
@@ -34,6 +37,9 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
   // Productos del proveedor para vincular: los de la región y los «GLOBAL» (sirven para cualquier región).
   const products = await db.supplierProduct.findMany({ where: { regionSlug: { in: [region, "global"] }, unit: "Diamonds" }, orderBy: { amount: "asc" }, select: { productKey: true, name: true, priceCents: true } });
   const currency = activeWholesale()?.wholesale.currency ?? "USD";
+  // Tarjetas y pases del proveedor que todavía no están en la tienda (para agregarlos con un clic).
+  const inStore = new Set(packages.map((p) => p.providerSku));
+  const newPasses = (await supplierPasses(region)).filter((x) => !inStore.has(x.product.productKey)).filter((x, i, all) => all.findIndex((y) => y.kind === x.kind) === i);
 
   return (
     <>
@@ -112,8 +118,14 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
         {packages.map((p, i) => (
           <details key={p.id} className="group rounded-[12px] border border-white/[0.07] bg-ink-850 open:border-white/14">
             <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 text-[13px] [&::-webkit-details-marker]:hidden">
-              <span className="w-28 font-display text-base font-semibold tabular-nums">{formatNumber(p.diamonds)}</span>
-              <span className="w-24 text-sky-400">{p.bonusDiamonds ? `+${p.bonusDiamonds} bonus` : ""}</span>
+              {passOf(p) ? (
+                <span className="w-52 font-display text-base font-semibold">{PASS_INFO[passOf(p)!].title}</span>
+              ) : (
+                <>
+                  <span className="w-28 font-display text-base font-semibold tabular-nums">{formatNumber(p.diamonds)}</span>
+                  <span className="w-24 text-sky-400">{p.bonusDiamonds ? `+${p.bonusDiamonds} bonus` : ""}</span>
+                </>
+              )}
               <span className="w-32 tabular-nums">
                 {formatMoney(quotes[i].price)}
                 {quotes[i].original != null && <span className="ml-1.5 text-fg-subtle line-through">{formatMoney(quotes[i].original!)}</span>}
@@ -138,6 +150,19 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
           </details>
         ))}
       </div>
+
+      {newPasses.length > 0 && (
+        <Panel title={`Tarjetas y pases · ${regionLabel(region)}`} className="mt-8">
+          <p className="text-[13px] text-fg-muted">
+            El proveedor vende {newPasses.map((x) => PASS_INFO[x.kind].title).join(", ")} para esta región y la tienda aún no los tiene. Se agregan activos con
+            precio sugerido (costo × tasa + margen); después puedes cambiar el precio o desactivarlos aquí mismo.
+          </p>
+          <ActionForm action={importPassesAction} className="mt-3">
+            <input type="hidden" name="region" value={region} />
+            <SubmitButton>Agregar tarjetas y pases</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
 
       <Panel title={`Nuevo paquete · ${regionLabel(region)}`} className="mt-8">
         <PackageForm region={region} products={products} usdtCop={usdtCop} currency={currency} />
@@ -165,12 +190,23 @@ function PackageForm({ pkg, region, products, usdtCop, currency }: { pkg?: Diamo
       {pkg && <input type="hidden" name="id" value={pkg.id} />}
       <input type="hidden" name="region" value={pkg?.region ?? region} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Diamantes">
-          <input name="diamonds" type="number" min={1} required defaultValue={pkg?.diamonds} className="field" />
-        </Field>
-        <Field label="Bonificación">
-          <input name="bonusDiamonds" type="number" min={0} defaultValue={pkg?.bonusDiamonds ?? 0} className="field" />
-        </Field>
+        {pkg && passOf(pkg) ? (
+          // Tarjeta o pase: no lleva diamantes (el proveedor entrega la membresía o el pase).
+          <Field label="Producto" hint="Tarjeta o pase: se entrega con el ID del jugador.">
+            <input type="hidden" name="diamonds" value="0" />
+            <input type="hidden" name="bonusDiamonds" value="0" />
+            <span className="field flex items-center">{PASS_INFO[passOf(pkg)!].title}</span>
+          </Field>
+        ) : (
+          <>
+            <Field label="Diamantes">
+              <input name="diamonds" type="number" min={1} required defaultValue={pkg?.diamonds} className="field" />
+            </Field>
+            <Field label="Bonificación">
+              <input name="bonusDiamonds" type="number" min={0} defaultValue={pkg?.bonusDiamonds ?? 0} className="field" />
+            </Field>
+          </>
+        )}
         <Field label="Precio (COP)" hint="Puedes usar precios como 149.999.">
           <input name="price" type="number" min={100} step={1} required defaultValue={pkg?.price} className="field" />
         </Field>

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ArrowRight, BadgeCheck, CalendarDays, Crown, Gem, Headset, Heart, IdCard, KeyRound, Lock, LogOut, Mail, MailCheck, MessageCircle, MessagesSquare, MonitorSmartphone, Package, Pencil, Receipt, RotateCw, ShieldAlert, ShieldCheck, Sparkles, Trophy, UserRound, Wallet, Zap } from "lucide-react";
 import { RankEmblem } from "@/components/brand/rank-emblem";
 import { ACHIEVEMENTS, customerRank, profileTheme } from "@/domain/player";
-import { DiamondCover, tierFor } from "@/components/brand/covers";
+import { PackCover } from "@/components/brand/covers";
+import { passKindOf } from "@/domain/packs";
 import { UserAvatar } from "@/components/account/user-avatar";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
 import { LinkButton } from "@/components/ui/button";
@@ -333,8 +334,8 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
                 return (
                   <li key={o.id} className="flex gap-3.5 rounded-[16px] bg-ink-850 p-3.5 ring-1 ring-white/[0.07] transition hover:ring-white/15">
                     <Link href={link} className="relative size-[76px] shrink-0 overflow-hidden rounded-[12px] ring-1 ring-white/10">
-                      {o.type === "TOPUP" && item.diamonds ? (
-                        <DiamondCover tier={tierFor(item.diamonds)} diamonds={item.diamonds} />
+                      {o.type === "TOPUP" && item.diamonds != null ? (
+                        <PackCover p={{ diamonds: item.diamonds, bonusDiamonds: item.bonusDiamonds ?? 0, pass: item.diamonds === 0 ? passKindOf(item.name) : null }} />
                       ) : image ? (
                         <img src={image} alt="" className="size-full object-cover" />
                       ) : (

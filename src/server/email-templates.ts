@@ -223,7 +223,7 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 
 export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string };
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
@@ -231,7 +231,7 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
   const test = o.isTest ? "Pedido de prueba: no hubo cobro real ni entrega real." : undefined;
   const view = { label: "Ver mi pedido", url: o.link };
   const chat = { label: "Abrir chat de entrega", url: `${o.link}#chat` };
-  const labels = account ? ["Pedido", "Pago", "Cuenta entregada"] : ["Pedido", "Pago", "Diamantes entregados"];
+  const labels = account ? ["Pedido", "Pago", "Cuenta entregada"] : ["Pedido", "Pago", o.isPass ? "Entregado" : "Diamantes entregados"];
   const steps = (done: number, problem = false): Steps => ({ labels, done, problem });
 
   const map: Record<OrderTemplate, { subject: string; block: Omit<Block, "rows"> }> = {
@@ -256,13 +256,13 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       subject: `Pago confirmado · ${o.number}`,
       block: account
         ? { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado! La cuenta ya es tuya", intro: "Te entregamos los datos de acceso por el chat de tu pedido. Te avisamos por correo cuando te escribamos.", preheader: "Abre el chat de entrega de tu cuenta", cta: chat, note: test }
-        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: "Estamos enviando los diamantes a tu ID. Normalmente tarda pocos minutos.", preheader: "Estamos enviando tus diamantes", cta: view, note: test },
+        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: o.isPass ? `Estamos activando tu ${o.item} en tu ID. Normalmente tarda pocos minutos.` : "Estamos enviando los diamantes a tu ID. Normalmente tarda pocos minutos.", preheader: o.isPass ? "Estamos activando tu compra" : "Estamos enviando tus diamantes", cta: view, note: test },
     },
     delivered: {
-      subject: account ? `Entrega completada · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
+      subject: account ? `Entrega completada · ${o.number}` : o.isPass ? `¡Tu compra llegó! · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
       block: account
         ? { badge: "Entregado", tone: "success", steps: steps(3), title: "Entrega completada", intro: "Cambia la contraseña y el correo de recuperación de la cuenta si aún no lo hiciste. El chat sigue abierto 7 días por si necesitas algo.", preheader: "Tu cuenta fue entregada", cta: view, note: test }
-        : { badge: "Entregado", tone: "success", steps: steps(3), title: "¡Tus diamantes llegaron!", intro: "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
+        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: o.isPass ? `Abre Free Fire: tu ${o.item} ya está activa en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
     },
     delivery_failed: {
       subject: `Estamos revisando tu entrega · ${o.number}`,

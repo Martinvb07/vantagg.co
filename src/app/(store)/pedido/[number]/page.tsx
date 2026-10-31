@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleAlert, CircleCheck, Clock, CreditCard, Loader, MessageCircle, RotateCcw, XCircle } from "lucide-react";
-import { DiamondCover, tierFor } from "@/components/brand/covers";
+import { PackCover } from "@/components/brand/covers";
+import { PASS_INFO, passKindOf } from "@/domain/packs";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
 import { CopyButton } from "@/components/orders/copy-button";
 import { AutoRefresh, ResumePayment } from "@/components/orders/order-live";
@@ -68,7 +69,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const declined = order.status === "PENDING_PAYMENT" && order.lastPayment && ["DECLINED", "VOIDED", "ERROR"].includes(order.lastPayment.status);
   const wa = whatsappLink(settings.whatsapp, `Hola, necesito ayuda con mi pedido ${order.number}.`);
   const isTopup = order.type === "TOPUP" && order.item.diamonds != null;
-  const title = isTopup
+  // Tarjeta o pase: el pedido no trae diamantes y se nombra por lo que es.
+  const pass = isTopup && order.item.diamonds === 0 ? passKindOf(order.item.name) : null;
+  const title = pass
+    ? PASS_INFO[pass].title
+    : isTopup
     ? `${formatNumber(order.item.diamonds!)}${order.item.bonusDiamonds ? ` + ${formatNumber(order.item.bonusDiamonds)} Bonus` : ""} diamantes`
     : order.item.name;
 
@@ -84,7 +89,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       <div className="flex flex-col gap-4 rounded-[18px] bg-ink-850 p-4 ring-1 ring-white/[0.08] sm:flex-row sm:items-center sm:p-5">
         <div className="relative size-16 shrink-0 overflow-hidden rounded-[12px] sm:size-[72px]">
           {isTopup ? (
-            <DiamondCover tier={tierFor(order.item.diamonds!)} diamonds={order.item.diamonds!} />
+            <PackCover p={{ diamonds: order.item.diamonds!, bonusDiamonds: order.item.bonusDiamonds ?? 0, pass }} />
           ) : order.image ? (
             <Image src={order.image} alt="" fill sizes="72px" unoptimized={order.image.endsWith(".svg")} className="object-cover" />
           ) : (

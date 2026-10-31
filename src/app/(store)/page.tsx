@@ -3,7 +3,8 @@ import { ChevronRight, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Rada
 import { JsonLd } from "@/components/seo/json-ld";
 import { AccountGridCard } from "@/components/store/account-listing";
 import { HeroCarousel } from "@/components/store/hero-carousel";
-import { DiamondCover, tierFor } from "@/components/brand/covers";
+import { PackCover } from "@/components/brand/covers";
+import { packDetail, packTitle } from "@/domain/packs";
 import { RankEmblem } from "@/components/brand/rank-emblem";
 import { ProductTile } from "@/components/store/product-tile";
 import { FF_RANKS } from "@/domain/freefire";
@@ -22,6 +23,28 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export const dynamic = "force-dynamic";
+
+function PackGrid({ packs }: { packs: Awaited<ReturnType<typeof getPackages>> }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-5 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 lg:gap-x-4">
+      {packs.map((p) => (
+        <ProductTile
+          key={p.id}
+          href={`/recargas?paquete=${p.slug}`}
+          cover={<PackCover p={p} />}
+          title={packTitle(p, packageTitle)}
+          meta={packDetail(p, formatNumber)}
+          price={p.quote.price}
+          original={p.quote.original}
+          currency={p.currency}
+          label={p.label}
+          isDemo={p.isDemo}
+          disabled={!p.available}
+        />
+      ))}
+    </div>
+  );
+}
 
 function RowHead({ title, sub, href, cta }: { title: string; sub?: string; href?: string; cta?: string }) {
   return (
@@ -53,7 +76,9 @@ export default async function HomePage() {
   const showAccounts = await accountsVisible();
   const visibleAccounts = showAccounts ? accounts.filter((a) => a.available || a.reservedTemporarily) : [];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
-  const bonusPct = packages[0]?.diamonds ? Math.round((packages[0].bonusDiamonds / packages[0].diamonds) * 100) : 0;
+  const diamondPacks = packages.filter((p) => !p.pass);
+  const passes = packages.filter((p) => p.pass);
+  const bonusPct = diamondPacks[0]?.diamonds ? Math.round((diamondPacks[0].bonusDiamonds / diamondPacks[0].diamonds) * 100) : 0;
   const rankChips = [...FF_RANKS].reverse().filter((r) => facets.rankCounts[r.id]);
 
   return (
@@ -99,26 +124,18 @@ export default async function HomePage() {
         </div>
 
         {/* Recargas */}
-        {packages.length > 0 && (
+        {diamondPacks.length > 0 && (
           <section id="diamantes" className="scroll-mt-24">
             <RowHead title="Recargas de diamantes" sub={bonusPct ? `Todos con +${bonusPct}% de bonus · precio final en pesos` : "Precio final en pesos"} href="/recargas" cta="Ver todo" />
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 lg:gap-x-4">
-              {packages.map((p) => (
-                <ProductTile
-                  key={p.id}
-                  href={`/recargas?paquete=${p.slug}`}
-                  cover={<DiamondCover tier={tierFor(p.diamonds)} diamonds={p.diamonds} bonus={p.bonusDiamonds} />}
-                  title={packageTitle(p.diamonds, p.bonusDiamonds)}
-                  meta={`Recibes ${formatNumber(p.diamonds + p.bonusDiamonds)} diamantes`}
-                  price={p.quote.price}
-                  original={p.quote.original}
-                  currency={p.currency}
-                  label={p.label}
-                  isDemo={p.isDemo}
-                  disabled={!p.available}
-                />
-              ))}
-            </div>
+            <PackGrid packs={diamondPacks} />
+          </section>
+        )}
+
+        {/* Tarjetas y pases (membresías del juego), si están activas */}
+        {passes.length > 0 && (
+          <section id="tarjetas" className="scroll-mt-24">
+            <RowHead title="Tarjetas y pases" sub="Membresías y pase Booyah · directo a tu ID" href="/recargas" cta="Ver todo" />
+            <PackGrid packs={passes} />
           </section>
         )}
 

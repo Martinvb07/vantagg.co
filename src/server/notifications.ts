@@ -139,6 +139,7 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     link: orderLink(order),
     isTest: order.isTest,
     expiresAt: new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit", timeZone: "America/Bogota" }).format(order.expiresAt),
+    isPass: order.type === "TOPUP" && (order.itemSnapshot as { diamonds?: number }).diamonds === 0,
   });
   const r = await sendEmail(order.customerEmail, template, email);
   await db.notification.update({ where: { id: notification.id }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });

@@ -5,7 +5,7 @@ import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { DEFAULT_TOPUP_REGION, regionLabel } from "@/domain/topup-regions";
-import { fetchDailyUsdCop, importRegionPackages, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
+import { fetchDailyUsdCop, importRegionPackages, importRegionPasses, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
 import { saveSettings } from "@/server/settings";
 import type { ActionResult } from "./admin";
 
@@ -86,6 +86,17 @@ export async function toggleRegionAction(_: ActionResult, form: FormData): Promi
   refresh();
   const name = regionLabel(slug);
   return ok(enable ? `${name} activada${created ? `: ${created} paquete(s) creados con precio sugerido. Revísalos en «Diamantes y precios».` : "."}` : `${name} ya no se muestra en la tienda (sus paquetes se conservan).`);
+}
+
+/** Agrega a la tienda las tarjetas y pases que el proveedor vende en esa región (con precio sugerido). */
+export async function importPassesAction(_: ActionResult, form: FormData): Promise<ActionResult> {
+  const user = await requireAdmin();
+  const slug = str(form, "region").toLowerCase();
+  if (!/^[a-z0-9-]{2,60}$/.test(slug)) return fail("Región inválida.");
+  const r = await importRegionPasses(slug);
+  await audit({ actorId: user.id, action: "supplier.import_passes", entity: "DiamondPackage", entityId: slug, data: r });
+  refresh();
+  return r.created ? ok(`Agregadas: ${r.names.join(", ")}. Revisa sus precios.`) : ok("No hay tarjetas ni pases nuevos para agregar en esta región.");
 }
 
 export async function repriceRegionAction(_: ActionResult, form: FormData): Promise<ActionResult> {

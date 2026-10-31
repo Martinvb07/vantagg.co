@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { PASS_INFO, passKindOf, passOf } from "@/domain/packs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { Prisma, type ListingStatus, type Role } from "@prisma/client";
@@ -97,7 +98,7 @@ export async function orderAction(_: ActionResult, form: FormData): Promise<Acti
 // =====================================================================
 
 const packageSchema = z.object({
-  diamonds: reqInt(1),
+  diamonds: reqInt(0),
   bonusDiamonds: reqInt(0),
   price: reqInt(100),
   compareAtPrice: optInt,
@@ -125,16 +126,20 @@ export async function savePackageAction(_: ActionResult, form: FormData): Promis
   // Producto del proveedor: si existe en el catálogo, se toman su región y su costo.
   const product = d.providerSku ? await db.supplierProduct.findUnique({ where: { productKey: d.providerSku } }) : null;
   if (d.providerSku && !product) return fail("Ese producto no está en el catálogo del proveedor. Sincroniza en Proveedor o revisa la clave.");
-  if (product?.amount && product.amount !== d.diamonds + d.bonusDiamonds) {
+  // Tarjeta o pase (por el producto del proveedor o por el paquete que se edita): sin diamantes y con su nombre.
+  const editing = str(form, "id") ? await db.diamondPackage.findUnique({ where: { id: str(form, "id") }, select: { diamonds: true, name: true } }) : null;
+  const pass = (product ? passKindOf(product.name) : null) ?? (editing ? passOf(editing) : null);
+  if (!pass && d.diamonds < 1) return fail("Escribe la cantidad de diamantes.");
+  if (!pass && product?.amount && product.amount !== d.diamonds + d.bonusDiamonds) {
     return fail(`El producto del proveedor entrega ${product.amount} diamantes y el paquete suma ${d.diamonds + d.bonusDiamonds}. Ajusta diamantes + bonificación para que coincidan.`);
   }
   // Un producto «GLOBAL» del proveedor sirve para cualquier región de la tienda.
   if (product && product.regionSlug !== d.region && product.regionSlug !== "global") return fail(`El producto del proveedor es de la región «${product.regionName}». Cambia la región del paquete.`);
 
   const data = {
-    name: `${d.diamonds} diamantes`,
-    diamonds: d.diamonds,
-    bonusDiamonds: d.bonusDiamonds,
+    name: pass ? PASS_INFO[pass].title : `${d.diamonds} diamantes`,
+    diamonds: pass ? 0 : d.diamonds,
+    bonusDiamonds: pass ? 0 : d.bonusDiamonds,
     price: d.price,
     compareAtPrice: d.compareAtPrice,
     label: d.label,
@@ -153,7 +158,7 @@ export async function savePackageAction(_: ActionResult, form: FormData): Promis
     await db.diamondPackage.update({ where: { id }, data });
     await audit({ actorId: user.id, action: "package.update", entity: "DiamondPackage", entityId: id, data });
   } else {
-    let slug = d.region === "latam" ? `diamantes-${d.diamonds}` : `diamantes-${d.region}-${d.diamonds + d.bonusDiamonds}`;
+    let slug = pass ? `${pass}-${d.region}` : d.region === "latam" ? `diamantes-${d.diamonds}` : `diamantes-${d.region}-${d.diamonds + d.bonusDiamonds}`;
     if (await db.diamondPackage.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
     const created = await db.diamondPackage.create({ data: { ...data, slug } });
     await audit({ actorId: user.id, action: "package.create", entity: "DiamondPackage", entityId: created.id, data });

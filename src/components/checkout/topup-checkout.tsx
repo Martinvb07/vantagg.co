@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Check, CircleAlert, Info, Lock, MapPin, ShieldCheck } from "lucide-react";
-import { DiamondCover, tierFor } from "@/components/brand/covers";
+import { PackCover } from "@/components/brand/covers";
+import { PASS_INFO, packDetail } from "@/domain/packs";
 import { Button } from "@/components/ui/button";
 import { Alert, DemoBadge } from "@/components/ui/primitives";
 import { PRODUCT_LABELS } from "@/domain/labels";
@@ -53,6 +54,17 @@ function Block({ id, title, aside, children }: { id: string; title: string; asid
   );
 }
 
+/** Antes de la primera tarjeta o pase va un subtítulo que ocupa toda la fila. */
+function PackGroup({ title, children }: { title: string | null; children: ReactNode }) {
+  if (!title) return <>{children}</>;
+  return (
+    <>
+      <p className="col-span-full mt-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">{title}</p>
+      {children}
+    </>
+  );
+}
+
 function PackageOption({ p, selected, onSelect }: { p: PackageView; selected: boolean; onSelect: () => void }) {
   const tag = PRODUCT_LABELS[p.label];
   return (
@@ -65,16 +77,20 @@ function PackageOption({ p, selected, onSelect }: { p: PackageView; selected: bo
     >
       <input type="radio" name="package" className="sr-only" checked={selected} disabled={!p.available} onChange={onSelect} />
       <div className="w-12 shrink-0 overflow-hidden rounded-md sm:w-14">
-        <DiamondCover tier={tierFor(p.diamonds)} diamonds={p.diamonds} />
+        <PackCover p={p} plain />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[16px] font-bold tabular-nums leading-tight">
-          {formatNumber(p.diamonds)}
-          {p.bonusDiamonds > 0 && <span className="text-sky-400"> + {formatNumber(p.bonusDiamonds)} Bonus</span>}
+          {p.pass ? (
+            PASS_INFO[p.pass].title
+          ) : (
+            <>
+              {formatNumber(p.diamonds)}
+              {p.bonusDiamonds > 0 && <span className="text-sky-400"> + {formatNumber(p.bonusDiamonds)} Bonus</span>}
+            </>
+          )}
         </p>
-        <p className="mt-0.5 truncate text-[11.5px] text-fg-muted">
-          {p.available ? `Recibes ${formatNumber(p.diamonds + p.bonusDiamonds)} diamantes` : "Agotado"}
-        </p>
+        <p className="mt-0.5 truncate text-[11.5px] text-fg-muted">{p.available ? packDetail(p, formatNumber) : "Agotado"}</p>
         {p.isDemo && <DemoBadge className="mt-1" label="PRECIO DEMO" />}
       </div>
       <div className="text-right">
@@ -178,7 +194,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   function switchRegion(next: string) {
     if (next === region) return;
     const current = allPackages.find((p) => p.id === pkgId);
-    const same = current && allPackages.find((p) => p.region === next && p.available && p.diamonds + p.bonusDiamonds === current.diamonds + current.bonusDiamonds);
+    const same = current && allPackages.find((p) => p.region === next && p.available && p.pass === current.pass && p.diamonds + p.bonusDiamonds === current.diamonds + current.bonusDiamonds);
     setRegion(next);
     setPkgId(same ? same.id : null);
     setPromo(null);
@@ -297,20 +313,21 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
       <Block
         id="cantidad"
-        title={`${multiRegion ? 2 : 1}. Elige la cantidad`}
+        title={`${multiRegion ? 2 : 1}. ${packages.some((p) => p.pass) ? "Elige qué recargar" : "Elige la cantidad"}`}
         aside={<span className="text-[12px] text-fg-subtle">{multiRegion && regionInfo ? `${regionInfo.label} · ` : ""}Precio final, impuestos incluidos</span>}
       >
-        <div role="radiogroup" aria-label="Cantidad de diamantes" className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
-          {packages.map((p) => (
-            <PackageOption
-              key={p.id}
-              p={p}
-              selected={p.id === pkgId}
-              onSelect={() => {
-                setPkgId(p.id);
-                if (!player) setTimeout(() => idRef.current?.focus({ preventScroll: true }), 50);
-              }}
-            />
+        <div role="radiogroup" aria-label="Cantidad de diamantes o tarjeta" className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
+          {packages.map((p, i) => (
+            <PackGroup key={p.id} title={p.pass && !packages[i - 1]?.pass ? "Tarjetas y pases" : null}>
+              <PackageOption
+                p={p}
+                selected={p.id === pkgId}
+                onSelect={() => {
+                  setPkgId(p.id);
+                  if (!player) setTimeout(() => idRef.current?.focus({ preventScroll: true }), 50);
+                }}
+              />
+            </PackGroup>
           ))}
         </div>
       </Block>
@@ -485,7 +502,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
               <dl className="mt-4 space-y-1.5 text-[13.5px]">
                 <div className="flex justify-between text-fg-muted">
                   <dt>
-                    {formatNumber(pkg.diamonds)}{pkg.bonusDiamonds ? ` + ${formatNumber(pkg.bonusDiamonds)} bonus` : ""} diamantes{multiRegion && regionInfo ? ` · ${regionInfo.label}` : ""}{player ? ` → ${playerId}` : ""}
+                    {pkg.pass ? PASS_INFO[pkg.pass].title : `${formatNumber(pkg.diamonds)}${pkg.bonusDiamonds ? ` + ${formatNumber(pkg.bonusDiamonds)} bonus` : ""} diamantes`}{multiRegion && regionInfo ? ` · ${regionInfo.label}` : ""}{player ? ` → ${playerId}` : ""}
                   </dt>
                   <dd className="tabular-nums">{formatMoney(pkg.quote.price, pkg.currency)}</dd>
                 </div>
@@ -545,7 +562,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
         <div data-paybar className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-ink-900/95 px-4 pt-3 backdrop-blur lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-[12px] text-fg-muted">{formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes</p>
+              <p className="truncate text-[12px] text-fg-muted">{pkg.pass ? PASS_INFO[pkg.pass].title : `${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes`}</p>
               <p className="text-lg font-bold tabular-nums">{formatMoney(total, pkg.currency)}</p>
             </div>
             <Button
