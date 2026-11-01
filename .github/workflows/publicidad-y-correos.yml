@@ -1,0 +1,158 @@
+name: Meta Pixel y correos
+
+# Manual. 1) Guarda el ID del Meta Pixel (lo mismo que Panel → Ajustes → Publicidad) si se indica, y revisa en
+# el servidor que la tienda lo cargue y que los correos automáticos estén funcionando (solo conteos).
+# 2) Abre la tienda real en un navegador: comprueba que antes de aceptar cookies no se envía nada a Meta y que
+# después de «Aceptar» el píxel registra la visita (PageView). No compra nada ni muestra datos de clientes.
+on:
+  workflow_dispatch:
+    inputs:
+      meta_pixel:
+        description: "ID del Meta Pixel (solo números). Vacío = no cambiarlo"
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  servidor:
+    name: Servidor (píxel y correos)
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    outputs:
+      pixel: ${{ steps.revisar.outputs.pixel }}
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Guardar y revisar
+        id: revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          PIXEL: ${{ inputs.meta_pixel }}
+        run: |
+          set -euo pipefail
+          PIXEL=$(printf '%s' "$PIXEL" | tr -d '[:space:]')
+          if [ -n "$PIXEL" ] && ! [[ "$PIXEL" =~ ^[0-9]{10,20}$ ]]; then echo "✖ El ID del píxel es solo un número (10 a 20 dígitos)."; exit 1; fi
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' PIXEL='$PIXEL' bash -s" <<'ENDSSH' | tee salida.txt
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          cat > /tmp/pixel-correos.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          (async () => {
+            const pixel = process.env.PIXEL || "";
+            if (pixel) {
+              await db.setting.upsert({ where: { key: "metaPixelId" }, create: { key: "metaPixelId", value: pixel }, update: { value: pixel } });
+              console.log(`✔ Meta Pixel guardado: ${pixel}`);
+            }
+            const s = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["metaPixelId", "googleTagId", "autoRecovery", "mktFirstPurchase", "mktWinbackDays", "marketingPromoCode", "emailAutomationsAt"] } } })).map((r) => [r.key, r.value]));
+            console.log(`PIXEL=${s.metaPixelId || ""}`);
+            console.log(`== Publicidad: Meta Pixel ${s.metaPixelId || "(sin configurar)"} · etiqueta de Google ${s.googleTagId ? s.googleTagId : "(sin configurar)"}`);
+            console.log(`== Correos automáticos: comprar de nuevo ${s.autoRecovery === "false" ? "APAGADO" : "activo"} · primera recarga ${s.mktFirstPurchase === "false" ? "APAGADO" : "activo"} · te extrañamos ${s.mktWinbackDays === "0" ? "APAGADO" : `a los ${s.mktWinbackDays || 21} días`} · código ${s.marketingPromoCode || "(ninguno)"}`);
+            const last = s.emailAutomationsAt ? Math.round((Date.now() - new Date(s.emailAutomationsAt).getTime()) / 60000) : null;
+            console.log(`   Última vuelta de los automáticos: ${last == null ? "todavía no corre" : `hace ${last} min`} (solo de 8 a. m. a 9 p. m.)`);
+            const since = new Date(Date.now() - 7 * 86400_000);
+            const rows = await db.notification.groupBy({ by: ["template", "status"], where: { createdAt: { gte: since }, template: { in: ["payment_reminder", "order_recovery", "mkt_first_purchase", "mkt_winback", "order_created", "payment_confirmed", "delivered"] } }, _count: { _all: true } });
+            const names = { order_created: "pedido creado", payment_reminder: "recordatorio de pago", payment_confirmed: "pago confirmado", delivered: "entregado", order_recovery: "comprar de nuevo", mkt_first_purchase: "primera recarga", mkt_winback: "te extrañamos" };
+            console.log("== Correos de los últimos 7 días (entregados / con error / omitidos):");
+            for (const [t, label] of Object.entries(names)) {
+              const c = (st) => rows.find((r) => r.template === t && r.status === st)?._count._all ?? 0;
+              console.log(`   ${label}: ${c("SENT")} / ${c("FAILED")} / ${c("SKIPPED")}`);
+            }
+            const [customers, opted] = await Promise.all([db.user.count({ where: { role: "CUSTOMER", disabled: false } }), db.user.count({ where: { role: "CUSTOMER", disabled: false, marketingOptIn: true } })]);
+            console.log(`== Clientes registrados que aceptan ofertas: ${opted} de ${customers}`);
+            await db.$disconnect();
+          })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); process.exitCode = 1; });
+          JS
+          PIXEL="$PIXEL" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/pixel-correos.cjs
+          rm -f /tmp/pixel-correos.cjs
+
+          # Configuración del correo (sin mostrar llaves).
+          prov=$(grep -E '^NOTIFY_PROVIDER=' .env | tail -n1 | cut -d= -f2- | tr -d '"' || true)
+          echo "== Servicio de correo: ${prov:-log}$(grep -qE '^RESEND_API_KEY=.+' .env && echo ' · llave de Resend configurada' || true)$(grep -qE '^NOTIFY_ONLY_TO=.+' .env && echo ' · ⚠ MODO PRUEBA (NOTIFY_ONLY_TO): solo llega a algunos correos' || echo ' · envía a todos los clientes')"
+          c=$(crontab -l 2>/dev/null || true)
+          printf '%s\n' "$c" | grep -q "api/cron/maintenance" && echo "✔ Mantenimiento automático programado: $(printf '%s\n' "$c" | grep 'api/cron/maintenance' | awk '{print $1,$2,$3,$4,$5}')" || echo "✖ NO hay mantenimiento programado: los correos automáticos no saldrían"
+
+          # La portada carga el píxel y la seguridad de la página (CSP) lo permite.
+          H="-H Host:vantagg.co -H X-Forwarded-Proto:https"
+          html=$(curl -s --max-time 20 $H http://127.0.0.1:3020/ || true)
+          px=$(printf '%s' "$html" | grep -o 'n("init","[0-9]*")' | head -n1 | grep -o '[0-9]\{10,\}' || true)
+          [ -n "$px" ] && echo "✔ La tienda carga el Meta Pixel $px (bloqueado hasta que el cliente acepte cookies)" || echo "✖ La portada no tiene el Meta Pixel"
+          printf '%s' "$html" | grep -q 'connect.facebook.net/en_US/fbevents.js' && echo "✔ Carga la librería de Meta (fbevents.js)" || echo "✖ No carga fbevents.js"
+          csp=$(curl -sI --max-time 20 $H http://127.0.0.1:3020/ | grep -i '^content-security-policy' || true)
+          printf '%s' "$csp" | grep -q 'connect.facebook.net' && printf '%s' "$csp" | grep -q 'www.facebook.com' && echo "✔ La seguridad de la página (CSP) permite enviar las mediciones a Meta" || echo "✖ La CSP no permite Meta"
+          ENDSSH
+          echo "pixel=$(grep -E '^PIXEL=' salida.txt | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+  navegador:
+    name: Navegador (la tienda real)
+    needs: servidor
+    if: needs.servidor.outputs.pixel != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar navegador
+        run: |
+          mkdir -p prueba && cd prueba && npm init -y >/dev/null && npm i --silent playwright@1.49.1 && npx playwright install --with-deps chromium >/dev/null
+      - name: Probar el píxel con y sin consentimiento
+        env:
+          PIXEL: ${{ needs.servidor.outputs.pixel }}
+        working-directory: prueba
+        run: |
+          cat > prueba.cjs <<'JS'
+          const { chromium } = require("playwright");
+          const ID = process.env.PIXEL;
+          (async () => {
+            const b = await chromium.launch();
+            const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, locale: "es-CO" })).newPage();
+            const hits = [], csp = [];
+            let lib = null;
+            p.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 160)); });
+            p.on("response", (r) => { if (r.url().includes("connect.facebook.net/en_US/fbevents.js")) lib = r.status(); });
+            p.on("request", (r) => { const u = r.url(); if (/facebook\.com\/tr/.test(u) || (/facebook\.com\//.test(u) && /ev=/.test(u + (r.postData() || "")))) hits.push(u + " " + (r.postData() || "")); });
+            const pv = () => hits.filter((h) => h.includes(`id=${ID}`) && /ev=PageView/.test(h)).length;
+            let fail = 0;
+            const ok = (cond, yes, no) => { console.log(cond ? `✔ ${yes}` : `✖ ${no}`); if (!cond) fail++; };
+
+            await p.goto("https://vantagg.co/", { waitUntil: "networkidle", timeout: 60000 });
+            await p.waitForTimeout(3000);
+            ok(lib === 200, "La librería de Meta cargó en la tienda (fbevents.js)", `fbevents.js no cargó (HTTP ${lib})`);
+            const banner = await p.getByRole("button", { name: "Aceptar" }).count();
+            ok(banner > 0, "El aviso de cookies pide permiso («Aceptar» / «Solo necesarias»)", "No apareció el aviso de cookies con «Aceptar»");
+            ok(pv() === 0, "Antes de aceptar cookies no se envía nada a Meta", `Se enviaron ${pv()} mediciones a Meta SIN permiso`);
+
+            if (banner) await p.getByRole("button", { name: "Aceptar" }).click();
+            await p.waitForTimeout(1500);
+            await p.goto("https://vantagg.co/recargas", { waitUntil: "networkidle", timeout: 60000 });
+            await p.waitForTimeout(4000);
+            ok(pv() > 0, `Después de «Aceptar», el píxel ${ID} registra la visita (PageView)`, "Después de aceptar no llegó ninguna visita a Meta");
+            ok(csp.length === 0, "Sin bloqueos de seguridad en la página", `Bloqueos de la CSP: ${csp.join(" | ")}`);
+            await b.close();
+            process.exit(fail ? 1 : 0);
+          })().catch((e) => { console.log("✖", e.message); process.exit(1); });
+          JS
+          node prueba.cjs
