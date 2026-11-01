@@ -8,13 +8,14 @@ import { PAYMENT_METHODS, parsePaymentMethods } from "@/domain/payment-methods";
 import { MAINTENANCE_DEFAULT_MESSAGE } from "@/domain/maintenance";
 import { marketingStats } from "@/server/marketing";
 import { purgeCancelledOrders } from "@/server/retention";
+import { blockedAttempts } from "@/server/order-limits";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustes de la tienda" };
 
 export default async function SettingsAdmin() {
   await requireAdmin();
-  const [s, publicAccounts, stats, purge] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats(), purgeCancelledOrders({ dryRun: true })]);
+  const [s, publicAccounts, stats, purge, blocked] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats(), purgeCancelledOrders({ dryRun: true }), blockedAttempts()]);
   return (
     <>
       <PageHeader title="Ajustes de la tienda" description="Marca, datos de la empresa y canales de contacto. Los campos vacíos no se muestran en la tienda." />
@@ -157,6 +158,35 @@ export default async function SettingsAdmin() {
           <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
             {purge.due ? `Ahora mismo hay ${purge.due} pedido(s) cancelado(s) listos para borrar.` : "No hay pedidos cancelados para borrar ahora."}
             {purge.kept ? ` ${purge.kept} cancelado(s) se conservan porque tienen cobro, entrega, chat, notas o soporte.` : ""} Nunca se borran pedidos pagados ni con dinero de por medio.
+          </p>
+        </Panel>
+
+        <Panel title="Límites contra pedidos falsos">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            Frena a quien hace muchos pedidos y no paga. Se cuenta por correo (los alias tipo «nombre+1@gmail.com» cuentan como el mismo) y por ID de jugador. Quien paga no se ve afectado. Además, cada conexión puede crear como máximo 8 pedidos cada 10 minutos.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Pedidos esperando pago a la vez" hint="Al llegar al límite, el cliente debe pagar uno o esperar a que venza (1 hora). Cuentas en venta: siempre 1.">
+              <select name="orderLimitOpen" defaultValue={s.orderLimitOpen || "2"} className="field">
+                {[["1", "1"], ["2", "2 (recomendado)"], ["3", "3"], ["5", "5"], ["0", "Sin límite"]].map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Pedidos sin pagar en 24 horas" hint="Al llegar al límite, no puede crear más hasta que pasen 24 h desde el primero.">
+              <select name="orderLimitUnpaid" defaultValue={s.orderLimitUnpaid || "5"} className="field">
+                {[["3", "3"], ["5", "5 (recomendado)"], ["10", "10"], ["20", "20"], ["0", "Sin límite"]].map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
+            {blocked ? `En las últimas 24 horas se frenaron ${blocked} intento(s) de crear pedidos (quedan en Historial de cambios).` : "En las últimas 24 horas no se frenó ningún intento."}
           </p>
         </Panel>
 

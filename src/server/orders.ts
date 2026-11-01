@@ -21,6 +21,7 @@ import { postSystemMessage } from "./chat";
 import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffPaymentIssue, notifyStaffUnknownPayment } from "./notifications";
 import { audit } from "@/lib/audit";
 import { recordCheckoutConsent } from "./marketing";
+import { orderLimitError } from "./order-limits";
 import { getSettings } from "./settings";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import { checkPlayerRegion, supplierRate, supplierRegionName } from "./supplier";
@@ -98,6 +99,10 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
 
   const paused = maintenanceNotice(await getSettings());
   if (paused) return { ok: false, error: paused };
+
+  // Límite contra pedidos falsos: pedidos esperando pago a la vez y sin pagar en 24 h (por correo e ID de jugador).
+  const limited = await orderLimitError({ type: "TOPUP", email: data.email, playerId: data.playerId });
+  if (limited) return { ok: false, error: limited };
 
   const payment = getPaymentProvider(data.paymentProvider);
   if (!payment?.isEnabled()) return { ok: false, error: "El medio de pago seleccionado no está disponible." };
@@ -215,6 +220,9 @@ export async function createAccountOrder(input: unknown, userId: string | null):
 
   const paused = maintenanceNotice(await getSettings());
   if (paused) return { ok: false, error: paused };
+
+  const limited = await orderLimitError({ type: "ACCOUNT", email: data.email });
+  if (limited) return { ok: false, error: limited };
 
   const payment = getPaymentProvider(data.paymentProvider);
   if (!payment?.isEnabled()) return { ok: false, error: "El medio de pago seleccionado no está disponible." };

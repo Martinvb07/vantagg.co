@@ -65,6 +65,7 @@ import { boldReference } from "@/server/integrations/payments/signatures";
 import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
+import { canonicalEmail } from "@/server/order-limits";
 import { getOrderForCustomer } from "@/server/order-view";
 import { POST as webhook } from "@/app/api/webhooks/[provider]/route";
 
@@ -536,6 +537,44 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await confirmApprovedWebhook("bold", approved(ref, `TX-${RUN}-perdido`))).toBe(false);
     expect(fakes.notify.notifyStaffUnknownPayment).toHaveBeenCalledTimes(1);
     await db.auditLog.deleteMany({ where: { action: "payment.unknown_order", entityId: `bold:${ref}` } });
+  });
+
+  it("límite contra pedidos falsos: por correo (con alias) y por ID; quien paga no se ve afectado", async () => {
+    expect(canonicalEmail(" A.Na+promo@GoogleMail.com ")).toBe("ana@gmail.com");
+    expect(canonicalEmail("ana+1@hotmail.com")).toBe("ana@hotmail.com");
+    expect(canonicalEmail("a.na@hotmail.com")).toBe("a.na@hotmail.com"); // los puntos solo se ignoran en Gmail
+
+    const base = `spam${RUN}`;
+    const id = `7${String(Date.now()).slice(-8)}`;
+    const input = (email: string, playerId = id) => ({ packageId: "no-existe", playerId, email, paymentProvider: "bold", idempotencyKey: crypto.randomUUID(), acceptTerms: true });
+    const mk = async (email: string, status: string, playerId = id) => {
+      const { order } = await makeOrder();
+      await db.order.update({ where: { id: order.id }, data: { customerEmail: email, playerId, status: status as never } });
+      return order;
+    };
+
+    // 2 esperando pago (con alias del mismo Gmail) → el tercero se frena.
+    const a = await mk(`${base}@gmail.com`, "PENDING_PAYMENT");
+    const b = await mk(`${base.slice(0, 3)}.${base.slice(3)}+x@gmail.com`, "PENDING_PAYMENT");
+    const r1 = await createTopUpOrder(input(`${base}+otro@gmail.com`, "111222333"), null);
+    expect(r1.ok).toBe(false);
+    expect(!r1.ok && r1.error).toMatch(/Ya tienes 2 pedidos esperando pago/);
+
+    // Vencen y se suman 3 más sin pagar: 5 en 24 h → se frena por un buen rato, aunque use otro correo con el mismo ID.
+    await db.order.updateMany({ where: { id: { in: [a.id, b.id] } }, data: { status: "CANCELLED" } });
+    for (let i = 0; i < 3; i++) await mk(`${base}@gmail.com`, "CANCELLED");
+    const r2 = await createTopUpOrder(input(`${base}@gmail.com`), null);
+    expect(!r2.ok && r2.error).toMatch(/muchos pedidos sin pagar/);
+    const r3 = await createTopUpOrder(input(`otra-${base}@example.com`), null);
+    expect(!r3.ok && r3.error).toMatch(/muchos pedidos sin pagar/);
+
+    // Quien compra mucho y paga no se frena (aquí falla después, por el paquete inexistente).
+    for (let i = 0; i < 6; i++) await mk(`buen-${base}@example.com`, "DELIVERED", "222333444");
+    const r4 = await createTopUpOrder(input(`buen-${base}@example.com`, "222333444"), null);
+    expect(!r4.ok && r4.error).toBe("Este paquete ya no está disponible.");
+
+    // Los intentos frenados quedan en la auditoría.
+    expect(await db.auditLog.count({ where: { action: "order.limit_blocked", createdAt: { gte: new Date(Date.now() - 60_000) } } })).toBeGreaterThanOrEqual(3);
   });
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {

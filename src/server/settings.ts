@@ -36,6 +36,8 @@ export const SETTING_DEFAULTS = {
   marketingPromoCode: "", // código de descuento opcional para esos correos
   emailAutomationsAt: "", // última ejecución de los correos automáticos (ISO)
   purgeCancelled: "false", // "true": borra los pedidos cancelados sin pago 24 h después del correo «comprar de nuevo»
+  orderLimitOpen: "2", // pedidos esperando pago a la vez por correo / ID de jugador (0 = sin límite)
+  orderLimitUnpaid: "5", // pedidos sin pagar en 24 h por correo / ID de jugador (0 = sin límite)
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
