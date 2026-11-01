@@ -77,6 +77,11 @@ jobs:
               console.log(dry ? "== Solo conteo (no se envió nada)" : "== Envío");
               console.log(`   Recordatorio de pago: ${j.payment.candidates} pedido(s)${dry ? "" : ` · enviados: ${j.payment.sent}`}`);
               console.log(`   Comprar de nuevo (últimos ${process.env.DIAS} días): ${j.recovery.candidates} persona(s)${dry ? "" : ` · enviados: ${j.recovery.sent}`}`);
+              if (!dry) {
+                const d = j.delivery || {};
+                console.log(`   Servicio de correo: entregados ${d.SENT || 0} · omitidos ${d.SKIPPED || 0} · con error ${d.FAILED || 0}`);
+                if (d.SKIPPED) console.log("   ⚠ Omitidos: el correo está en modo prueba (NOTIFY_ONLY_TO) o sin configurar.");
+              }
               const sk = Object.entries(j.recovery.skipped || {});
               if (sk.length) { console.log("   No se les escribe:"); for (const [why, n] of sk) console.log(`     · ${why}: ${n}`); }
             });'

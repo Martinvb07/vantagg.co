@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
+import { db } from "@/lib/db";
 import { sendReminders, type ReminderKind } from "@/server/reminders";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ export async function POST(req: Request) {
   const kinds = (Array.isArray(body.kinds) ? body.kinds : []).filter((k): k is ReminderKind => k === "payment" || k === "recovery");
   const days = typeof body.days === "number" && [7, 14, 30, 60, 90].includes(body.days) ? body.days : null;
   if (!kinds.length || !days) return NextResponse.json({ error: "kinds (payment, recovery) y days (7, 14, 30, 60 o 90) son obligatorios." }, { status: 400 });
+  const started = new Date();
   const r = await sendReminders({ kinds, days, dryRun: body.dryRun !== false, limit: 300 });
-  return NextResponse.json({ ok: true, dryRun: body.dryRun !== false, payment: r.payment, recovery: { candidates: r.recovery.candidates, sent: r.recovery.sent, skipped: r.recovery.skipped } });
+  // Resultado real del servicio de correo (SENT, SKIPPED si el correo está en modo prueba, FAILED).
+  const statuses = await db.notification.groupBy({ by: ["status"], where: { template: { in: ["payment_reminder", "order_recovery"] }, createdAt: { gte: started } }, _count: { _all: true } });
+  const delivery = Object.fromEntries(statuses.map((x) => [x.status, x._count._all]));
+  return NextResponse.json({ ok: true, dryRun: body.dryRun !== false, payment: r.payment, recovery: { candidates: r.recovery.candidates, sent: r.recovery.sent, skipped: r.recovery.skipped }, delivery });
 }
