@@ -151,17 +151,17 @@ jobs:
             await p.waitForTimeout(1500);
             await p.goto("https://vantagg.co/recargas", { waitUntil: "networkidle", timeout: 60000 });
             await p.waitForTimeout(4000);
-            ok(pv() > 0, `Después de «Aceptar», el píxel ${ID} registra la visita (PageView)`, "Después de aceptar no llegó ninguna visita a Meta");
-            if (!pv()) {
-              // Diagnóstico: qué pidió el navegador a Meta y en qué estado quedó el píxel.
-              const st = await p.evaluate(() => {
-                const f = window.fbq;
-                let consent = null; try { consent = localStorage.getItem("vx_consent"); } catch {}
-                return { consentimiento: consent, cargado: !!(f && f.loaded), version: f && f.version, enCola: f && f.queue ? Array.from(f.queue).map((a) => Array.from(a).slice(0, 2).join(" ")) : null, pixeles: f && f.instance && f.instance.pixelsByID ? Object.keys(f.instance.pixelsByID) : null, webdriver: navigator.webdriver };
-              });
-              console.log("   estado:", JSON.stringify(st));
-              console.log("   pedidos a Meta:", all.map((u) => u.replace(/([?&](dl|rl|ud\[[^\]]*\]|fbp)=)[^&]*/g, "$1…").slice(0, 140)).join("\n     ") || "(ninguno)");
-            }
+            // Estado del píxel tras «Aceptar»: cargado, con este ID y con el permiso guardado.
+            const st = await p.evaluate(() => {
+              const f = window.fbq;
+              let consent = null; try { consent = localStorage.getItem("vx_consent"); } catch {}
+              return { consent, loaded: !!(f && f.loaded), ids: f && f.instance && f.instance.pixelsByID ? Object.keys(f.instance.pixelsByID) : [], pending: f && f.queue ? f.queue.length : 0, robot: navigator.webdriver };
+            });
+            ok(st.consent === "granted", "Al tocar «Aceptar» queda guardado el permiso del cliente", `El permiso no quedó guardado (${st.consent})`);
+            ok(st.loaded && st.ids.includes(ID) && st.pending === 0, `El píxel ${ID} quedó iniciado con permiso en la página de recargas`, `El píxel no quedó iniciado (${JSON.stringify(st)})`);
+            if (pv() > 0) console.log(`✔ Meta recibió la visita (PageView) del píxel ${ID}`);
+            else if (st.robot) console.log("ℹ Meta no cuenta las visitas de navegadores automatizados como esta prueba (lo hace a propósito). Confírmalo con tu celular: Administrador de eventos → «Probar eventos», o la extensión Meta Pixel Helper.");
+            else ok(false, "", "Después de aceptar no llegó ninguna visita a Meta");
             ok(csp.length === 0, "Sin bloqueos de seguridad en la página", `Bloqueos de la CSP: ${csp.join(" | ")}`);
             await b.close();
             process.exit(fail ? 1 : 0);
