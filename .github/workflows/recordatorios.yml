@@ -84,6 +84,13 @@ jobs:
               }
               const sk = Object.entries(j.recovery.skipped || {});
               if (sk.length) { console.log("   No se les escribe:"); for (const [why, n] of sk) console.log(`     · ${why}: ${n}`); }
+              if (j.stats) {
+                const s = j.stats, a = j.automations || {};
+                console.log("== Correos automáticos");
+                console.log(`   Aceptan ofertas: ${s.optedIn} de ${s.customers} clientes registrados`);
+                console.log(`   Enviados en 7 días: pago ${s.last7.payment} · comprar de nuevo ${s.last7.recovery} · primera recarga ${s.last7.firstPurchase} · te extrañamos ${s.last7.winback}`);
+                console.log(`   Saldrían en la próxima vuelta: comprar de nuevo ${a.recovery || 0} · primera recarga ${a.firstPurchase || 0} · te extrañamos ${a.winback || 0}`);
+              }
             });'
           ENDSSH
 

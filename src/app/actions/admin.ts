@@ -641,7 +641,8 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
   const values: Partial<Record<SettingKey, string>> = {};
   for (const key of Object.keys(SETTING_DEFAULTS) as SettingKey[]) {
     if (MANAGED_SETTING_KEYS.has(key)) continue; // se gestionan en Paquetes / Proveedor
-    if (key === "showGarenaDisclaimer" || key === "maintenanceMode") values[key] = bool(form, key) ? "true" : "false";
+    if (key === "showGarenaDisclaimer" || key === "maintenanceMode" || key === "autoRecovery" || key === "mktFirstPurchase") values[key] = bool(form, key) ? "true" : "false";
+    else if (key === "mktWinbackDays") values[key] = ["0", "14", "21", "30", "45", "60"].includes(str(form, key)) ? str(form, key) : "21";
     else if (key === "accountsMode") values[key] = ["auto", "on", "off"].includes(str(form, key)) ? str(form, key) : "auto";
     else if (key === "paymentMethods") values[key] = parsePaymentMethods(form.getAll("paymentMethods").map(String).join(",") || "none").join(",");
     else values[key] = str(form, key).slice(0, 400);
@@ -663,6 +664,12 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
     const label = parseConversionLabel(values.googleAdsPurchase);
     if (!label) return fail("La conversión de compra debe verse así: AW-123456789/AbCdEfGhIjKl (en Google Ads: Objetivos → Conversiones → tu acción → Configuración de la etiqueta).");
     values.googleAdsPurchase = label;
+  }
+  if (values.marketingPromoCode) {
+    values.marketingPromoCode = normalizePromoCode(values.marketingPromoCode);
+    const promo = await db.promoCode.findUnique({ where: { code: values.marketingPromoCode }, select: { active: true, isDemo: true, scope: true } });
+    if (!promo || !promo.active || promo.isDemo) return fail("El código de descuento para los correos no existe o no está activo. Créalo primero en Descuentos.");
+    if (promo.scope === "ACCOUNT") return fail("El código de los correos debe servir para recargas (en Descuentos, alcance «Todo» o «Recargas»).");
   }
   if (values.metaPixelId) {
     const id = parseMetaPixelId(values.metaPixelId);

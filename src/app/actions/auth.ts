@@ -67,9 +67,18 @@ export async function registerAction(_: FormState, form: FormData): Promise<Form
   const exists = await db.user.findUnique({ where: { email: parsed.data.email } });
   if (exists) return { error: "Ya existe una cuenta con ese correo. Inicia sesión o entra con un código." };
 
+  // Ofertas por correo: solo si marcó la casilla (opcional, desmarcada por defecto).
+  const marketing = form.get("marketing") === "on";
   const user = await db.user.create({
-    data: { name: parsed.data.name, email: parsed.data.email, passwordHash: await hashPassword(parsed.data.password), role: "CUSTOMER" },
+    data: {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      passwordHash: await hashPassword(parsed.data.password),
+      role: "CUSTOMER",
+      ...(marketing ? { marketingOptIn: true, marketingConsentAt: new Date() } : {}),
+    },
   });
+  if (marketing) await audit({ actorId: user.id, action: "marketing.opt_in", entity: "User", entityId: user.id, data: { source: "registro" } });
   await createSession(user.id, await userAgent());
   await audit({ actorId: user.id, action: "auth.register", entity: "User", entityId: user.id });
   // Las compras previas como invitado se vinculan cuando se verifique el correo.

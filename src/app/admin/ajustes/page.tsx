@@ -6,13 +6,14 @@ import { db } from "@/lib/db";
 import { saveSettingsAction } from "@/app/actions/admin";
 import { PAYMENT_METHODS, parsePaymentMethods } from "@/domain/payment-methods";
 import { MAINTENANCE_DEFAULT_MESSAGE } from "@/domain/maintenance";
+import { marketingStats } from "@/server/marketing";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustes de la tienda" };
 
 export default async function SettingsAdmin() {
   await requireAdmin();
-  const [s, publicAccounts] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } })]);
+  const [s, publicAccounts, stats] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats()]);
   return (
     <>
       <PageHeader title="Ajustes de la tienda" description="Marca, datos de la empresa y canales de contacto. Los campos vacíos no se muestran en la tienda." />
@@ -107,6 +108,44 @@ export default async function SettingsAdmin() {
               <option value="off">Nunca (solo diamantes)</option>
             </select>
           </Field>
+        </Panel>
+
+        <Panel title="Correos automáticos">
+          <p className="mb-4 text-[12.5px] text-fg-muted">
+            Salen solos entre 8 a. m. y 9 p. m. Las ofertas solo llegan a quien aceptó recibirlas (al registrarse o en Mi cuenta), máximo una por semana y siempre con «Darte de baja».
+          </p>
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Aceptan ofertas", `${stats.optedIn} de ${stats.customers}`],
+              ["Comprar de nuevo (7 días)", stats.last7.recovery],
+              ["Primera recarga (7 días)", stats.last7.firstPurchase],
+              ["Te extrañamos (7 días)", stats.last7.winback],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-ink-900 px-3 py-2.5 ring-1 ring-white/[0.06]">
+                <p className="text-[18px] font-bold tabular-nums">{v}</p>
+                <p className="text-[11.5px] leading-tight text-fg-subtle">{k}</p>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <Check name="autoRecovery" label="«¿Aún quieres tus diamantes?» 1 hora después de que un pedido vence sin pagar (es sobre su propio pedido: uno por pedido, no a quien se dio de baja)" defaultChecked={s.autoRecovery === "true"} />
+            <Check name="mktFirstPurchase" label="«Tu primera recarga te espera» a registrados que aún no compran (un día después de registrarse, una vez)" defaultChecked={s.mktFirstPurchase === "true"} />
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="«¿Te quedaste sin diamantes?»" hint="A quien lleva ese tiempo sin comprar. Una vez por cada racha sin compras.">
+              <select name="mktWinbackDays" defaultValue={s.mktWinbackDays || "21"} className="field">
+                <option value="0">Apagado</option>
+                {["14", "21", "30", "45", "60"].map((d) => (
+                  <option key={d} value={d}>
+                    A los {d} días sin comprar
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Código de descuento en las ofertas (opcional)" hint="Créalo en Descuentos; aparece grande en «primera recarga» y «te extrañamos».">
+              <input name="marketingPromoCode" defaultValue={s.marketingPromoCode} placeholder="VUELVE10" className="field font-mono uppercase" />
+            </Field>
+          </div>
         </Panel>
 
         <Panel title="Publicidad (Meta Pixel y Google)">

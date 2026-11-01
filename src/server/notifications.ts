@@ -85,7 +85,7 @@ async function smtp(): Promise<SmtpTransport> {
  * Envía un correo con el proveedor configurado y deja constancia (sin contenido) en EmailLog.
  * Sin proveedor configurado devuelve SKIPPED.
  */
-export async function sendEmail(to: string, template: string, email: Email, opts: { replyTo?: string } = {}): Promise<EmailResult> {
+export async function sendEmail(to: string, template: string, email: Email, opts: { replyTo?: string; headers?: Record<string, string> } = {}): Promise<EmailResult> {
   let result: EmailResult;
   const onlyTo = env.notify.onlyTo;
   if (!emailReady()) {
@@ -95,12 +95,12 @@ export async function sendEmail(to: string, template: string, email: Email, opts
   } else {
     try {
       if (env.notify.provider === "smtp") {
-        await (await smtp()).sendMail({ from: env.notify.fromEmail, to, subject: email.subject, html: email.html, text: email.text, ...(opts.replyTo ? { replyTo: opts.replyTo } : {}) });
+        await (await smtp()).sendMail({ from: env.notify.fromEmail, to, subject: email.subject, html: email.html, text: email.text, ...(opts.replyTo ? { replyTo: opts.replyTo } : {}), ...(opts.headers ? { headers: opts.headers } : {}) });
       } else {
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${env.notify.resendApiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ from: env.notify.fromEmail, to, subject: email.subject, html: email.html, text: email.text, ...(opts.replyTo ? { reply_to: opts.replyTo } : {}) }),
+          body: JSON.stringify({ from: env.notify.fromEmail, to, subject: email.subject, html: email.html, text: email.text, ...(opts.replyTo ? { reply_to: opts.replyTo } : {}), ...(opts.headers ? { headers: opts.headers } : {}) }),
           signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) throw new Error(`Resend HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);

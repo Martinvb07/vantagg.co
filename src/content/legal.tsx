@@ -142,7 +142,11 @@ export const LEGAL: Record<string, LegalDoc> = {
           <li>Procesar, entregar y dar seguimiento a tus pedidos.</li>
           <li>
             Enviarte correos transaccionales sobre tus compras y tu cuenta (confirmaciones, códigos de acceso, estado del pedido) y, si dejas un pedido sin
-            pagar, un recordatorio mientras puedas pagarlo y otro si vence, para que puedas completar la compra. No enviamos publicidad.
+            pagar, un recordatorio mientras puedas pagarlo y otro si vence, para que puedas completar la compra.
+          </li>
+          <li>
+            <strong>Solo si lo aceptas</strong> (al registrarte o en Mi cuenta): enviarte ofertas, bonos y códigos de descuento por correo, máximo uno por
+            semana. Puedes darte de baja en cualquier momento con el enlace que trae cada correo o en Mi cuenta → Perfil, y no afecta tus pedidos.
           </li>
           <li>Atender solicitudes de soporte, reclamaciones y reembolsos.</li>
           <li>Prevenir fraude y cumplir obligaciones legales, contables y tributarias.</li>
@@ -150,7 +154,8 @@ export const LEGAL: Record<string, LegalDoc> = {
         <h2 id="autorizacion">Autorización</h2>
         <p>
           Al crear tu cuenta, hacer un pedido o escribirnos, nos autorizas a tratar tus datos para estas finalidades. Siempre te lo indicamos junto al
-          formulario. Puedes revocar la autorización en cualquier momento, salvo cuando debamos conservar datos por un deber legal o contractual.
+          formulario. Las ofertas por correo necesitan una autorización aparte, que es opcional: guardamos la fecha en que la diste o la retiraste.
+          Puedes revocar la autorización en cualquier momento, salvo cuando debamos conservar datos por un deber legal o contractual.
         </p>
         <h2 id="encargados">Con quién los compartimos</h2>
         <p>Solo con proveedores que necesitamos para operar, que actúan como encargados del tratamiento y reciben únicamente lo indispensable:</p>

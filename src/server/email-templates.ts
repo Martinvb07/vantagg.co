@@ -53,6 +53,7 @@ type Block = {
   code?: string;
   quote?: string;
   internal?: boolean; // aviso al equipo: pie distinto, sin ayuda al cliente
+  unsubscribeUrl?: string; // correo de ofertas: pie con «Darte de baja» (Ley 1581)
 };
 
 function stepsHtml(s: Steps): string {
@@ -107,7 +108,11 @@ function layout(b: Brand, k: Block): string {
     ? `Aviso interno de ${esc(b.storeName)} para el equipo. No lo reenvíes a clientes.`
     : `<a href="${esc(b.appUrl)}/recargas" style="color:${C.muted};text-decoration:none">Recargar diamantes</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/pedido" style="color:${C.muted};text-decoration:none">Seguimiento</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/ayuda" style="color:${C.muted};text-decoration:none">Ayuda</a><br><br>
 🔒 Nunca te pediremos contraseñas, códigos de tu banco ni pagos fuera de <a href="${esc(b.appUrl)}" style="color:${C.muted}">${host}</a>.<br>
-${esc(b.storeName)} es una tienda independiente. Free Fire es una marca de Garena; no estamos afiliados.<br>Recibes este correo por tu actividad en ${esc(b.storeName)}.`;
+${esc(b.storeName)} es una tienda independiente. Free Fire es una marca de Garena; no estamos afiliados.<br>${
+        k.unsubscribeUrl
+          ? `Recibes este correo porque aceptaste recibir ofertas de ${esc(b.storeName)}. <a href="${esc(k.unsubscribeUrl)}" style="color:${C.muted}">Darte de baja</a>`
+          : `Recibes este correo por tu actividad en ${esc(b.storeName)}.`
+      }`;
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${esc(k.title)}</title></head>
 <body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%">
@@ -151,6 +156,7 @@ function plain(b: Brand, k: Block): string {
     k.note ? `\n${k.note}` : "",
     "",
     k.internal ? `— Aviso interno de ${b.storeName}` : `¿Ayuda? ${b.appUrl}/ayuda${b.supportEmail ? ` · ${b.supportEmail}` : ""}\n— ${b.storeName}`,
+    k.unsubscribeUrl ? `\nRecibes este correo porque aceptaste recibir ofertas. Darte de baja: ${k.unsubscribeUrl}` : "",
   ]
     .filter((x) => x !== "")
     .join("\n");
@@ -201,6 +207,57 @@ export function welcomeEmail(b: Brand, p: { name?: string | null }): Email {
     ],
     cta: { label: "Recargar diamantes", url: `${b.appUrl}/recargas` },
     secondary: { label: "Ir a Mi cuenta", url: `${b.appUrl}/cuenta` },
+  });
+}
+
+// ---------------------------------------------------------------------
+// Ofertas (solo a quien aceptó recibirlas; siempre con «Darte de baja»)
+// ---------------------------------------------------------------------
+
+export type MarketingKind = "first_purchase" | "winback";
+export type MarketingEmailData = {
+  name?: string | null;
+  playerId?: string | null;
+  /** Enlace a recargas (con el ID guardado y marcas de campaña). */
+  url: string;
+  /** Código de descuento opcional, ya descrito: «10 % de descuento», «$2.000 de descuento». */
+  promo?: { code: string; text: string; until?: string } | null;
+  unsubscribeUrl: string;
+};
+
+export function marketingEmail(b: Brand, kind: MarketingKind, p: MarketingEmailData): Email {
+  const first = p.name ? p.name.split(" ")[0] : "";
+  const promoNote = p.promo ? `Usa el código ${p.promo.code} al pagar: ${p.promo.text}${p.promo.until ? ` hasta el ${p.promo.until}` : ""}.` : undefined;
+  if (kind === "first_purchase") {
+    return build(b, p.promo ? `Tu primera recarga con ${p.promo.text} · ${b.storeName}` : `Tu primera recarga te espera · ${b.storeName}`, {
+      badge: p.promo ? "Regalo de bienvenida" : "Primera recarga",
+      tone: "brand",
+      title: `${first ? `${first}, tu` : "Tu"} primera recarga te espera`,
+      intro: "Recarga diamantes de Free Fire en un minuto: escribe tu ID, verificamos la cuenta antes de que pagues y la entrega es automática. Pagas en pesos con Nequi, PSE o tarjeta.",
+      preheader: p.promo ? `Código ${p.promo.code}: ${p.promo.text}` : "Diamantes directo a tu ID en un minuto",
+      code: p.promo?.code,
+      rows: [
+        ["Entrega", "Automática, directo a tu ID"],
+        ["Sin contraseñas", "Solo necesitamos tu ID de jugador"],
+        ["Pagos", "Nequi, PSE o tarjeta, en pesos"],
+      ],
+      cta: { label: "Recargar ahora", url: p.url },
+      note: promoNote,
+      unsubscribeUrl: p.unsubscribeUrl,
+    });
+  }
+  return build(b, p.promo ? `${first ? `${first}, ` : ""}vuelve con ${p.promo.text} · ${b.storeName}` : `¿Te quedaste sin diamantes? · ${b.storeName}`, {
+    badge: p.promo ? "Tienes un descuento" : "Te extrañamos",
+    tone: "brand",
+    title: "¿Te quedaste sin diamantes?",
+    intro: p.playerId
+      ? `Tu ID ${p.playerId} sigue guardado: recargas en un clic y la entrega es automática.`
+      : "Recarga en un minuto con tu ID: verificamos la cuenta antes de que pagues y la entrega es automática.",
+    preheader: p.promo ? `Código ${p.promo.code}: ${p.promo.text}` : "Recarga en un clic con tu ID guardado",
+    code: p.promo?.code,
+    cta: { label: p.playerId ? "Recargar a mi ID" : "Recargar ahora", url: p.url },
+    note: promoNote,
+    unsubscribeUrl: p.unsubscribeUrl,
   });
 }
 

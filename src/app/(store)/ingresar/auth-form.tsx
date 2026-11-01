@@ -62,6 +62,12 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
           </span>
         </label>
       )}
+      {mode === "register" && (
+        <label className="flex items-start gap-2.5 text-[13px] text-fg-muted">
+          <input type="checkbox" name="marketing" className="mt-0.5 size-4 accent-[#c8f04f]" />
+          <span>Quiero recibir ofertas y descuentos por correo (opcional; puedes darte de baja cuando quieras).</span>
+        </label>
+      )}
       {state?.error && <Alert tone="danger">{state.error}</Alert>}
       <Button type="submit" size="lg" className="w-full" loading={pending}>
         {mode === "login" ? "Ingresar" : "Crear cuenta"}

@@ -71,6 +71,9 @@ async function blockedByCustomer(o: OrderForReminder, kind: ReminderKind, now: D
   const bought = await db.order.count({ where: { customerEmail: email, isTest: false, status: { in: [...BOUGHT] }, createdAt: { gt: o.createdAt } } });
   if (bought) return "El cliente ya compró después de este pedido.";
   if (kind === "recovery") {
+    // Quien pidió no recibir correos (se dio de baja de las ofertas) tampoco recibe «comprar de nuevo».
+    const u = await db.user.findUnique({ where: { email }, select: { marketingOptIn: true, marketingOptOutAt: true } });
+    if (u?.marketingOptOutAt && !u.marketingOptIn) return "Pidió no recibir correos.";
     const open = await db.order.count({ where: { customerEmail: email, id: { not: o.id }, status: "PENDING_PAYMENT", expiresAt: { gt: now } } });
     if (open) return "El cliente tiene otro pedido esperando pago.";
     const recent = await db.notification.count({ where: { recipient: email, template: "order_recovery", createdAt: { gt: new Date(now.getTime() - RECOVERY_COOLDOWN_DAYS * 86400_000) } } });
@@ -116,7 +119,7 @@ export type ReminderRun = {
  * Recordatorios en lote (botón del panel o flujo manual). `days`: pedidos vencidos en los últimos N días.
  * `dryRun`: solo cuenta. Un solo correo por persona: el de su pedido vencido más reciente.
  */
-export async function sendReminders(opts: { kinds: ReminderKind[]; days: number; dryRun?: boolean; limit?: number; now?: Date }): Promise<ReminderRun> {
+export async function sendReminders(opts: { kinds: ReminderKind[]; days: number; dryRun?: boolean; limit?: number; now?: Date; /** Solo pedidos vencidos hace al menos estos minutos (envío automático). */ minAgeMinutes?: number }): Promise<ReminderRun> {
   const now = opts.now ?? new Date();
   const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
   const run: ReminderRun = { payment: { candidates: 0, sent: 0 }, recovery: { candidates: 0, sent: 0, skipped: {}, ages: [] } };
@@ -145,7 +148,7 @@ export async function sendReminders(opts: { kinds: ReminderKind[]; days: number;
   if (opts.kinds.includes("recovery")) {
     const since = new Date(now.getTime() - Math.min(Math.max(opts.days, 1), 90) * 86400_000);
     const expired = await db.order.findMany({
-      where: { status: "CANCELLED", isTest: false, cancelledAt: { gte: since } },
+      where: { status: "CANCELLED", isTest: false, cancelledAt: { gte: since, ...(opts.minAgeMinutes ? { lte: new Date(now.getTime() - opts.minAgeMinutes * 60_000) } : {}) } },
       include: orderInclude,
       orderBy: { createdAt: "desc" },
       take: 2000,

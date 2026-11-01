@@ -129,3 +129,15 @@ export async function deleteMyAccountAction(_: State, form: FormData): Promise<S
   await destroySession();
   redirect("/ingresar?eliminada=1");
 }
+
+/** Ofertas por correo: el cliente acepta o las rechaza (Mi cuenta). Queda registrado con fecha y origen. */
+export async function marketingConsentAction(_: State, form: FormData): Promise<State> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Tu sesión expiró. Vuelve a ingresar." };
+  if (!rateLimit(`mkt-consent:${user.id}`, 10, 10 * 60_000).ok) return { error: "Demasiados cambios seguidos. Espera unos minutos." };
+  const optIn = form.get("optIn") === "1";
+  const { setMarketingConsent } = await import("@/server/marketing");
+  await setMarketingConsent(user.id, optIn, String(form.get("source") ?? "cuenta").slice(0, 40));
+  // Sin recargar la página: el aviso queda en pantalla con la confirmación (Mi cuenta se lee de nuevo al volver).
+  return { ok: optIn ? "Listo: te avisaremos de ofertas y descuentos. Puedes darte de baja cuando quieras." : "Listo: no te enviaremos ofertas." };
+}

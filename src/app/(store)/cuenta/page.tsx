@@ -23,6 +23,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { logoutEverywhereAction } from "@/app/actions/profile";
 import { AvatarPicker } from "./avatar-picker";
 import { CopyChip, ThemePicker } from "./theme-picker";
+import { MarketingOptIn } from "./marketing-optin";
 import { PasswordForm } from "./password-form";
 import { DeleteAccountForm } from "./delete-account-form";
 import { ProfileForm } from "./profile-form";
@@ -61,7 +62,7 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
   const [account, orders, sessions, tickets, settings] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { name: true, email: true, createdAt: true, emailVerifiedAt: true, hasPassword: true, googleSub: true, avatarUrl: true, avatarPreset: true, phone: true, ffPlayerId: true, profileTheme: true },
+      select: { name: true, email: true, createdAt: true, emailVerifiedAt: true, hasPassword: true, googleSub: true, avatarUrl: true, avatarPreset: true, phone: true, ffPlayerId: true, profileTheme: true, marketingOptIn: true, marketingOptOutAt: true },
     }),
     db.order.findMany({
       where: { userId: user.id },
@@ -309,6 +310,9 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
             <p className="mt-1 text-[13px] text-fg-muted">{heading.sub}</p>
           </div>
 
+      {/* Ofertas por correo: se pregunta una sola vez a quien aún no decidió (Ley 1581: autorización expresa). */}
+      {tab === "pedidos" && !account.marketingOptIn && !account.marketingOptOutAt && <MarketingOptIn mode="prompt" optedIn={false} />}
+
       {tab === "pedidos" && (
         <section className="mt-4" aria-label="Mis pedidos">
           <div className="mb-4 flex flex-wrap gap-1.5">
@@ -397,6 +401,13 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
             </h2>
             <p className="mb-5 mt-1 text-[13px] text-fg-muted">Con tu ID guardado recargas en un clic.</p>
             <ProfileForm name={account.name && account.name !== "No Name" ? account.name : ""} email={account.email} phone={account.phone ?? ""} ffPlayerId={account.ffPlayerId ?? ""} />
+          </section>
+          <section className="rounded-[18px] bg-ink-850 p-5 ring-1 ring-white/[0.07] sm:p-6" aria-labelledby="t-ofertas">
+            <h2 id="t-ofertas" className="text-[16px] font-bold">
+              Ofertas por correo
+            </h2>
+            <p className="mb-4 mt-1 text-[13px] text-fg-muted">Bonos y códigos de descuento. Tú decides; puedes cambiarlo cuando quieras.</p>
+            <MarketingOptIn mode="setting" optedIn={account.marketingOptIn} />
           </section>
         </div>
       )}

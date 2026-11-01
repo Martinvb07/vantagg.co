@@ -29,6 +29,12 @@ export const SETTING_DEFAULTS = {
   googleTagId: "", // etiqueta de Google para medir campañas: AW-… (Google Ads) y/o G-… (Analytics), separados por coma
   googleAdsPurchase: "", // conversión de compra de Google Ads: AW-…/etiqueta
   metaPixelId: "", // Meta Pixel (Facebook e Instagram Ads): el número del píxel
+  // Correos automáticos (Panel → Ajustes → Correos automáticos)
+  autoRecovery: "true", // «¿Aún quieres tus diamantes?» solo, 1 hora después de que un pedido vence sin pagar
+  mktFirstPurchase: "true", // «Tu primera recarga te espera» a registrados sin compras (solo si aceptaron ofertas)
+  mktWinbackDays: "21", // «¿Te quedaste sin diamantes?» tras N días sin comprar (0 = apagado; solo si aceptaron ofertas)
+  marketingPromoCode: "", // código de descuento opcional para esos correos
+  emailAutomationsAt: "", // última ejecución de los correos automáticos (ISO)
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
@@ -40,7 +46,7 @@ export const SETTING_DEFAULTS = {
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

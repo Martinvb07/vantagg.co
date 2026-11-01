@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { expireStaleOrders, pollPendingDeliveries, pollPendingPayments, retryStuckDeliveries, sendPaymentReminders } from "@/server/orders";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { ensureFreshCatalog } from "@/server/supplier";
+import { runEmailAutomations } from "@/server/marketing";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ export const dynamic = "force-dynamic";
  *  - consulta a la pasarela los pagos pendientes recientes (por si el webhook se demora),
  *  - consulta al proveedor las entregas pendientes de confirmación,
  *  - reintenta entregas detenidas por saldo/agotado/red (misma referencia: no cobra dos veces),
- *  - actualiza costos y existencias del catálogo del proveedor (Central One: cada 15 min; RechargeGame: cada 3 h).
+ *  - actualiza costos y existencias del catálogo del proveedor (Central One: cada 15 min; RechargeGame: cada 3 h),
+ *  - correos automáticos: «comprar de nuevo» y ofertas a quien las aceptó (cada 10 min, de 8 a. m. a 9 p. m.).
  * Requiere: Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(req: Request) {
@@ -31,5 +33,10 @@ export async function GET(req: Request) {
     retryStuckDeliveries(),
     supplier ? ensureFreshCatalog() : Promise.resolve(false),
   ]);
-  return NextResponse.json({ ok: true, expired, paymentsConfirmed, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced });
+  // Correos automáticos (comprar de nuevo y ofertas a quien las aceptó): después de vencer pedidos, con su propio límite de frecuencia.
+  const emails = await runEmailAutomations().catch((e) => {
+    console.error("[correos] fallaron los correos automáticos:", (e as Error).message);
+    return null;
+  });
+  return NextResponse.json({ ok: true, expired, paymentsConfirmed, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback } });
 }
