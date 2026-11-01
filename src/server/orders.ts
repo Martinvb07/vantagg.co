@@ -817,6 +817,80 @@ export async function transitionOrder(orderId: string, to: OrderStatusValue, act
   return { ok: true, message: "Estado actualizado." };
 }
 
+// ---------------------------------------------------------------------
+// Recargas con error o detenidas: verificar en el proveedor o confirmar a mano
+// ---------------------------------------------------------------------
+
+/** Estados de una recarga pagada que todavía no figura como entregada. */
+const UNDELIVERED_PAID = ["PAID", "PROCESSING", "DELIVERY_FAILED"] as const;
+
+/** Registro de entrega de un pedido que no lo tiene (p. ej. se detuvo antes de llegar al proveedor). */
+async function ensureDelivery(order: Order, providerId: string) {
+  const existing = await db.delivery.findUnique({ where: { orderId: order.id } });
+  if (existing) return existing;
+  return db.delivery.create({ data: { orderId: order.id, provider: providerId, idempotencyKey: `manual-${order.id}`, status: "PROCESSING", simulated: false, attempts: 0 } });
+}
+
+/**
+ * «Verificar en Central One»: busca la orden en el proveedor (por su referencia o, si no la tiene, por la nota
+ * «Pedido VX-…» que lleva cada orden) y aplica lo que diga: completada → Entregado (con correo al cliente).
+ */
+export async function verifyDeliveryWithProvider(orderId: string, actor: string): Promise<{ ok: boolean; message: string }> {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { delivery: true } });
+  if (!order || order.type !== "TOPUP") return { ok: false, message: "Solo aplica a recargas." };
+  if (!(UNDELIVERED_PAID as readonly string[]).includes(order.status)) return { ok: false, message: `El pedido está «${ORDER_STATUS_META[order.status].label}»: no hay nada que verificar.` };
+  const provider = order.delivery ? getTopUpProvider(order.delivery.provider) ?? activeTopUpProvider() : activeTopUpProvider();
+  if (!provider) return { ok: false, message: "No hay proveedor de recargas configurado." };
+
+  let ref = order.delivery?.providerRef ?? null;
+  if (!ref && provider.wholesale) {
+    const recent = await provider.wholesale.orders(50).catch(() => []);
+    ref = recent.find((o) => (o.note ?? "").includes(order.number))?.ref ?? null;
+  }
+  if (!ref) return { ok: false, message: `No encontramos el pedido ${order.number} entre las últimas 50 órdenes de ${provider.displayName}. Si en su portal aparece completado, márcalo como entregado a mano con su referencia.` };
+
+  let r: TopUpResult;
+  try {
+    r = await provider.getTransactionStatus(ref);
+  } catch (err) {
+    return { ok: false, message: `No se pudo consultar a ${provider.displayName}: ${(err as Error).message}` };
+  }
+  const delivery = await ensureDelivery(order, provider.id);
+  await addEvent(order.id, "DELIVERY_VERIFIED", `Verificado en ${provider.displayName} (${ref}): ${r.status === "SUCCESS" ? "completado" : r.status === "FAILED" ? "falló" : "en proceso"}.`, actor);
+  if (r.status === "SUCCESS") {
+    await applyDeliveryResult(delivery.id, r, actor);
+    return { ok: true, message: `${provider.displayName} confirma la entrega (${r.message ?? ref}). El pedido quedó Entregado y el cliente recibió el correo.` };
+  }
+  if (r.status === "FAILED") {
+    await db.delivery.update({ where: { id: delivery.id }, data: { providerRef: ref } });
+    return { ok: false, message: `${provider.displayName} dice que la orden no se completó: ${r.message ?? "sin detalle"}. Reintenta la entrega o reembolsa.` };
+  }
+  await db.delivery.update({ where: { id: delivery.id }, data: { providerRef: ref, status: "PROCESSING", lastError: null } });
+  await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "DELIVERY_FAILED"] } }, data: { status: "PROCESSING" } });
+  return { ok: true, message: `${provider.displayName} todavía la está procesando. El pedido quedó «En procesamiento» y se actualiza solo cuando termine.` };
+}
+
+/**
+ * «Marcar como entregado»: el equipo confirma a mano una recarga que en el portal del proveedor figura completada
+ * (p. ej. el proveedor no respondió a tiempo). Exige la referencia del proveedor; no toca pagos.
+ */
+export async function markTopupDeliveredManually(orderId: string, actor: string, reference: string): Promise<{ ok: boolean; message: string }> {
+  const ref = reference.trim().slice(0, 120);
+  if (ref.length < 3) return { ok: false, message: "Escribe la referencia del pedido en Central One (la ves en su portal)." };
+  const order = await db.order.findUnique({ where: { id: orderId } });
+  if (!order || order.type !== "TOPUP") return { ok: false, message: "Solo aplica a recargas." };
+  if (!(UNDELIVERED_PAID as readonly string[]).includes(order.status)) return { ok: false, message: `Solo se puede marcar como entregado un pedido pagado sin entregar (este está «${ORDER_STATUS_META[order.status].label}»).` };
+  const provider = activeTopUpProvider();
+  const delivery = await ensureDelivery(order, provider?.id ?? "manual");
+  const res = await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { status: "DELIVERED", deliveredAt: new Date() } });
+  if (res.count !== 1) return { ok: false, message: "El pedido cambió mientras tanto. Recarga la página." };
+  await db.delivery.update({ where: { id: delivery.id }, data: { status: "SUCCESS", providerRef: delivery.providerRef ?? ref, lastError: null, lockedAt: null } });
+  await addEvent(order.id, "STATUS_CHANGED", `${ORDER_STATUS_META[order.status].label} → Entregado (confirmado a mano en el portal del proveedor, ref. ${ref}).`, actor);
+  await addEvent(order.id, "DELIVERED", "Nuestro equipo confirmó la entrega con el proveedor.", "SYSTEM", { public: true });
+  void notifyOrder(order.id, "delivered").catch(() => {});
+  return { ok: true, message: "Pedido marcado como Entregado. El cliente recibió el correo de entrega." };
+}
+
 /** Entrega de cuentas: la confirma el equipo tras el traspaso seguro (no implica pagos). */
 export async function markAccountDelivered(orderId: string, actor: string, note: string) {
   const res = await db.order.updateMany({

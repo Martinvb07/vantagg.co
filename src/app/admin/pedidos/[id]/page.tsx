@@ -16,7 +16,7 @@ import { chatState, listMessages, markRead } from "@/server/chat";
 import { getSettings } from "@/server/settings";
 import { refreshDeliveryIfStale } from "@/server/orders";
 import { reminderState } from "@/server/reminders";
-import { OrderReminder } from "@/components/admin/reminders";
+import { DeliveryFix, OrderReminder } from "@/components/admin/reminders";
 import { regionLabel } from "@/domain/topup-regions";
 import { activeWholesale } from "@/server/integrations/topup";
 
@@ -162,6 +162,10 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
           )}
           <Panel title="Operaciones">
             <div className="space-y-5">
+              {order.type === "TOPUP" && ["PAID", "PROCESSING", "DELIVERY_FAILED"].includes(order.status) && (
+                <DeliveryFix orderId={order.id} status={order.status} providerName={activeWholesale()?.wholesale.name ?? "el proveedor"} />
+              )}
+
               {reminder && <OrderReminder orderId={order.id} email={order.customerEmail} kind={reminder.kind} canSend={reminder.canSend} reason={reminder.reason} sentAt={reminder.sentAt ? formatDate(reminder.sentAt) : null} />}
 
               <div className="flex gap-2 rounded-lg border border-white/[0.06] bg-ink-900 p-3 text-[12px] text-fg-muted">

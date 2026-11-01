@@ -62,7 +62,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { canonicalEmail } from "@/server/order-limits";
@@ -575,6 +575,53 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
 
     // Los intentos frenados quedan en la auditoría.
     expect(await db.auditLog.count({ where: { action: "order.limit_blocked", createdAt: { gte: new Date(Date.now() - 60_000) } } })).toBeGreaterThanOrEqual(3);
+  });
+
+  it("recarga con error: se marca entregada a mano con la referencia del proveedor (solo si está pagada)", async () => {
+    const { order } = await makeOrder();
+    expect(await markTopupDeliveredManually(order.id, "ADMIN:equipo", "CO-123")).toMatchObject({ ok: false }); // sin pagar: no
+    expect(await statusOf(order.id)).toBe("PENDING_PAYMENT");
+    await db.order.update({ where: { id: order.id }, data: { status: "DELIVERY_FAILED" } });
+    expect(await markTopupDeliveredManually(order.id, "ADMIN:equipo", "x")).toMatchObject({ ok: false }); // referencia muy corta
+    const r = await markTopupDeliveredManually(order.id, "ADMIN:equipo", " CO-8F2K91 ");
+    expect(r.ok).toBe(true);
+    expect(await statusOf(order.id)).toBe("DELIVERED");
+    const d = await db.delivery.findUniqueOrThrow({ where: { orderId: order.id } });
+    expect([d.status, d.providerRef]).toEqual(["SUCCESS", "CO-8F2K91"]);
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(order.id, "delivered");
+    expect(await eventsOf(order.id, "STATUS_CHANGED")).toBe(1);
+  });
+
+  it("verificar en el proveedor: por su referencia o buscando la nota «Pedido VX-…»; si está completada, queda Entregado", async () => {
+    // 1) Con referencia guardada.
+    const a = (await makeOrder()).order;
+    await db.order.update({ where: { id: a.id }, data: { status: "DELIVERY_FAILED" } });
+    await db.delivery.create({ data: { orderId: a.id, provider: "fake", idempotencyKey: `topup-${a.id}`, status: "FAILED", providerRef: `co-${RUN}-a`, attempts: 1 } });
+    fakes.topup.getTransactionStatus.mockResolvedValueOnce({ status: "SUCCESS", providerRef: `co-${RUN}-a`, simulated: false });
+    expect((await verifyDeliveryWithProvider(a.id, "ADMIN:equipo")).ok).toBe(true);
+    expect(await statusOf(a.id)).toBe("DELIVERED");
+
+    // 2) Sin referencia: se encuentra por la nota del pedido entre las últimas órdenes del proveedor.
+    const b = (await makeOrder()).order;
+    await db.order.update({ where: { id: b.id }, data: { status: "PROCESSING" } });
+    const t = fakes.topup as unknown as { wholesale?: unknown };
+    t.wholesale = { name: "Central One", orders: vi.fn(async () => [{ ref: "otra", note: "Pedido VX-OTRO" }, { ref: `co-${RUN}-b`, note: `Pedido ${b.number} · topup-${b.id}` }]) };
+    try {
+      fakes.topup.getTransactionStatus.mockResolvedValueOnce({ status: "SUCCESS", providerRef: `co-${RUN}-b`, simulated: false });
+      expect((await verifyDeliveryWithProvider(b.id, "ADMIN:equipo")).ok).toBe(true);
+      expect(fakes.topup.getTransactionStatus).toHaveBeenLastCalledWith(`co-${RUN}-b`);
+      expect(await statusOf(b.id)).toBe("DELIVERED");
+
+      // 3) No está en el proveedor: no se toca y se explica qué hacer.
+      const c = (await makeOrder()).order;
+      await db.order.update({ where: { id: c.id }, data: { status: "DELIVERY_FAILED" } });
+      const r = await verifyDeliveryWithProvider(c.id, "ADMIN:equipo");
+      expect(r.ok).toBe(false);
+      expect(r.message).toMatch(/No encontramos/);
+      expect(await statusOf(c.id)).toBe("DELIVERY_FAILED");
+    } finally {
+      delete t.wholesale;
+    }
   });
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {

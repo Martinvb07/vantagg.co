@@ -18,7 +18,7 @@ import { FF_RANKS, FF_REGIONS, type RankId, type RegionCode } from "@/domain/fre
 import { parsePaymentMethods } from "@/domain/payment-methods";
 import { toBannerSlot } from "@/domain/banner-slots";
 import { publishBlockers } from "@/domain/labels";
-import { markAccountDelivered, reconcilePayment, retryDelivery, transitionOrder } from "@/server/orders";
+import { markAccountDelivered, markTopupDeliveredManually, reconcilePayment, retryDelivery, transitionOrder, verifyDeliveryWithProvider } from "@/server/orders";
 import { sendOrderReminder, sendReminders, type ReminderKind } from "@/server/reminders";
 import { getSettings, MANAGED_SETTING_KEYS, saveSettings, SETTING_DEFAULTS, type SettingKey } from "@/server/settings";
 import { saveImage, UploadError } from "@/server/storage";
@@ -82,6 +82,12 @@ export async function orderAction(_: ActionResult, form: FormData): Promise<Acti
       result = await transitionOrder(orderId, to.data, actor, reason);
       break;
     }
+    case "verify_delivery":
+      result = await verifyDeliveryWithProvider(orderId, actor);
+      break;
+    case "delivered_manual":
+      result = await markTopupDeliveredManually(orderId, actor, str(form, "reference"));
+      break;
     case "remind":
       result = await sendOrderReminder(orderId);
       break;

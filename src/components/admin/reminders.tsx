@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CircleCheck, Clock, Mail, RotateCcw, Send } from "lucide-react";
+import { CircleCheck, Clock, Mail, PackageCheck, RotateCcw, SearchCheck, Send } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/action-form";
 import { orderAction, sendRemindersAction } from "@/app/actions/admin";
 import { cn } from "@/lib/utils";
@@ -152,6 +152,47 @@ export function OrderReminder({ orderId, email, kind, canSend, reason, sentAt }:
       ) : (
         <p className="mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-[12.5px] text-fg-subtle">No se puede enviar: {reason}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Panel → Pedido (recarga pagada sin entregar): verificar en el proveedor o, si en su portal figura completada,
+ * marcarla como entregada a mano con su referencia.
+ */
+export function DeliveryFix({ orderId, providerName, status }: { orderId: string; providerName: string; status: string }) {
+  return (
+    <div className="rounded-[12px] bg-ink-900 p-3.5 ring-1 ring-warn-400/25">
+      <p className="flex items-center gap-2 text-[13.5px] font-semibold">
+        <PackageCheck className="size-4 text-warn-400" /> ¿La recarga sí llegó?
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-fg-muted">
+        {status === "DELIVERY_FAILED" ? "La entrega figura con error" : "La entrega aún no figura como completada"}, pero a veces la orden sí se generó en {providerName}. Primero verifica: la tienda busca la orden y, si está completada, la marca como entregada y le avisa al cliente.
+      </p>
+      <ActionForm action={orderAction} className="mt-3">
+        <input type="hidden" name="orderId" value={orderId} />
+        <input type="hidden" name="op" value="verify_delivery" />
+        <SubmitButton size="md" className="w-full sm:w-auto">
+          <SearchCheck className="size-4" /> Verificar en {providerName}
+        </SubmitButton>
+      </ActionForm>
+      <details className="group mt-3 border-t border-white/[0.06] pt-3">
+        <summary className="cursor-pointer list-none text-[12.5px] font-medium text-fg-muted hover:text-fg [&::-webkit-details-marker]:hidden">
+          ¿No la encuentra? Marcar como entregado a mano <span className="text-fg-subtle group-open:hidden">›</span>
+        </summary>
+        <ActionForm action={orderAction} className="mt-3 space-y-2">
+          <input type="hidden" name="orderId" value={orderId} />
+          <input type="hidden" name="op" value="delivered_manual" />
+          <label className="block text-[12.5px] text-fg-muted" htmlFor={`ref-${orderId}`}>
+            Referencia de la orden en {providerName} (la ves en su portal)
+          </label>
+          <input id={`ref-${orderId}`} name="reference" required minLength={3} maxLength={120} placeholder="Ej. CO-8F2K91" className="field h-11 font-mono text-[13px]" />
+          <p className="text-[11.5px] text-fg-subtle">Úsalo solo si en el portal la orden aparece completada. Al cliente le llega el correo «¡Tus diamantes llegaron!».</p>
+          <ConfirmSubmit variant="secondary" size="md" className="w-full sm:w-auto" confirmText="Toca otra vez para confirmar">
+            <CircleCheck className="size-4" /> Marcar como entregado
+          </ConfirmSubmit>
+        </ActionForm>
+      </details>
     </div>
   );
 }
