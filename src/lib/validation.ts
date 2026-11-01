@@ -34,6 +34,8 @@ export const topUpOrderSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   promoCode: promoCodeInputSchema,
   acceptTerms: z.literal(true, { error: "Debes aceptar los términos y condiciones." }),
+  /** Casilla opcional «Avísame de ofertas por correo». */
+  marketing: z.boolean().optional(),
 });
 
 export const accountOrderSchema = z.object({
@@ -45,6 +47,7 @@ export const accountOrderSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   promoCode: promoCodeInputSchema,
   acceptTerms: z.literal(true, { error: "Debes aceptar los términos y condiciones." }),
+  marketing: z.boolean().optional(),
 });
 
 export const passwordSchema = z

@@ -32,6 +32,8 @@ type Props = {
   topupEnabled: boolean;
   /** Aviso de mantenimiento: la tienda se ve, pero no vende. */
   pausedNotice?: string | null;
+  /** Mostrar la casilla «Avísame de ofertas» (no a quien ya las aceptó en su cuenta). */
+  askMarketing?: boolean;
   initialSlug?: string;
   initialPlayerId?: string;
   defaultEmail?: string;
@@ -112,7 +114,7 @@ function PackageOption({ p, selected, onSelect }: { p: PackageView; selected: bo
   );
 }
 
-export function TopUpCheckout({ packages: allPackages, regions, initialRegion, payments, topupEnabled, pausedNotice, initialSlug, initialPlayerId, defaultEmail, methods }: Props) {
+export function TopUpCheckout({ packages: allPackages, regions, initialRegion, payments, topupEnabled, pausedNotice, askMarketing = true, initialSlug, initialPlayerId, defaultEmail, methods }: Props) {
   const router = useRouter();
   const initial = allPackages.find((p) => p.slug === initialSlug && p.available) ?? null;
   const [region, setRegion] = useState(initial?.region ?? initialRegion);
@@ -128,6 +130,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   const [provider, setProvider] = useState<string | null>(payments.length === 1 ? payments[0].id : null);
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [accept, setAccept] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [promo, setPromo] = useState<AppliedPromo>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, startCheck] = useTransition();
@@ -243,6 +246,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
         idempotencyKey,
         promoCode: promo?.code,
         acceptTerms: accept,
+        marketing,
       });
       if (!r.ok) return setError(r.error);
       trackInitiateCheckout({ value: total, currency: pkg.currency, item: { id: pkg.slug, name: pkg.pass ? PASS_INFO[pkg.pass].title : `${pkg.diamonds + pkg.bonusDiamonds} diamantes` } });
@@ -543,6 +547,12 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 y soy mayor de edad o compro con autorización de mi padre, madre o acudiente.
               </span>
             </label>
+            {askMarketing && (
+              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] text-fg-muted">
+                <input type="checkbox" className="mt-0.5 size-4 accent-[#c8f04f]" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
+                <span>Avísame de ofertas y descuentos por correo (opcional; te das de baja con un clic).</span>
+              </label>
+            )}
 
             {error && (
               <Alert tone="danger" className="mt-3">

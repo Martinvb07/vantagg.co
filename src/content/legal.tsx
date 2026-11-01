@@ -187,6 +187,8 @@ export const LEGAL: Record<string, LegalDoc> = {
         <ul>
           <li>Datos de tu cuenta: mientras la mantengas activa. Puedes eliminarla cuando quieras.</li>
           <li>Pedidos y pagos: el tiempo que exige la ley para soportes contables y comerciales (hasta 10 años, Código de Comercio, art. 60).</li>
+          <li>Pedidos que no se pagaron (vencidos o cancelados, sin ningún cobro): se borran uno o dos días después de vencer.</li>
+          <li>Si al pagar marcaste «Avísame de ofertas»: tu correo y tu ID de jugador, hasta que te des de baja.</li>
           <li>Sesiones y registros técnicos: lo necesario para seguridad; las sesiones vencen solas.</li>
         </ul>
         <h2 id="derechos">Tus derechos</h2>

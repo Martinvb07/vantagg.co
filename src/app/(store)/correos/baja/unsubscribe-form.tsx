@@ -15,12 +15,13 @@ function Submit({ optIn, children }: { optIn: boolean; children: React.ReactNode
   );
 }
 
-export function UnsubscribeForm({ u, t, optedIn }: { u: string; t: string; optedIn: boolean }) {
+export function UnsubscribeForm({ id, who, t, optedIn }: { id: string; who: "u" | "c"; t: string; optedIn: boolean }) {
   const [state, action] = useActionState<UnsubState, FormData>(unsubscribeAction, null);
   const current = state?.ok ? state.optedIn : optedIn;
   return (
     <form action={action} className="mt-6 space-y-4">
-      <input type="hidden" name="u" value={u} />
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="who" value={who} />
       <input type="hidden" name="t" value={t} />
       {state && (
         <p role="status" className={`flex items-start gap-2 rounded-xl px-4 py-3 text-[14px] ${state.ok ? "bg-ok-400/10 text-ok-400" : "bg-bad-400/10 text-bad-400"}`}>

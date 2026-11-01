@@ -32,6 +32,7 @@ const fakes = vi.hoisted(() => ({
     notifyStaffAccountSold: vi.fn(async () => {}),
     notifyStaffDeliveryIssue: vi.fn(async () => {}),
     notifyStaffPaymentIssue: vi.fn(async () => {}),
+    notifyStaffUnknownPayment: vi.fn(async () => {}),
   },
   topup: {
     id: "fake",
@@ -61,7 +62,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { getOrderForCustomer } from "@/server/order-view";
@@ -527,6 +528,14 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     } finally {
       settings.mockResolvedValue(normal);
     }
+  });
+
+  it("un pago aprobado de un pedido que ya no existe (p. ej. borrado por cancelado) avisa al equipo una sola vez", async () => {
+    const ref = `VT-NO-EXISTE-${RUN}`.toUpperCase();
+    expect(await confirmApprovedWebhook("bold", approved(ref, `TX-${RUN}-perdido`))).toBe(false);
+    expect(await confirmApprovedWebhook("bold", approved(ref, `TX-${RUN}-perdido`))).toBe(false);
+    expect(fakes.notify.notifyStaffUnknownPayment).toHaveBeenCalledTimes(1);
+    await db.auditLog.deleteMany({ where: { action: "payment.unknown_order", entityId: `bold:${ref}` } });
   });
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {

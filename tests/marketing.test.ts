@@ -25,7 +25,7 @@ vi.mock("@/server/settings", () => ({ getSettings: vi.fn(async () => ({ ...state
 vi.mock("@/server/notifications", () => ({ sendEmail: mail.sendEmail, notifyOrder: mail.notifyOrder, getBrand: async () => ({ storeName: "VANTAGG", appUrl: "https://tienda.test" }) }));
 
 import { db } from "@/lib/db";
-import { marketingPromo, runEmailAutomations, setMarketingConsent, unsubscribeToken, unsubscribeUrl, validUnsubscribe } from "@/server/marketing";
+import { marketingPromo, recordCheckoutConsent, runEmailAutomations, setMarketingConsent, unsubscribeToken, unsubscribeUrl, validUnsubscribe } from "@/server/marketing";
 import { POST as oneClick } from "@/app/api/correos/baja/route";
 
 const RUN = Date.now().toString(36);
@@ -62,6 +62,7 @@ describe.skipIf(!cfg.enabled)("Correos automáticos (base de pruebas)", () => {
     await db.order.deleteMany({ where: { customerEmail: { startsWith: `mkt-${RUN}-` } } });
     await db.auditLog.deleteMany({ where: { entity: "User", entityId: { in: (await db.user.findMany({ where: { email: { startsWith: `mkt-${RUN}-` } }, select: { id: true } })).map((u) => u.id) } } });
     await db.user.deleteMany({ where: { email: { startsWith: `mkt-${RUN}-` } } });
+    await db.emailContact.deleteMany({ where: { email: { startsWith: `mkt-${RUN}-` } } });
     await db.promoCode.deleteMany({ where: { code: { startsWith: `MK${RUN}`.toUpperCase() } } });
     await db.$disconnect();
   });
@@ -164,6 +165,34 @@ describe.skipIf(!cfg.enabled)("Correos automáticos (base de pruebas)", () => {
     // Si vuelve a aceptar, queda la fecha del nuevo consentimiento.
     await setMarketingConsent(u.id, true, "prueba");
     expect((await db.user.findUniqueOrThrow({ where: { id: u.id } })).marketingConsentAt).not.toBeNull();
+  });
+
+  it("compradores sin cuenta: si aceptan al pagar quedan como contacto, reciben ofertas y se dan de baja con un clic", async () => {
+    await recordCheckoutConsent({ userId: null, email: ` ${email("invitado").toUpperCase()} `, playerId: "555666777", source: "checkout-recarga" });
+    const c = await db.emailContact.findUniqueOrThrow({ where: { email: email("invitado") } });
+    expect(c.optIn).toBe(true);
+    expect(c.playerId).toBe("555666777");
+    expect(c.consentAt).not.toBeNull();
+    // Con sesión, el permiso queda en la cuenta (no se crea contacto).
+    const u = await user("con-cuenta-al-pagar", { optIn: false, daysAgo: 0.5 });
+    await recordCheckoutConsent({ userId: u.id, email: u.email, source: "checkout-recarga" });
+    expect((await db.user.findUniqueOrThrow({ where: { id: u.id } })).marketingOptIn).toBe(true);
+    expect(await db.emailContact.count({ where: { email: u.email } })).toBe(0);
+
+    // Un día después recibe «primera recarga» con su ID y su propio enlace de baja.
+    await db.emailContact.update({ where: { id: c.id }, data: { consentAt: new Date(NOW.getTime() - 2 * DAY) } });
+    await runEmailAutomations({ now: NOW, force: true });
+    const call = (mail.sendEmail.mock.calls as unknown as Array<[string, string, { html: string }, { headers: Record<string, string> }]>).find((x) => x[0] === email("invitado") && x[1] === "mkt_first_purchase")!;
+    expect(call).toBeTruthy();
+    expect(call[2].html).toContain("id=555666777");
+    expect(call[2].html).toContain(`/correos/baja?c=${c.id}`);
+    expect(call[3].headers["List-Unsubscribe"]).toContain(`?c=${c.id}`);
+
+    const res = await oneClick(new Request(`https://tienda.test/api/correos/baja?c=${c.id}&t=${unsubscribeToken(c.id, "c")}`, { method: "POST" }));
+    expect(res.status).toBe(200);
+    expect((await db.emailContact.findUniqueOrThrow({ where: { id: c.id } })).optIn).toBe(false);
+    // La firma de una cuenta no sirve para un contacto (y al revés).
+    expect(validUnsubscribe(c.id, unsubscribeToken(c.id, "u"), "c")).toBe(false);
   });
 
   it("el código de descuento solo se usa si está vigente", async () => {

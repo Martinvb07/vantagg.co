@@ -7,13 +7,14 @@ import { saveSettingsAction } from "@/app/actions/admin";
 import { PAYMENT_METHODS, parsePaymentMethods } from "@/domain/payment-methods";
 import { MAINTENANCE_DEFAULT_MESSAGE } from "@/domain/maintenance";
 import { marketingStats } from "@/server/marketing";
+import { purgeCancelledOrders } from "@/server/retention";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustes de la tienda" };
 
 export default async function SettingsAdmin() {
   await requireAdmin();
-  const [s, publicAccounts, stats] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats()]);
+  const [s, publicAccounts, stats, purge] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats(), purgeCancelledOrders({ dryRun: true })]);
   return (
     <>
       <PageHeader title="Ajustes de la tienda" description="Marca, datos de la empresa y canales de contacto. Los campos vacíos no se muestran en la tienda." />
@@ -116,7 +117,7 @@ export default async function SettingsAdmin() {
           </p>
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              ["Aceptan ofertas", `${stats.optedIn} de ${stats.customers}`],
+              ["Aceptan ofertas", `${stats.optedIn} · ${stats.optedInUsers} con cuenta, ${stats.contacts} sin cuenta`],
               ["Comprar de nuevo (7 días)", stats.last7.recovery],
               ["Primera recarga (7 días)", stats.last7.firstPurchase],
               ["Te extrañamos (7 días)", stats.last7.winback],
@@ -146,6 +147,17 @@ export default async function SettingsAdmin() {
               <input name="marketingPromoCode" defaultValue={s.marketingPromoCode} placeholder="VUELVE10" className="field font-mono uppercase" />
             </Field>
           </div>
+        </Panel>
+
+        <Panel title="Pedidos cancelados">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            Los pedidos que vencieron sin pagar se borran solos para que no llenen el historial: 24 horas después del correo «¿Aún quieres tus diamantes?», o 2 días después de cancelarse si no les tocaba correo. Los clientes no se borran: las cuentas y los contactos que aceptaron ofertas siguen recibiendo correos.
+          </p>
+          <Check name="purgeCancelled" label="Borrar los pedidos cancelados sin pago" defaultChecked={s.purgeCancelled === "true"} />
+          <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
+            {purge.due ? `Ahora mismo hay ${purge.due} pedido(s) cancelado(s) listos para borrar.` : "No hay pedidos cancelados para borrar ahora."}
+            {purge.kept ? ` ${purge.kept} cancelado(s) se conservan porque tienen cobro, entrega, chat, notas o soporte.` : ""} Nunca se borran pedidos pagados ni con dinero de por medio.
+          </p>
         </Panel>
 
         <Panel title="Publicidad (Meta Pixel y Google)">

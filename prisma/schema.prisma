@@ -55,6 +55,20 @@ model User {
   tickets            SupportTicket[]
 }
 
+/// Comprador sin cuenta que aceptó ofertas por correo al pagar (Ley 1581: autorización previa y expresa).
+/// Se conserva aunque se borren sus pedidos sin pagar, para los correos de ofertas; se da de baja con un clic.
+model EmailContact {
+  id        String    @id @default(cuid())
+  email     String    @unique @db.VarChar(191)
+  playerId  String?   @db.VarChar(12) // ID de Free Fire de su última compra, para recargar en un clic
+  optIn     Boolean   @default(true)
+  consentAt DateTime? // cuándo aceptó
+  optOutAt  DateTime? // cuándo se dio de baja
+  source    String    @db.VarChar(40) // dónde aceptó (ej. «checkout-recarga»)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 enum EmailCodePurpose {
   LOGIN
   VERIFY

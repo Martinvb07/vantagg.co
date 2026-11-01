@@ -288,6 +288,24 @@ export async function notifyStaffPaymentIssue(orderId: string, kind: "duplicate"
   await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
 }
 
+/** Cobro aprobado de un pedido que ya no existe en la tienda (p. ej. borrado por estar cancelado): revisar y devolver. */
+export async function notifyStaffUnknownPayment(reference: string, amount: string, providerId: string) {
+  const to = await staffInbox();
+  if (!to) return;
+  const r = await sendEmail(
+    to,
+    "staff_payment_unknown",
+    staffPaymentIssueEmail(await getBrand(), {
+      number: reference.slice(0, 40),
+      item: `Cobro por ${amount}`,
+      title: "Pago de un pedido que no existe",
+      reason: `${providerId} confirmó un pago aprobado para la referencia ${reference.slice(0, 40)}, pero ese pedido ya no está en la tienda (se borró por estar cancelado o no existe). Revísalo en la pasarela y devuelve el dinero o crea la entrega a mano.`,
+      adminLink: adminEntryUrl("/admin/pedidos"),
+    }),
+  );
+  await db.notification.create({ data: { channel: "email", recipient: to, template: "staff_payment_unknown", status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+}
+
 /** Aviso de seguridad al propio miembro del equipo (ingreso, 2FA, códigos). */
 export async function notifyStaffSecurity(userId: string, event: StaffSecurityEvent, opts: { userAgent?: string | null; method?: string } = {}) {
   const u = await db.user.findUnique({ where: { id: userId }, select: { email: true } });

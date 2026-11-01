@@ -11,9 +11,16 @@ export const metadata: Metadata = { title: "Darte de baja de las ofertas", robot
 /** Correo con la mitad oculta: «ju***@gmail.com». */
 const mask = (email: string) => email.replace(/^(.{2})[^@]*(@.*)$/, "$1***$2");
 
-export default async function UnsubscribePage({ searchParams }: { searchParams: Promise<{ u?: string; t?: string }> }) {
-  const { u = "", t = "" } = await searchParams;
-  const user = validUnsubscribe(u, t) ? await db.user.findUnique({ where: { id: u }, select: { email: true, marketingOptIn: true } }) : null;
+export default async function UnsubscribePage({ searchParams }: { searchParams: Promise<{ u?: string; c?: string; t?: string }> }) {
+  const { u = "", c = "", t = "" } = await searchParams;
+  // Cuenta registrada (?u=) o contacto sin cuenta que aceptó al pagar (?c=).
+  const who = c ? "c" : "u";
+  const id = c || u;
+  const user = !validUnsubscribe(id, t, who)
+    ? null
+    : who === "u"
+      ? await db.user.findUnique({ where: { id }, select: { email: true, marketingOptIn: true } })
+      : await db.emailContact.findUnique({ where: { id }, select: { email: true, optIn: true } }).then((x) => x && { email: x.email, marketingOptIn: x.optIn });
   return (
     <Container className="max-w-[560px] py-12 sm:py-16">
       <div className="rounded-[20px] bg-ink-850 p-6 ring-1 ring-white/[0.08] sm:p-8">
@@ -34,7 +41,7 @@ export default async function UnsubscribePage({ searchParams }: { searchParams: 
                 </>
               )}
             </p>
-            <UnsubscribeForm u={u} t={t} optedIn={user.marketingOptIn} />
+            <UnsubscribeForm id={id} who={who} t={t} optedIn={user.marketingOptIn} />
           </>
         ) : (
           <p className="mt-2 text-[15px] text-fg-muted">

@@ -5,6 +5,8 @@ import { expireStaleOrders, pollPendingDeliveries, pollPendingPayments, retryStu
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { ensureFreshCatalog } from "@/server/supplier";
 import { runEmailAutomations } from "@/server/marketing";
+import { purgeCancelledOrders } from "@/server/retention";
+import { getSettings } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,8 @@ export const dynamic = "force-dynamic";
  *  - consulta al proveedor las entregas pendientes de confirmación,
  *  - reintenta entregas detenidas por saldo/agotado/red (misma referencia: no cobra dos veces),
  *  - actualiza costos y existencias del catálogo del proveedor (Central One: cada 15 min; RechargeGame: cada 3 h),
- *  - correos automáticos: «comprar de nuevo» y ofertas a quien las aceptó (cada 10 min, de 8 a. m. a 9 p. m.).
+ *  - correos automáticos: «comprar de nuevo» y ofertas a quien las aceptó (cada 10 min, de 8 a. m. a 9 p. m.),
+ *  - borra los pedidos cancelados sin pago 24 h después del correo «comprar de nuevo» (si está activado).
  * Requiere: Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(req: Request) {
@@ -38,5 +41,10 @@ export async function GET(req: Request) {
     console.error("[correos] fallaron los correos automáticos:", (e as Error).message);
     return null;
   });
-  return NextResponse.json({ ok: true, expired, paymentsConfirmed, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback } });
+  // Pedidos cancelados sin pago: se borran 24 h después del correo «comprar de nuevo» (si está activado en Ajustes).
+  const purged = (await getSettings()).purgeCancelled === "true" ? await purgeCancelledOrders().then((r) => r.deleted).catch((e) => {
+    console.error("[pedidos] no se pudieron borrar los cancelados:", (e as Error).message);
+    return 0;
+  }) : 0;
+  return NextResponse.json({ ok: true, expired, paymentsConfirmed, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged });
 }

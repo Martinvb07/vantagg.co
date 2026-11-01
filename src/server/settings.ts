@@ -35,6 +35,7 @@ export const SETTING_DEFAULTS = {
   mktWinbackDays: "21", // «¿Te quedaste sin diamantes?» tras N días sin comprar (0 = apagado; solo si aceptaron ofertas)
   marketingPromoCode: "", // código de descuento opcional para esos correos
   emailAutomationsAt: "", // última ejecución de los correos automáticos (ISO)
+  purgeCancelled: "false", // "true": borra los pedidos cancelados sin pago 24 h después del correo «comprar de nuevo»
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)

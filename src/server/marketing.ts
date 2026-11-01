@@ -32,22 +32,25 @@ const UTM = (campaign: string) => `utm_source=correo&utm_medium=automatico&utm_c
 
 // --- Consentimiento y baja --------------------------------------------------
 
+/** Quién recibe el correo: una cuenta registrada («u») o un contacto sin cuenta que aceptó al pagar («c»). */
+export type Recipient = "u" | "c";
+
 /** Firma del enlace para darse de baja (no caduca: tiene que servir siempre). */
-export function unsubscribeToken(userId: string) {
-  return hmacSha256Hex(getAuthSecret(), `unsub:${userId}`).slice(0, 32);
+export function unsubscribeToken(id: string, who: Recipient = "u") {
+  return hmacSha256Hex(getAuthSecret(), who === "u" ? `unsub:${id}` : `unsub:c:${id}`).slice(0, 32);
 }
 
-export function unsubscribeUrl(userId: string) {
-  return `${env.appUrl}/correos/baja?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId)}`;
+export function unsubscribeUrl(id: string, who: Recipient = "u") {
+  return `${env.appUrl}/correos/baja?${who}=${encodeURIComponent(id)}&t=${unsubscribeToken(id, who)}`;
 }
 
 /** Dirección para la baja de un clic (cabecera List-Unsubscribe-Post): la misma firma, por POST. */
-export function oneClickUnsubscribeUrl(userId: string) {
-  return `${env.appUrl}/api/correos/baja?u=${encodeURIComponent(userId)}&t=${unsubscribeToken(userId)}`;
+export function oneClickUnsubscribeUrl(id: string, who: Recipient = "u") {
+  return `${env.appUrl}/api/correos/baja?${who}=${encodeURIComponent(id)}&t=${unsubscribeToken(id, who)}`;
 }
 
-export function validUnsubscribe(userId: string, token: string) {
-  return !!userId && !!token && safeEqual(token, unsubscribeToken(userId));
+export function validUnsubscribe(id: string, token: string, who: Recipient = "u") {
+  return !!id && !!token && safeEqual(token, unsubscribeToken(id, who));
 }
 
 /** Acepta o rechaza los correos de ofertas. `source`: dónde lo decidió (queda en la auditoría como prueba). */
@@ -58,6 +61,33 @@ export async function setMarketingConsent(userId: string, optIn: boolean, source
     data: optIn ? { marketingOptIn: true, marketingConsentAt: now, marketingOptOutAt: null } : { marketingOptIn: false, marketingOptOutAt: now },
   });
   await audit({ actorId: userId, action: optIn ? "marketing.opt_in" : "marketing.opt_out", entity: "User", entityId: userId, data: { source } });
+}
+
+/** Lo mismo para un contacto sin cuenta (darse de baja o volver a aceptar desde el enlace del correo). */
+export async function setContactConsent(contactId: string, optIn: boolean, source: string) {
+  const now = new Date();
+  await db.emailContact.update({ where: { id: contactId }, data: optIn ? { optIn: true, consentAt: now, optOutAt: null } : { optIn: false, optOutAt: now } });
+  await audit({ actorId: null, action: optIn ? "marketing.opt_in" : "marketing.opt_out", entity: "EmailContact", entityId: contactId, data: { source } });
+}
+
+/**
+ * Casilla «Avísame de ofertas» al pagar. Con sesión: queda en la cuenta. Sin cuenta: se guarda el contacto (correo e ID
+ * del jugador), que se conserva aunque el pedido se borre después por no pagarse. Nunca bloquea la compra.
+ */
+export async function recordCheckoutConsent(p: { userId: string | null; email: string; playerId?: string | null; source: string }) {
+  if (p.userId) {
+    const u = await db.user.findUnique({ where: { id: p.userId }, select: { marketingOptIn: true } });
+    if (u && !u.marketingOptIn) await setMarketingConsent(p.userId, true, p.source);
+    return;
+  }
+  const email = p.email.trim().toLowerCase().slice(0, 191);
+  const now = new Date();
+  const c = await db.emailContact.upsert({
+    where: { email },
+    create: { email, playerId: p.playerId ?? null, optIn: true, consentAt: now, source: p.source },
+    update: { optIn: true, consentAt: now, optOutAt: null, source: p.source, ...(p.playerId ? { playerId: p.playerId } : {}) },
+  });
+  await audit({ actorId: null, action: "marketing.opt_in", entity: "EmailContact", entityId: c.id, data: { source: p.source } });
 }
 
 // --- Código de descuento opcional ---------------------------------------------
@@ -75,24 +105,31 @@ export async function marketingPromo(code: string | null | undefined, now = new 
 
 // --- Envío -------------------------------------------------------------------
 
-type Candidate = { id: string; email: string; name: string | null; ffPlayerId: string | null };
+type Candidate = { id: string; who: Recipient; email: string; name: string | null; ffPlayerId: string | null };
 
 async function sendMarketing(u: Candidate, kind: MarketingKind, promo: Awaited<ReturnType<typeof marketingPromo>>) {
   const template = MKT_TEMPLATES[kind];
   const qs = new URLSearchParams();
   if (u.ffPlayerId) qs.set("id", u.ffPlayerId);
   const url = `${env.appUrl}/recargas?${qs.toString()}${qs.size ? "&" : ""}${UTM(kind === "first_purchase" ? "primera-recarga" : "te-extranamos")}`;
-  const unsub = unsubscribeUrl(u.id);
+  const unsub = unsubscribeUrl(u.id, u.who);
   const email = marketingEmail(await getBrand(), kind, { name: u.name && u.name !== "No Name" ? u.name : null, playerId: u.ffPlayerId, url, promo, unsubscribeUrl: unsub });
   // Se registra antes de enviar: si dos procesos coinciden, el registro evita el doble envío en la siguiente vuelta.
   const n = await db.notification.create({ data: { channel: "email", recipient: u.email, template } });
-  const r = await sendEmail(u.email, template, email, { headers: { "List-Unsubscribe": `<${oneClickUnsubscribeUrl(u.id)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } });
+  const r = await sendEmail(u.email, template, email, { headers: { "List-Unsubscribe": `<${oneClickUnsubscribeUrl(u.id, u.who)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } });
   await db.notification.update({ where: { id: n.id }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
 }
 
-/** ¿Recibió un correo de ofertas hace menos de 7 días? */
+/** ¿Recibió una oferta o un «comprar de nuevo» hace menos de 7 días? (No se le escribe dos veces seguidas.) */
 async function recentlyMarketed(email: string, now: Date) {
-  return (await db.notification.count({ where: { recipient: email, template: { startsWith: "mkt_" }, createdAt: { gt: new Date(now.getTime() - MKT_COOLDOWN_DAYS * DAY) } } })) > 0;
+  return (await db.notification.count({ where: { recipient: email, OR: [{ template: { startsWith: "mkt_" } }, { template: "order_recovery" }], createdAt: { gt: new Date(now.getTime() - MKT_COOLDOWN_DAYS * DAY) } } })) > 0;
+}
+
+/** Contactos sin cuenta que aceptaron ofertas (los correos que también tienen cuenta se manejan desde la cuenta). */
+async function optedInContacts(where: { consentAt?: { lt: Date; gt: Date } } = {}) {
+  const contacts = await db.emailContact.findMany({ where: { optIn: true, ...where }, select: { id: true, email: true, playerId: true }, take: 1000 });
+  const users = new Set((await db.user.findMany({ where: { email: { in: contacts.map((c) => c.email) } }, select: { email: true } })).map((u) => u.email.toLowerCase()));
+  return contacts.filter((c) => !users.has(c.email.toLowerCase())).map((c): Candidate => ({ id: c.id, who: "c", email: c.email, name: null, ffPlayerId: c.playerId }));
 }
 
 /** Registrados que aceptaron ofertas, se registraron hace 1 a 30 días y aún no compran. */
@@ -102,9 +139,10 @@ async function firstPurchaseCandidates(now: Date): Promise<Candidate[]> {
     select: { id: true, email: true, name: true, ffPlayerId: true },
     take: 300,
   });
+  const people: Candidate[] = [...users.map((u) => ({ ...u, who: "u" as const })), ...(await optedInContacts({ consentAt: { lt: new Date(now.getTime() - DAY), gt: new Date(now.getTime() - 30 * DAY) } }))];
   const out: Candidate[] = [];
-  for (const u of users) {
-    const bought = await db.order.count({ where: { OR: [{ userId: u.id }, { customerEmail: u.email }], isTest: false, status: { in: [...BOUGHT] } } });
+  for (const u of people) {
+    const bought = await db.order.count({ where: { OR: [...(u.who === "u" ? [{ userId: u.id }] : []), { customerEmail: u.email }], isTest: false, status: { in: [...BOUGHT] } } });
     if (bought) continue;
     if (await db.notification.count({ where: { recipient: u.email, template: MKT_TEMPLATES.first_purchase } })) continue;
     if (await recentlyMarketed(u.email, now)) continue;
@@ -120,9 +158,10 @@ async function winbackCandidates(now: Date, days: number): Promise<Candidate[]> 
     select: { id: true, email: true, name: true, ffPlayerId: true },
     take: 1000,
   });
+  const people: Candidate[] = [...users.map((u) => ({ ...u, who: "u" as const })), ...(await optedInContacts())];
   const out: Candidate[] = [];
-  for (const u of users) {
-    const last = await db.order.findFirst({ where: { OR: [{ userId: u.id }, { customerEmail: u.email }], isTest: false, status: { in: [...BOUGHT] } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+  for (const u of people) {
+    const last = await db.order.findFirst({ where: { OR: [...(u.who === "u" ? [{ userId: u.id }] : []), { customerEmail: u.email }], isTest: false, status: { in: [...BOUGHT] } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
     if (!last || last.createdAt > new Date(now.getTime() - days * DAY)) continue;
     // Ya se le escribió después de su última compra: no se repite hasta que vuelva a comprar.
     if (await db.notification.count({ where: { recipient: u.email, template: MKT_TEMPLATES.winback, createdAt: { gt: last.createdAt } } })) continue;
@@ -195,11 +234,12 @@ export async function runEmailAutomations(opts: { now?: Date; force?: boolean; d
 /** Números para el panel: quiénes aceptaron ofertas y qué se envió en los últimos 7 días. */
 export async function marketingStats(now = new Date()) {
   const since = new Date(now.getTime() - 7 * DAY);
-  const [customers, optedIn, sent] = await Promise.all([
+  const [customers, optedInUsers, contacts, sent] = await Promise.all([
     db.user.count({ where: { role: "CUSTOMER", disabled: false } }),
     db.user.count({ where: { role: "CUSTOMER", disabled: false, marketingOptIn: true } }),
+    db.emailContact.count({ where: { optIn: true } }),
     db.notification.groupBy({ by: ["template"], where: { createdAt: { gte: since }, status: "SENT", template: { in: ["order_recovery", "payment_reminder", MKT_TEMPLATES.first_purchase, MKT_TEMPLATES.winback] } }, _count: { _all: true } }),
   ]);
   const count = (t: string) => sent.find((x) => x.template === t)?._count._all ?? 0;
-  return { customers, optedIn, last7: { payment: count("payment_reminder"), recovery: count("order_recovery"), firstPurchase: count(MKT_TEMPLATES.first_purchase), winback: count(MKT_TEMPLATES.winback) } };
+  return { customers, optedIn: optedInUsers + contacts, optedInUsers, contacts, last7: { payment: count("payment_reminder"), recovery: count("order_recovery"), firstPurchase: count(MKT_TEMPLATES.first_purchase), winback: count(MKT_TEMPLATES.winback) } };
 }

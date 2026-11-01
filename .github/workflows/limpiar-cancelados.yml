@@ -1,0 +1,76 @@
+name: Limpiar pedidos cancelados
+
+# Manual. Pedidos cancelados sin pago: se borran 24 h después del correo «¿Aún quieres tus diamantes?» (o 2 días
+# después de cancelarse si no les tocaba correo). Nunca los que tienen cobro, entrega, chat, notas o soporte.
+# «contar» no cambia nada. «activar» hace antes un respaldo de la base de datos, activa el borrado automático
+# (Panel → Ajustes → Pedidos cancelados) y borra ya los que tocan. Solo muestra conteos.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "contar (no cambia nada) o activar"
+        type: choice
+        options: [contar, activar]
+        default: contar
+
+jobs:
+  cancelados:
+    name: Pedidos cancelados
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Pedidos cancelados
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          MODO: ${{ inputs.modo }}
+        run: |
+          set -euo pipefail
+          case "$MODO" in contar|activar) ;; *) echo "modo inválido"; exit 1;; esac
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' MODO='$MODO' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          [ -n "$s" ] || { echo "✖ Falta CRON_SECRET en .env"; exit 1; }
+          llamar() {
+            curl -sS --max-time 120 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" \
+              --data "$1" http://127.0.0.1:3020/api/cron/cancelados
+          }
+          antes=$(llamar '{"dryRun": true}')
+          echo "== Antes: $(printf '%s' "$antes" | sed -E 's/.*"due":([0-9]+).*"kept":([0-9]+).*/\1 pedido(s) listos para borrar · \2 cancelado(s) que se conservan (cobro, entrega, chat, notas o soporte)/')"
+          if [ "$MODO" = "activar" ]; then
+            # Respaldo de la base antes de borrar (si falla, no se borra nada).
+            dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
+            archivo="$dest/db-antes-limpiar-cancelados-$(date +%Y%m%d-%H%M).sql.gz"
+            mysqldump --defaults-extra-file="$HOME/.my-vanta.cnf" --single-transaction --routines --no-tablespaces vanta_store | gzip > "$archivo"
+            [ "$(gzip -cd "$archivo" | head -c 100000 | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "✖ El respaldo salió vacío: no se borró nada."; exit 1; }
+            echo "✔ Respaldo: $(basename "$archivo") ($(du -h "$archivo" | cut -f1))"
+            despues=$(llamar '{"dryRun": false, "enable": true}')
+            printf '%s' "$despues" | grep -q '"ok":true' || { echo "✖ Error: $(printf '%s' "$despues" | head -c 200)"; exit 1; }
+            echo "✔ Borrado automático ACTIVADO · borrados ahora: $(printf '%s' "$despues" | sed -E 's/.*"deleted":([0-9]+).*/\1/') pedido(s)"
+            echo "  Desde ahora se borran solos (revisión cada 2 minutos). Se apaga en Panel → Ajustes → Pedidos cancelados."
+          fi
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

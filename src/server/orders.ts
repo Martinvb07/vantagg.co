@@ -18,7 +18,9 @@ import { activeTopUpProvider, getTopUpProvider } from "./integrations/topup";
 import type { TopUpProvider, TopUpRequest, TopUpResult } from "./integrations/topup/types";
 import { confirmRedemption, releaseRedemption, reservePromo, undoPromoReservation } from "./promo";
 import { postSystemMessage } from "./chat";
-import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffPaymentIssue } from "./notifications";
+import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffPaymentIssue, notifyStaffUnknownPayment } from "./notifications";
+import { audit } from "@/lib/audit";
+import { recordCheckoutConsent } from "./marketing";
 import { getSettings } from "./settings";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import { checkPlayerRegion, supplierRate, supplierRegionName } from "./supplier";
@@ -190,6 +192,8 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
       },
     });
     void notifyOrder(order.id, "order_created").catch(() => {});
+    // «Avísame de ofertas» (opcional): el contacto queda guardado aunque este pedido se borre si no se paga.
+    if (data.marketing) void recordCheckoutConsent({ userId, email: data.email, playerId: data.playerId, source: "checkout-recarga" }).catch(() => {});
     return startCheckout(order);
   } catch (err) {
     if (promo) await undoPromoReservation(promo.promoCodeId);
@@ -303,6 +307,7 @@ export async function createAccountOrder(input: unknown, userId: string | null):
       },
     });
     void notifyOrder(order.id, "order_created").catch(() => {});
+    if (data.marketing) void recordCheckoutConsent({ userId, email: data.email, source: "checkout-cuenta" }).catch(() => {});
     return startCheckout(order);
   } catch (err) {
     await releaseReservation(orderId);
@@ -699,8 +704,21 @@ export async function confirmApprovedWebhook(providerId: string, p: VerifiedPaym
   const provider = getPaymentProvider(providerId);
   if (!provider?.getCheckout) return true;
   const order = await db.order.findUnique({ where: { number: p.reference }, select: { id: true } });
-  if (!order) return false;
+  if (!order) {
+    // No debería pasar (el enlace de pago vence con el pedido), pero si llega un cobro de un pedido que ya no existe
+    // (p. ej. se borró por estar cancelado), el equipo se entera para revisarlo en la pasarela y devolverlo.
+    await alertUnknownPayment(providerId, p).catch(() => {});
+    return false;
+  }
   return gatewayConfirms(p, await checkoutsOf(order.id, provider));
+}
+
+/** Aviso al equipo, una vez por referencia: cobro aprobado de un pedido que no existe en la tienda. */
+async function alertUnknownPayment(providerId: string, p: VerifiedPayment) {
+  const key = `${providerId}:${p.reference}`.slice(0, 190);
+  if (await db.auditLog.count({ where: { action: "payment.unknown_order", entityId: key } })) return;
+  await audit({ actorId: null, action: "payment.unknown_order", entity: "Payment", entityId: key, data: { amount: p.amount, currency: p.currency, providerRef: p.providerRef } });
+  await notifyStaffUnknownPayment(p.reference, `${formatNumber(p.amount)} ${p.currency}`, providerId);
 }
 
 const pendingChecks = new Map<string, number>();
