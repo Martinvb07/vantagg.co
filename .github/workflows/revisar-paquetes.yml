@@ -93,6 +93,9 @@ jobs:
             const settings = Object.fromEntries((await db.setting.findMany()).map((s) => [s.key, s.value]));
             const visible = String(settings.topupRegions || "latam").split(",").map((s) => s.trim()).filter(Boolean);
             const usdtCop = Number(settings.usdtCop) > 0 ? Number(settings.usdtCop) : 3400;
+            // Ganancia mínima configurada (Panel → Proveedor): general y la de los paquetes de 100 diamantes o menos.
+            const minG = Number(settings.minMarginPct) > 0 ? Number(settings.minMarginPct) : 0;
+            const minS = Number(settings.minMarginSmallPct) > 0 ? Number(settings.minMarginSmallPct) : 0;
             const synced = settings.supplierSyncedAt ? Math.round((Date.now() - new Date(settings.supplierSyncedAt).getTime()) / 60000) : null;
             console.log(`== tienda: regiones visibles: ${visible.join(", ")} · catálogo copiado hace ${synced == null ? "?" : synced + " min"}`);
 
@@ -162,10 +165,12 @@ jobs:
                   // Precio frente al costo (sin mostrar cifras).
                   const cost = Number(it.reseller_price) * usdtCop;
                   const margin = (p.price - cost) / p.price;
+                  const need = (p.diamonds > 0 && p.diamonds + p.bonusDiamonds <= 110 && minS > 0 ? minS : minG) / 100;
                   if (!(cost > 0)) { notes.push("⚠ costo desconocido"); warn = true; }
                   else if (margin < 0) { notes.push("✖ precio POR DEBAJO del costo"); bad = true; }
+                  else if (need > 0 && margin < need - 0.002) { notes.push(`⚠ ganancia por debajo del mínimo (${Math.round(need * 100)} %)`); warn = true; }
                   else if (margin < 0.1) { notes.push("⚠ margen bajo (<10 %)"); warn = true; }
-                  else notes.push("✔ precio cubre el costo");
+                  else notes.push(need > 0 ? `✔ ganancia ≥ ${Math.round(need * 100)} %` : "✔ precio cubre el costo");
                   if (shown && validations < 12) {
                     validations++;
                     const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : testId]));

@@ -25,6 +25,8 @@ import { runHealthCheck } from "@/server/integrations/status";
 import { getBrand, notifyStaffSecurity, sendEmail } from "@/server/notifications";
 import { supportReplyEmail, testEmail } from "@/server/email-templates";
 import { env } from "@/lib/env";
+import { floorPrice, minMarginFor } from "@/domain/topup-regions";
+import { supplierRate } from "@/server/supplier";
 
 export type ActionResult = { ok: boolean; message: string } | null;
 
@@ -135,6 +137,14 @@ export async function savePackageAction(_: ActionResult, form: FormData): Promis
   }
   // Un producto «GLOBAL» del proveedor sirve para cualquier región de la tienda.
   if (product && product.regionSlug !== d.region && product.regionSlug !== "global") return fail(`El producto del proveedor es de la región «${product.regionName}». Cambia la región del paquete.`);
+
+  // Ganancia mínima (Panel → Proveedor): un paquete activo no se puede guardar más barato que eso.
+  if (product && bool(form, "active")) {
+    const { usdtCop, minMargin } = await supplierRate();
+    const pct = minMarginFor({ diamonds: pass ? 0 : d.diamonds, bonusDiamonds: pass ? 0 : d.bonusDiamonds }, minMargin);
+    const floor = pct > 0 ? floorPrice(product.priceCents, usdtCop, pct) : 0;
+    if (d.price < floor) return fail(`Con la ganancia mínima de ${pct} %, este paquete debe costar al menos $${floor.toLocaleString("es-CO")}. Si quieres venderlo más barato, baja la ganancia mínima en Proveedor.`);
+  }
 
   const data = {
     name: pass ? PASS_INFO[pass].title : `${d.diamonds} diamantes`,

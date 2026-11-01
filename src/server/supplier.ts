@@ -41,13 +41,14 @@ function withFloor(price: number, costCents: number, usdtCop: number, pct: numbe
 export type PriceChange = { id: string; name: string; region: string; from: number; to: number };
 
 /**
- * Ganancia mínima: sube el precio de los paquetes (con costo conocido) que quedaron por debajo, por ejemplo
- * porque el proveedor subió su costo. Nunca baja un precio. Queda registrado en la auditoría.
+ * Ganancia mínima: sube el precio de los paquetes activos (con costo conocido) que quedaron por debajo, por
+ * ejemplo porque el proveedor subió su costo. Nunca baja un precio. Queda registrado en la auditoría.
+ * Un paquete que se reactiva a mano se ajusta en la siguiente sincronización (cada 15 min) o al guardarlo.
  */
 export async function enforceMinimumMargins(): Promise<PriceChange[]> {
   const { usdtCop, minMargin } = await supplierRate();
   if (!(minMargin.general > 0 || minMargin.small > 0)) return [];
-  const pkgs = await db.diamondPackage.findMany({ where: { costCents: { not: null } }, select: { id: true, name: true, region: true, diamonds: true, bonusDiamonds: true, price: true, compareAtPrice: true, costCents: true } });
+  const pkgs = await db.diamondPackage.findMany({ where: { active: true, costCents: { not: null } }, select: { id: true, name: true, region: true, diamonds: true, bonusDiamonds: true, price: true, compareAtPrice: true, costCents: true } });
   const changes: PriceChange[] = [];
   for (const p of pkgs) {
     const pct = minMarginFor(p, minMargin);
