@@ -68,7 +68,19 @@ export function SubmitButton({ children, ...rest }: ComponentProps<typeof Button
  * reutilice el mismo nodo: si el type cambiara a "submit" durante el clic, se enviaría
  * el formulario sin la segunda confirmación.
  */
-export function ConfirmSubmit({ children, confirmText = "¿Confirmar?", variant = "danger", size = "sm" }: { children: ReactNode; confirmText?: string; variant?: ComponentProps<typeof Button>["variant"]; size?: ComponentProps<typeof Button>["size"] }) {
+export function ConfirmSubmit({
+  children,
+  confirmText = "¿Confirmar?",
+  variant = "danger",
+  size = "sm",
+  className,
+}: {
+  children: ReactNode;
+  confirmText?: ReactNode;
+  variant?: ComponentProps<typeof Button>["variant"];
+  size?: ComponentProps<typeof Button>["size"];
+  className?: string;
+}) {
   const [armed, setArmed] = useState(false);
   const { pending } = useFormStatus();
   useEffect(() => {
@@ -78,13 +90,13 @@ export function ConfirmSubmit({ children, confirmText = "¿Confirmar?", variant 
   }, [armed]);
   if (!armed) {
     return (
-      <Button key="arm" type="button" variant={variant === "danger" ? "outline" : variant} size={size} onClick={() => setArmed(true)}>
+      <Button key="arm" type="button" variant={variant === "danger" ? "outline" : variant} size={size} className={className} onClick={() => setArmed(true)}>
         {children}
       </Button>
     );
   }
   return (
-    <Button key="confirm" type="submit" variant={variant} size={size} loading={pending}>
+    <Button key="confirm" type="submit" variant={variant} size={size} className={className} loading={pending}>
       {confirmText}
     </Button>
   );

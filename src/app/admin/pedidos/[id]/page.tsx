@@ -16,6 +16,7 @@ import { chatState, listMessages, markRead } from "@/server/chat";
 import { getSettings } from "@/server/settings";
 import { refreshDeliveryIfStale } from "@/server/orders";
 import { reminderState } from "@/server/reminders";
+import { OrderReminder } from "@/components/admin/reminders";
 import { regionLabel } from "@/domain/topup-regions";
 import { activeWholesale } from "@/server/integrations/topup";
 
@@ -161,6 +162,8 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
           )}
           <Panel title="Operaciones">
             <div className="space-y-5">
+              {reminder && <OrderReminder orderId={order.id} email={order.customerEmail} kind={reminder.kind} canSend={reminder.canSend} reason={reminder.reason} sentAt={reminder.sentAt ? formatDate(reminder.sentAt) : null} />}
+
               <div className="flex gap-2 rounded-lg border border-white/[0.06] bg-ink-900 p-3 text-[12px] text-fg-muted">
                 <Info className="mt-0.5 size-4 shrink-0 text-sky-400" />
                 Ningún botón puede marcar un pago como aprobado. El estado de pago solo cambia con un webhook firmado o consultando a la pasarela.
@@ -175,28 +178,6 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                   Consultar pasarela
                 </SubmitButton>
               </ActionForm>
-
-              {reminder && (
-                <ActionForm action={orderAction} className="border-t border-white/[0.06] pt-5">
-                  <input type="hidden" name="orderId" value={order.id} />
-                  <input type="hidden" name="op" value="remind" />
-                  <p className="mb-2 text-[13px] font-medium">{reminder.kind === "payment" ? "Recordatorio de pago" : "Recordatorio para comprar de nuevo"}</p>
-                  <p className="mb-2 text-[12px] text-fg-muted">
-                    {reminder.kind === "payment"
-                      ? `Le escribe a ${order.customerEmail} con el enlace para completar el pago.`
-                      : `Le escribe a ${order.customerEmail} con su ID ya escrito para volver a comprar. No se cobra nada hasta que pague.`}
-                  </p>
-                  {reminder.canSend ? (
-                    <SubmitButton variant="secondary" size="sm">
-                      Enviar recordatorio
-                    </SubmitButton>
-                  ) : (
-                    <p className="text-[12px] text-fg-subtle">
-                      {reminder.sentAt ? `Enviado el ${formatDate(reminder.sentAt)}.` : reminder.reason}
-                    </p>
-                  )}
-                </ActionForm>
-              )}
 
               {order.type === "TOPUP" && (order.status === "DELIVERY_FAILED" || (order.status === "PAID" && !order.delivery)) && (
                 <ActionForm action={orderAction} className="border-t border-white/[0.06] pt-5">
