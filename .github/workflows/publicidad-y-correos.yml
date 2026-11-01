@@ -96,9 +96,10 @@ jobs:
           html=$(curl -s --max-time 20 $H http://127.0.0.1:3020/ || true)
           px=$(printf '%s' "$html" | grep -o 'n("init","[0-9]*")' | head -n1 | grep -o '[0-9]\{10,\}' || true)
           [ -n "$px" ] && echo "✔ La tienda carga el Meta Pixel $px (bloqueado hasta que el cliente acepte cookies)" || echo "✖ La portada no tiene el Meta Pixel"
-          printf '%s' "$html" | grep -q 'connect.facebook.net/en_US/fbevents.js' && echo "✔ Carga la librería de Meta (fbevents.js)" || echo "✖ No carga fbevents.js"
+          # (Sin «printf | grep -q»: con pipefail, grep corta la tubería y da un falso «no».)
+          grep -q 'connect.facebook.net/en_US/fbevents.js' <<< "$html" && echo "✔ Carga la librería de Meta (fbevents.js)" || echo "✖ No carga fbevents.js"
           csp=$(curl -sI --max-time 20 $H http://127.0.0.1:3020/ | grep -i '^content-security-policy' || true)
-          printf '%s' "$csp" | grep -q 'connect.facebook.net' && printf '%s' "$csp" | grep -q 'www.facebook.com' && echo "✔ La seguridad de la página (CSP) permite enviar las mediciones a Meta" || echo "✖ La CSP no permite Meta"
+          grep -q 'connect.facebook.net' <<< "$csp" && grep -q 'www.facebook.com' <<< "$csp" && echo "✔ La seguridad de la página (CSP) permite enviar las mediciones a Meta" || echo "✖ La CSP no permite Meta"
           ENDSSH
           echo "pixel=$(grep -E '^PIXEL=' salida.txt | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
@@ -133,7 +134,8 @@ jobs:
             let lib = null;
             p.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 160)); });
             p.on("response", (r) => { if (r.url().includes("connect.facebook.net/en_US/fbevents.js")) lib = r.status(); });
-            p.on("request", (r) => { const u = r.url(); if (/facebook\.com\/tr/.test(u) || (/facebook\.com\//.test(u) && /ev=/.test(u + (r.postData() || "")))) hits.push(u + " " + (r.postData() || "")); });
+            const all = [];
+            p.on("request", (r) => { const u = r.url(); if (/facebook\.(com|net)/.test(u)) all.push(`${r.method()} ${r.resourceType()} ${u}`); if (/facebook\.com\/tr/.test(u) || (/facebook\.com\//.test(u) && /ev=/.test(u + (r.postData() || "")))) hits.push(u + " " + (r.postData() || "")); });
             const pv = () => hits.filter((h) => h.includes(`id=${ID}`) && /ev=PageView/.test(h)).length;
             let fail = 0;
             const ok = (cond, yes, no) => { console.log(cond ? `✔ ${yes}` : `✖ ${no}`); if (!cond) fail++; };
@@ -150,6 +152,16 @@ jobs:
             await p.goto("https://vantagg.co/recargas", { waitUntil: "networkidle", timeout: 60000 });
             await p.waitForTimeout(4000);
             ok(pv() > 0, `Después de «Aceptar», el píxel ${ID} registra la visita (PageView)`, "Después de aceptar no llegó ninguna visita a Meta");
+            if (!pv()) {
+              // Diagnóstico: qué pidió el navegador a Meta y en qué estado quedó el píxel.
+              const st = await p.evaluate(() => {
+                const f = window.fbq;
+                let consent = null; try { consent = localStorage.getItem("vx_consent"); } catch {}
+                return { consentimiento: consent, cargado: !!(f && f.loaded), version: f && f.version, enCola: f && f.queue ? Array.from(f.queue).map((a) => Array.from(a).slice(0, 2).join(" ")) : null, pixeles: f && f.instance && f.instance.pixelsByID ? Object.keys(f.instance.pixelsByID) : null, webdriver: navigator.webdriver };
+              });
+              console.log("   estado:", JSON.stringify(st));
+              console.log("   pedidos a Meta:", all.map((u) => u.replace(/([?&](dl|rl|ud\[[^\]]*\]|fbp)=)[^&]*/g, "$1…").slice(0, 140)).join("\n     ") || "(ninguno)");
+            }
             ok(csp.length === 0, "Sin bloqueos de seguridad en la página", `Bloqueos de la CSP: ${csp.join(" | ")}`);
             await b.close();
             process.exit(fail ? 1 : 0);
