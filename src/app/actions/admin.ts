@@ -26,6 +26,7 @@ import { getBrand, notifyStaffSecurity, sendEmail } from "@/server/notifications
 import { supportReplyEmail, testEmail } from "@/server/email-templates";
 import { env } from "@/lib/env";
 import { floorPrice, minMarginFor } from "@/domain/topup-regions";
+import { parseConversionLabel, parseGoogleTagIds } from "@/domain/google-tag";
 import { supplierRate } from "@/server/supplier";
 
 export type ActionResult = { ok: boolean; message: string } | null;
@@ -647,6 +648,17 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
   if (values.supportEmail && !emailSchema.safeParse(values.supportEmail).success) return fail("Correo de soporte inválido.");
   if (values.staffAlertEmail && !emailSchema.safeParse(values.staffAlertEmail).success) return fail("Correo para avisos internos inválido.");
   if (values.logoUrl && !/^(https:\/\/|\/)/.test(values.logoUrl)) return fail("El logo debe ser una URL https o una ruta del sitio.");
+  // Etiqueta de Google: solo identificadores (nunca código pegado).
+  if (values.googleTagId) {
+    const ids = parseGoogleTagIds(values.googleTagId);
+    if (!ids.length) return fail("El ID de la etiqueta de Google debe verse así: AW-123456789 (Google Ads) o G-ABC123XYZ (Analytics). Pega solo el ID, no el código.");
+    values.googleTagId = ids.join(", ");
+  }
+  if (values.googleAdsPurchase) {
+    const label = parseConversionLabel(values.googleAdsPurchase);
+    if (!label) return fail("La conversión de compra debe verse así: AW-123456789/AbCdEfGhIjKl (en Google Ads: Objetivos → Conversiones → tu acción → Configuración de la etiqueta).");
+    values.googleAdsPurchase = label;
+  }
   await saveSettings(values);
   await audit({ actorId: user.id, action: "settings.update", entity: "Setting", data: values });
   revalidatePath("/", "layout");

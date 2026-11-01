@@ -109,6 +109,20 @@ export default async function SettingsAdmin() {
           </Field>
         </Panel>
 
+        <Panel title="Publicidad (Google Ads y Analytics)">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            Etiqueta de Google para medir tus campañas: registra visitas, inicios de compra y compras pagadas (con su valor). Los clientes eligen en el aviso de cookies si aceptan las de publicidad; sin su permiso Google no guarda cookies. Déjalo vacío para no usarla.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="ID de la etiqueta de Google" hint="Google Ads → Herramientas → Configuración de la etiqueta de Google: AW-123456789. Si también usas Analytics, agrega su G-… separado por coma.">
+              <input name="googleTagId" defaultValue={s.googleTagId} placeholder="AW-123456789, G-ABC123XYZ" className="field font-mono" />
+            </Field>
+            <Field label="Conversión de compra (Google Ads)" hint="Objetivos → Conversiones → tu acción «Compra» → Configuración de la etiqueta → «send_to»: AW-123456789/AbCdEf…">
+              <input name="googleAdsPurchase" defaultValue={s.googleAdsPurchase} placeholder="AW-123456789/AbCdEfGhIjKl" className="field font-mono" />
+            </Field>
+          </div>
+        </Panel>
+
         <SubmitButton>Guardar ajustes</SubmitButton>
       </ActionForm>
     </>

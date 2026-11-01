@@ -69,17 +69,23 @@ function storageOrigin(): string {
   }
 }
 
+/**
+ * Etiqueta de Google (Google Ads / Analytics, solo si se configura en el panel): a dónde envía sus mediciones.
+ * Los scripts igual necesitan el nonce; esto solo permite las imágenes, llamadas y el iframe de medición.
+ */
+const GOOGLE_TAG_HOSTS = "https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.g.doubleclick.net https://www.googleadservices.com https://www.google.com https://www.google.com.co https://pagead2.googlesyndication.com";
+
 function buildCsp(nonce: string) {
   const dev = !isProd;
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob:${storageOrigin()}`,
+    `img-src 'self' data: blob:${storageOrigin()} ${GOOGLE_TAG_HOSTS}`,
     "font-src 'self' data:",
-    `connect-src 'self'${dev ? " ws: wss:" : ""}`,
+    `connect-src 'self' ${GOOGLE_TAG_HOSTS}${dev ? " ws: wss:" : ""}`,
     "media-src 'self'",
-    "frame-src 'none'",
+    "frame-src https://td.doubleclick.net https://www.googletagmanager.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

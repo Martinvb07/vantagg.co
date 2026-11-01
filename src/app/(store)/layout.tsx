@@ -12,6 +12,8 @@ import { CookieNotice } from "@/components/legal/cookie-notice";
 import { HalloweenDecor } from "@/components/store/halloween";
 import { isHalloween } from "@/domain/season";
 import { maintenanceNotice } from "@/domain/maintenance";
+import { googleTagConfig } from "@/domain/google-tag";
+import { GoogleTag } from "@/components/analytics/google-tag";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, user, showAccounts] = await Promise.all([getSettings(), getCurrentUser().catch(() => null), accountsVisible()]);
@@ -22,9 +24,12 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   // Temporada: la decoración va encima del diseño de siempre y se apaga sola al terminar.
   const halloween = isHalloween();
   const paused = maintenanceNotice(settings);
+  // Etiqueta de Google (campañas): solo si se configuró en Panel → Ajustes → Publicidad.
+  const gtag = googleTagConfig(settings);
 
   return (
     <div data-season={halloween ? "halloween" : undefined}>
+      {gtag && <GoogleTag cfg={gtag} />}
       {paused && (
         <div role="status" data-maintenance className="flex items-center justify-center gap-2 border-b border-warn-400/25 bg-warn-400/[0.08] px-4 py-2.5 text-center text-[13px] font-medium text-fg">
           <Wrench aria-hidden className="size-4 shrink-0 text-warn-400" />
@@ -45,7 +50,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         {children}
       </main>
       <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />
-      <CookieNotice />
+      <CookieNotice consent={!!gtag} />
       {wa && (
         <aside aria-label="Contacto por WhatsApp">
           <a

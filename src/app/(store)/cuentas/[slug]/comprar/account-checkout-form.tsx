@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, FieldHint, Label } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { createAccountOrderAction } from "@/app/actions/store";
+import { gtagEvent } from "@/lib/gtag";
 import type { PublicPaymentOption } from "@/server/integrations/payments";
 import { formatMoney } from "@/lib/money";
 import { PaymentBadges } from "@/components/brand/payment-badges";
@@ -60,6 +61,7 @@ export function AccountCheckoutForm({
         start(async () => {
           const r = await createAccountOrderAction({ accountId, name, email, phone, paymentProvider: provider, idempotencyKey, promoCode: promo?.code, acceptTerms: accept });
           if (!r.ok) return setError(r.error);
+          gtagEvent("begin_checkout", { currency, value: total, items: [{ item_id: accountId, item_name: "Cuenta Free Fire", price: total, quantity: 1 }] });
           if (r.redirectUrl.startsWith("/")) router.push(r.redirectUrl);
           else window.location.assign(r.redirectUrl);
         });

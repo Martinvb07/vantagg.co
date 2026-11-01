@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { StoreSettings } from "@/server/settings";
+import { googleTagConfig } from "@/domain/google-tag";
+import { CookieChoiceButton } from "@/components/legal/cookie-notice";
 
 /**
  * Textos legales base. Son una PLANTILLA redactada para este modelo de negocio:
@@ -8,9 +10,11 @@ import type { StoreSettings } from "@/server/settings";
 export type LegalDoc = { title: string; description: string; body: (s: StoreSettings) => ReactNode };
 
 /** Fecha de vigencia de estos textos (Decreto 1377 de 2013, art. 13). Actualízala al cambiar cualquier documento. */
-export const LEGAL_UPDATED = "2026-10-24";
+export const LEGAL_UPDATED = "2026-11-01";
 
 const company = (s: StoreSettings) => s.legalName || s.storeName;
+/** La tienda usa la etiqueta de Google para medir anuncios (Panel → Ajustes → Publicidad). */
+const ads = (s: StoreSettings) => !!googleTagConfig(s);
 const contact = (s: StoreSettings) => [s.supportEmail, s.whatsapp && `WhatsApp ${s.whatsapp}`].filter(Boolean).join(" · ") || "los canales publicados en el centro de ayuda";
 
 /** Datos del vendedor que exige el Estatuto del Consumidor (Ley 1480, art. 50). Solo se listan los que estén configurados. */
@@ -123,7 +127,10 @@ export const LEGAL: Record<string, LegalDoc> = {
         </ul>
         <p>
           <strong>No</strong> pedimos tu contraseña de Free Fire ni de redes sociales, ni datos de tarjetas: el pago se hace en la plataforma de la
-          pasarela. No usamos herramientas de analítica ni publicidad que te rastreen.
+          pasarela.{" "}
+          {ads(s)
+            ? "Solo si aceptas las cookies de publicidad en el aviso de cookies, Google recibe datos de tu visita (páginas vistas, inicio de compra y compras con su valor) para medir nuestros anuncios; nunca le enviamos tu correo ni tu ID de jugador."
+            : "No usamos herramientas de analítica ni publicidad que te rastreen."}
         </p>
         <h2 id="finalidades">Finalidades</h2>
         <ul>
@@ -144,6 +151,12 @@ export const LEGAL: Record<string, LegalDoc> = {
           <li><strong>Proveedor de recargas</strong>: el ID de jugador y el paquete, para acreditar los diamantes.</li>
           <li><strong>Resend</strong> (envío de correos, Estados Unidos): tu correo y el contenido del mensaje.</li>
           <li><strong>Google</strong> (solo si eliges «Continuar con Google»): Google nos confirma tu correo y nombre; no recibimos tu contraseña.</li>
+          {ads(s) && (
+            <li>
+              <strong>Google Ads y Google Analytics</strong> (Estados Unidos, solo si aceptas las cookies de publicidad): datos de navegación y de compras
+              en la tienda, para medir los anuncios. Puedes cambiar tu elección en la <a href="/legal/cookies">política de cookies</a>.
+            </li>
+          )}
           <li><strong>Proveedor de hosting</strong>: aloja el servidor y la base de datos de la tienda.</li>
         </ul>
         <p>
@@ -176,7 +189,9 @@ export const LEGAL: Record<string, LegalDoc> = {
         </p>
         <h2 id="cookies">Cookies</h2>
         <p>
-          Usamos solo cookies técnicas necesarias para que el sitio funcione (sesión y seguridad). Detalle en la{" "}
+          {ads(s)
+            ? "Usamos cookies técnicas necesarias para que el sitio funcione y, solo si las aceptas, cookies de Google para medir nuestros anuncios. Detalle en la "
+            : "Usamos solo cookies técnicas necesarias para que el sitio funcione (sesión y seguridad). Detalle en la "}
           <a href="/legal/cookies">política de cookies</a>.
         </p>
         <h2 id="seguridad">Seguridad</h2>
@@ -190,12 +205,19 @@ export const LEGAL: Record<string, LegalDoc> = {
   cookies: {
     title: "Política de cookies",
     description: "Qué cookies usa la tienda y para qué.",
-    body: () => (
+    body: (s) => (
       <>
-        <p>
-          Las cookies son pequeños archivos que la página guarda en tu navegador. Aquí solo usamos las necesarias para que la tienda funcione. No
-          usamos cookies de publicidad, de analítica ni de redes sociales, y nada de esto se comparte con terceros.
-        </p>
+        {ads(s) ? (
+          <p>
+            Las cookies son pequeños archivos que la página guarda en tu navegador. Usamos las necesarias para que la tienda funcione y, solo si las
+            aceptas, cookies de Google para medir nuestros anuncios. No usamos cookies de redes sociales.
+          </p>
+        ) : (
+          <p>
+            Las cookies son pequeños archivos que la página guarda en tu navegador. Aquí solo usamos las necesarias para que la tienda funcione. No
+            usamos cookies de publicidad, de analítica ni de redes sociales, y nada de esto se comparte con terceros.
+          </p>
+        )}
         <h2>Para qué las usamos</h2>
         <ul>
           <li>Mantener tu sesión iniciada si entras a tu cuenta.</li>
@@ -205,6 +227,19 @@ export const LEGAL: Record<string, LegalDoc> = {
           <li>Recordar que ya viste el aviso de cookies, para no mostrártelo otra vez.</li>
         </ul>
         <p>Como son indispensables, no necesitamos pedirte que las aceptes; igual te lo contamos la primera vez que entras.</p>
+        {ads(s) && (
+          <>
+            <h2>Cookies de publicidad (opcionales)</h2>
+            <p>
+              Si aceptas en el aviso de cookies, Google Ads y Google Analytics guardan cookies para saber qué anuncio te trajo y si terminaste una
+              compra (con su valor). Así medimos qué campañas funcionan. No les enviamos tu correo, tu teléfono ni tu ID de jugador. Si eliges «Solo
+              necesarias», Google no guarda cookies y solo recibe avisos anónimos sin identificarte.
+            </p>
+            <p>
+              <CookieChoiceButton />
+            </p>
+          </>
+        )}
         <h2>Cómo borrarlas</h2>
         <p>
           Puedes borrarlas o bloquearlas desde la configuración de tu navegador. Si lo haces, la sesión se cerrará y el carrito quedará vacío, pero
