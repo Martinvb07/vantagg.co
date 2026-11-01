@@ -19,6 +19,7 @@ import { parsePaymentMethods } from "@/domain/payment-methods";
 import { toBannerSlot } from "@/domain/banner-slots";
 import { publishBlockers } from "@/domain/labels";
 import { markAccountDelivered, reconcilePayment, retryDelivery, transitionOrder } from "@/server/orders";
+import { sendOrderReminder, sendReminders, type ReminderKind } from "@/server/reminders";
 import { getSettings, MANAGED_SETTING_KEYS, saveSettings, SETTING_DEFAULTS, type SettingKey } from "@/server/settings";
 import { saveImage, UploadError } from "@/server/storage";
 import { runHealthCheck } from "@/server/integrations/status";
@@ -81,6 +82,9 @@ export async function orderAction(_: ActionResult, form: FormData): Promise<Acti
       result = await transitionOrder(orderId, to.data, actor, reason);
       break;
     }
+    case "remind":
+      result = await sendOrderReminder(orderId);
+      break;
     case "note": {
       const body = str(form, "body").slice(0, 2000);
       if (body.length < 2) return fail("La nota está vacía.");
@@ -669,6 +673,21 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
   await audit({ actorId: user.id, action: "settings.update", entity: "Setting", data: values });
   revalidatePath("/", "layout");
   return ok("Ajustes guardados.");
+}
+
+/** Recordatorios por correo en lote (Panel → Pedidos): de pago a los que esperan, o «comprar de nuevo» a los vencidos. */
+export async function sendRemindersAction(_: ActionResult, form: FormData): Promise<ActionResult> {
+  const user = await requireAdmin();
+  const kind = str(form, "kind") as ReminderKind;
+  if (kind !== "payment" && kind !== "recovery") return fail("Tipo de recordatorio inválido.");
+  const days = [7, 14, 30].includes(Number(str(form, "days"))) ? Number(str(form, "days")) : 14;
+  if (!rateLimit(`reminders:${user.id}`, 4, 10 * 60_000).ok) return fail("Espera unos minutos antes de enviar otro lote.");
+  const r = await sendReminders({ kinds: [kind], days, limit: 200 });
+  const sent = kind === "payment" ? r.payment.sent : r.recovery.sent;
+  await audit({ actorId: user.id, action: "orders.reminders", entity: "Order", data: { kind, days, sent } });
+  revalidatePath("/admin/pedidos");
+  if (!sent) return ok("No había a quién enviarle (o la tienda está en mantenimiento).");
+  return ok(`${sent} recordatorio(s) enviado(s).`);
 }
 
 export async function testIntegrationAction(_: ActionResult, form: FormData): Promise<ActionResult> {

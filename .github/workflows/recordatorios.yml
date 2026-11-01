@@ -1,0 +1,87 @@
+name: Recordatorios a clientes
+
+# Manual. Lo mismo que Panel → Pedidos → Recordatorios por correo:
+#  - pago: «Tu pedido te espera» a los pedidos que aún se pueden pagar,
+#  - comprar de nuevo: «¿Aún quieres tus diamantes?» a quienes dejaron vencer un pedido sin pagar.
+# Nunca a quien ya compró después, a pedidos de prueba ni a los que canceló el equipo; un recordatorio de cada
+# tipo por pedido. «contar» no envía nada. El repositorio es público: solo se muestran conteos, ningún correo.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "contar (no envía) o enviar"
+        type: choice
+        options: [contar, enviar]
+        default: contar
+      tipo:
+        description: "Qué recordatorios"
+        type: choice
+        options: [ambos, pago, comprar-de-nuevo]
+        default: ambos
+      dias:
+        description: "Pedidos vencidos en los últimos N días"
+        type: choice
+        options: ["7", "14", "30", "60", "90"]
+        default: "30"
+
+jobs:
+  recordatorios:
+    name: Recordatorios
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Recordatorios
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          MODO: ${{ inputs.modo }}
+          TIPO: ${{ inputs.tipo }}
+          DIAS: ${{ inputs.dias }}
+        run: |
+          set -euo pipefail
+          case "$TIPO" in ambos) KINDS='["payment","recovery"]';; pago) KINDS='["payment"]';; comprar-de-nuevo) KINDS='["recovery"]';; *) echo "tipo inválido"; exit 1;; esac
+          case "$MODO" in contar) DRY=true;; enviar) DRY=false;; *) echo "modo inválido"; exit 1;; esac
+          [[ "$DIAS" =~ ^(7|14|30|60|90)$ ]] || { echo "días inválidos"; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' KINDS='$KINDS' DRY='$DRY' DIAS='$DIAS' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          [ -n "$s" ] || { echo "✖ Falta CRON_SECRET en .env"; exit 1; }
+          r=$(curl -sS --max-time 600 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" \
+            --data "{\"kinds\": $KINDS, \"days\": $DIAS, \"dryRun\": $DRY}" http://127.0.0.1:3020/api/cron/recordatorios || true)
+          printf '%s' "$r" | node -e '
+            let t = ""; process.stdin.on("data", (c) => (t += c)).on("end", () => {
+              let j; try { j = JSON.parse(t); } catch { console.log("✖ Respuesta inesperada:", t.slice(0, 200)); process.exit(1); }
+              if (!j.ok) { console.log("✖", j.error || "error"); process.exit(1); }
+              const dry = j.dryRun;
+              console.log(dry ? "== Solo conteo (no se envió nada)" : "== Envío");
+              console.log(`   Recordatorio de pago: ${j.payment.candidates} pedido(s)${dry ? "" : ` · enviados: ${j.payment.sent}`}`);
+              console.log(`   Comprar de nuevo (últimos ${process.env.DIAS} días): ${j.recovery.candidates} persona(s)${dry ? "" : ` · enviados: ${j.recovery.sent}`}`);
+              const sk = Object.entries(j.recovery.skipped || {});
+              if (sk.length) { console.log("   No se les escribe:"); for (const [why, n] of sk) console.log(`     · ${why}: ${n}`); }
+            });'
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

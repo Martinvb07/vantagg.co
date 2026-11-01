@@ -118,7 +118,7 @@ export async function sendEmail(to: string, template: string, email: Email, opts
 
 const orderLink = (o: { number: string; trackingToken: string }) => `${env.appUrl}/pedido/${o.number}?t=${o.trackingToken}`;
 
-export async function notifyOrder(orderId: string, template: NotificationTemplate) {
+export async function notifyOrder(orderId: string, template: NotificationTemplate, extra: { buyAgainUrl?: string } = {}) {
   const order = await db.order.findUnique({ where: { id: orderId } });
   if (!order) return;
 
@@ -140,6 +140,7 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     isTest: order.isTest,
     expiresAt: new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit", timeZone: "America/Bogota" }).format(order.expiresAt),
     isPass: order.type === "TOPUP" && (order.itemSnapshot as { diamonds?: number }).diamonds === 0,
+    buyAgainUrl: extra.buyAgainUrl,
   });
   const r = await sendEmail(order.customerEmail, template, email);
   await db.notification.update({ where: { id: notification.id }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });

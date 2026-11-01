@@ -63,6 +63,7 @@ import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
 import { applyVerifiedPayment, checkPendingPayment, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
+import { reminderState, sendReminders } from "@/server/reminders";
 import { getOrderForCustomer } from "@/server/order-view";
 import { POST as webhook } from "@/app/api/webhooks/[provider]/route";
 
@@ -471,6 +472,58 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
       expect(r.status).toBe(200);
       expect(await statusOf(order.id)).toBe("DELIVERED");
       expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
+    } finally {
+      settings.mockResolvedValue(normal);
+    }
+  });
+
+  it("recordatorios «comprar de nuevo»: solo a pedidos vencidos sin pagar, uno por persona y nunca a quien ya compró", async () => {
+    const now = new Date();
+    const mail = (k: string) => `rec-${RUN}-${k}@example.com`;
+    const expired = async (k: string, minutesAgo: number, opts: { expiredEvent?: boolean; isTest?: boolean } = {}) => {
+      const { order } = await makeOrder();
+      const at = new Date(now.getTime() - minutesAgo * 60_000);
+      await db.order.update({ where: { id: order.id }, data: { customerEmail: mail(k), status: "CANCELLED", cancelledAt: at, createdAt: at, expiresAt: at, isTest: opts.isTest ?? false } });
+      if (opts.expiredEvent ?? true) await db.orderEvent.create({ data: { orderId: order.id, type: "EXPIRED", message: "Venció.", actor: "SYSTEM" } });
+      return order;
+    };
+    const ok = await expired("ok", 120);
+    const staff = await expired("staff", 120, { expiredEvent: false }); // lo canceló el equipo
+    const test = await expired("test", 120, { isTest: true });
+    const old = await expired("dos", 300);
+    const recent = await expired("dos", 60); // misma persona: solo el más reciente
+    const boughtLater = await expired("compro", 300);
+    const later = await makeOrder();
+    await db.order.update({ where: { id: later.order.id }, data: { customerEmail: mail("compro"), status: "DELIVERED" } });
+
+    expect(await reminderState(staff.id)).toMatchObject({ kind: "recovery", canSend: false });
+    expect(await reminderState(boughtLater.id)).toMatchObject({ kind: "recovery", canSend: false, reason: "El cliente ya compró después de este pedido." });
+
+    // Solo contar: no envía nada.
+    vi.clearAllMocks();
+    await sendReminders({ kinds: ["recovery"], days: 7, dryRun: true, now });
+    expect(fakes.notify.notifyOrder).not.toHaveBeenCalled();
+
+    await sendReminders({ kinds: ["recovery"], days: 7, now });
+    const calls = fakes.notify.notifyOrder.mock.calls as unknown as Array<[string, string, { buyAgainUrl?: string }]>;
+    const sentTo = calls.filter((c) => c[1] === "order_recovery").map((c) => c[0]);
+    expect(sentTo).toContain(ok.id);
+    expect(sentTo).toContain(recent.id);
+    expect(sentTo).not.toContain(old.id);
+    expect(sentTo).not.toContain(staff.id);
+    expect(sentTo).not.toContain(test.id);
+    expect(sentTo).not.toContain(boughtLater.id);
+    // El enlace trae el ID del jugador para comprar en un minuto.
+    expect(calls.find((c) => c[0] === ok.id)![2].buyAgainUrl).toMatch(/\/recargas\?.*id=123456789/);
+
+    // En modo mantenimiento no se envía nada.
+    vi.clearAllMocks();
+    const settings = vi.mocked(getSettings);
+    const normal = await settings();
+    settings.mockResolvedValue({ ...normal, maintenanceMode: "true" } as Awaited<ReturnType<typeof getSettings>>);
+    try {
+      await sendReminders({ kinds: ["recovery", "payment"], days: 7, now });
+      expect(fakes.notify.notifyOrder).not.toHaveBeenCalled();
     } finally {
       settings.mockResolvedValue(normal);
     }

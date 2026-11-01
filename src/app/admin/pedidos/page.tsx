@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
-import { PageHeader, Table } from "@/components/admin/ui";
+import { PageHeader, Panel, Table } from "@/components/admin/ui";
+import { ActionForm, ConfirmSubmit } from "@/components/admin/action-form";
+import { sendRemindersAction } from "@/app/actions/admin";
+import { sendReminders } from "@/server/reminders";
 import { Button } from "@/components/ui/button";
 import { DemoBadge } from "@/components/ui/primitives";
 import { OrderStatusBadge } from "@/components/ui/status";
@@ -25,6 +28,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     db.order.count({ where }),
     db.order.aggregate({ where: { ...where, status: { in: [...REVENUE_STATUSES] } }, _sum: { total: true } }),
   ]);
+  // Recordatorios por correo (solo administradores): cuántos hay para enviar ahora (sin enviar nada).
+  const reminders = viewer.role === "ADMIN" ? await sendReminders({ kinds: ["payment", "recovery"], days: 30, dryRun: true }).catch(() => null) : null;
+  const inWindow = (d: number) => reminders?.recovery.ages.filter((a) => a < d).length ?? 0;
   const exportQs = new URLSearchParams(Object.entries(sp).filter(([k, v]) => k !== "p" && v) as [string, string][]).toString();
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const qs = (p: number) => new URLSearchParams({ ...(sp as Record<string, string>), p: String(p) }).toString();
@@ -45,6 +51,48 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           )
         }
       />
+      {reminders && (
+        <Panel title="Recordatorios por correo" className="mb-5">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            Para que terminen de comprar. Nunca se le escribe a quien ya compró después, a quien tiene otro pedido en curso, a pedidos de prueba ni a los que canceló el equipo; un recordatorio de cada tipo por pedido y máximo un «comprar de nuevo» por persona cada 7 días. El recordatorio de pago también sale solo a los 20 minutos.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ActionForm action={sendRemindersAction} className="rounded-lg bg-ink-900 p-3">
+              <input type="hidden" name="kind" value="payment" />
+              <p className="text-[13px] font-medium">Esperando pago · {reminders.payment.candidates} pedido(s)</p>
+              <p className="mb-2 mt-0.5 text-[12px] text-fg-muted">«Tu pedido te espera», con el enlace para pagar (solo pedidos que aún se pueden pagar).</p>
+              {reminders.payment.candidates > 0 ? (
+                <ConfirmSubmit variant="secondary" confirmText={`Confirmar: enviar a ${reminders.payment.candidates}`}>
+                  Enviar recordatorio de pago
+                </ConfirmSubmit>
+              ) : (
+                <p className="text-[12px] text-fg-subtle">Nadie pendiente ahora.</p>
+              )}
+            </ActionForm>
+            <ActionForm action={sendRemindersAction} className="rounded-lg bg-ink-900 p-3">
+              <input type="hidden" name="kind" value="recovery" />
+              <p className="text-[13px] font-medium">Vencidos sin pagar · {inWindow(30)} persona(s) en 30 días</p>
+              <p className="mb-2 mt-0.5 text-[12px] text-fg-muted">«¿Aún quieres tus diamantes?», con su ID ya escrito para comprar de nuevo.</p>
+              {inWindow(30) > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select name="days" defaultValue="14" className="field h-9 w-auto text-[13px]" aria-label="Pedidos vencidos en">
+                    {[7, 14, 30].map((d) => (
+                      <option key={d} value={d}>
+                        Últimos {d} días ({inWindow(d)})
+                      </option>
+                    ))}
+                  </select>
+                  <ConfirmSubmit variant="secondary" confirmText="Confirmar envío">
+                    Enviar «comprar de nuevo»
+                  </ConfirmSubmit>
+                </div>
+              ) : (
+                <p className="text-[12px] text-fg-subtle">Nadie a quien escribirle ahora.</p>
+              )}
+            </ActionForm>
+          </div>
+        </Panel>
+      )}
       <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
         <input name="q" defaultValue={q} placeholder="Número, correo o ID de jugador" className="field sm:w-auto sm:min-w-[220px] sm:flex-1" aria-label="Buscar pedidos" />
         <select name="estado" defaultValue={sp.estado ?? ""} className="field sm:w-[180px]" aria-label="Estado">

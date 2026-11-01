@@ -221,9 +221,9 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 // Pedidos
 // ---------------------------------------------------------------------
 
-export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled";
-/** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean };
+export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery";
+/** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
@@ -272,13 +272,29 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       subject: `Reembolso procesado · ${o.number}`,
       block: { badge: "Reembolsado", tone: "neutral", title: "Reembolso procesado", intro: "Devolvimos el dinero por el mismo medio de pago. Según tu banco puede tardar algunos días en verse.", preheader: "Te devolvimos el dinero", cta: view, note: test },
     },
+    // Pedido que venció sin pagar: un solo recordatorio, con el ID ya escrito para comprar de nuevo.
+    order_recovery: {
+      subject: account ? `La cuenta que elegiste sigue disponible · ${o.number}` : `¿Aún quieres ${o.isPass ? "tu compra" : "tus diamantes"}? · ${o.number}`,
+      block: {
+        badge: "Pedido sin pagar",
+        tone: "info",
+        title: account ? "La cuenta que elegiste sigue disponible" : o.isPass ? `Tu ${o.item} te espera` : "Tus diamantes te esperan",
+        intro: account
+          ? "Tu pedido se canceló porque no se completó el pago, así que no se te cobró nada. La cuenta volvió a estar a la venta: si todavía la quieres, cómprala antes de que alguien más lo haga."
+          : `Tu pedido se canceló porque no se completó el pago, así que no se te cobró nada. Si todavía lo quieres, te dejamos ${o.playerId ? "tu ID listo" : "todo listo"}: es un minuto y pagas con Nequi, PSE o tarjeta.`,
+        preheader: account ? "Todavía puedes comprarla" : "Termina tu recarga en un minuto",
+        cta: { label: account ? "Ver la cuenta" : "Comprar de nuevo", url: o.buyAgainUrl ?? `${b.appUrl}/recargas` },
+        note: test ?? "No te enviaremos más recordatorios sobre este pedido. Antes de pagar ves el precio actual.",
+      },
+    },
     cancelled: {
       subject: `Pedido cancelado · ${o.number}`,
       block: { badge: "Cancelado", tone: "neutral", title: "Pedido cancelado", intro: "El pedido se canceló porque no se completó el pago. No se realizó ningún cobro.", preheader: "No se realizó ningún cobro", cta: { label: "Hacer un nuevo pedido", url: `${b.appUrl}/recargas` }, note: test },
     },
   };
   const m = map[t];
-  return build(b, m.subject, { ...m.block, tag: o.number, rows });
+  // En el recordatorio de un pedido vencido no se repite el total viejo: el precio puede haber cambiado.
+  return build(b, m.subject, { ...m.block, tag: o.number, rows: t === "order_recovery" ? rows.filter(([k]) => k !== "Total") : rows });
 }
 
 export function chatMessageEmail(b: Brand, p: { number: string; link: string }): Email {

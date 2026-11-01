@@ -140,7 +140,10 @@ export const LEGAL: Record<string, LegalDoc> = {
         <h2 id="finalidades">Finalidades</h2>
         <ul>
           <li>Procesar, entregar y dar seguimiento a tus pedidos.</li>
-          <li>Enviarte correos transaccionales sobre tus compras y tu cuenta (confirmaciones, códigos de acceso, estado del pedido). No enviamos publicidad.</li>
+          <li>
+            Enviarte correos transaccionales sobre tus compras y tu cuenta (confirmaciones, códigos de acceso, estado del pedido) y, si dejas un pedido sin
+            pagar, un recordatorio mientras puedas pagarlo y otro si vence, para que puedas completar la compra. No enviamos publicidad.
+          </li>
           <li>Atender solicitudes de soporte, reclamaciones y reembolsos.</li>
           <li>Prevenir fraude y cumplir obligaciones legales, contables y tributarias.</li>
         </ul>
