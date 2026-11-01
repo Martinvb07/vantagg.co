@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
-import { PASS_INFO, passKindOf } from "@/domain/packs";
+import { compareRegions, DEFAULT_TOPUP_REGION, floorPrice, MIN_DIAMOND_PACK, minMarginFor, type MinMarginRule, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { PASS_INFO, passKindOf, type PassKind } from "@/domain/packs";
+import { audit } from "@/lib/audit";
 import { activeWholesale } from "./integrations/topup";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
@@ -9,8 +10,9 @@ import { getSettings, saveSettings } from "./settings";
 
 /**
  * Catálogo del proveedor mayorista activo (Central One o RechargeGame): copia local + vínculo con los
- * paquetes de la tienda. Los precios de venta nunca se cambian solos: la sincronización solo actualiza
- * costos y existencias. Los costos se guardan en centavos de la moneda del proveedor (USD o USDT).
+ * paquetes de la tienda. La sincronización actualiza costos y existencias; los precios de venta solo cambian
+ * solos para subir hasta la ganancia mínima que fijó el dueño (Panel → Proveedor), nunca para bajar.
+ * Los costos se guardan en centavos de la moneda del proveedor (USD o USDT).
  */
 
 const GAME = "free-fire";
@@ -23,11 +25,45 @@ export async function supplierRate() {
   const s = await getSettings();
   const usdtCop = Number(s.usdtCop) > 0 ? Number(s.usdtCop) : 3400;
   const margin = Number(s.topupMargin) >= 0 ? Number(s.topupMargin) : 30;
-  return { usdtCop, margin, regions: parseRegionList(s.topupRegions), syncedAt: s.supplierSyncedAt ? new Date(s.supplierSyncedAt) : null };
+  const pct = (v: string | undefined) => (Number(v) > 0 && Number(v) < 90 ? Number(v) : 0);
+  const minMargin: MinMarginRule = { general: pct(s.minMarginPct), small: pct(s.minMarginSmallPct) };
+  return { usdtCop, margin, minMargin, regions: parseRegionList(s.topupRegions), syncedAt: s.supplierSyncedAt ? new Date(s.supplierSyncedAt) : null };
+}
+
+/** Diamantes y productos que se entregan con el ID; los paquetes muy chicos no se venden (ver MIN_DIAMOND_PACK). */
+const sellableDiamonds = (p: { unit: string | null; amount: number | null; delivery: string }) => isDiamondPack(p) && (p.amount ?? 0) >= MIN_DIAMOND_PACK;
+
+/** Precio de un paquete nuevo: el sugerido, sin bajar de la ganancia mínima. */
+function withFloor(price: number, costCents: number, usdtCop: number, pct: number) {
+  return pct > 0 ? Math.max(price, floorPrice(costCents, usdtCop, pct)) : price;
+}
+
+export type PriceChange = { id: string; name: string; region: string; from: number; to: number };
+
+/**
+ * Ganancia mínima: sube el precio de los paquetes (con costo conocido) que quedaron por debajo, por ejemplo
+ * porque el proveedor subió su costo. Nunca baja un precio. Queda registrado en la auditoría.
+ */
+export async function enforceMinimumMargins(): Promise<PriceChange[]> {
+  const { usdtCop, minMargin } = await supplierRate();
+  if (!(minMargin.general > 0 || minMargin.small > 0)) return [];
+  const pkgs = await db.diamondPackage.findMany({ where: { costCents: { not: null } }, select: { id: true, name: true, region: true, diamonds: true, bonusDiamonds: true, price: true, compareAtPrice: true, costCents: true } });
+  const changes: PriceChange[] = [];
+  for (const p of pkgs) {
+    const pct = minMarginFor(p, minMargin);
+    if (!(pct > 0)) continue;
+    const floor = floorPrice(p.costCents!, usdtCop, pct);
+    if (p.price >= floor) continue;
+    // Condicional sobre el precio leído: si alguien lo editó justo ahora, no se pisa.
+    const r = await db.diamondPackage.updateMany({ where: { id: p.id, price: p.price }, data: { price: floor, ...(p.compareAtPrice != null && p.compareAtPrice <= floor ? { compareAtPrice: null } : {}) } });
+    if (r.count) changes.push({ id: p.id, name: p.name, region: p.region, from: p.price, to: floor });
+  }
+  if (changes.length) await audit({ actorId: null, action: "package.min_margin", entity: "DiamondPackage", data: { usdtCop, minMargin, changes } });
+  return changes;
 }
 
 let syncing: Promise<SyncSummary> | null = null;
-export type SyncSummary = { products: number; regions: number; linked: number; updated: number };
+export type SyncSummary = { products: number; regions: number; linked: number; updated: number; repriced: number };
 
 /** Descarga el catálogo de Free Fire y actualiza costo/agotado de los paquetes vinculados. */
 export function syncSupplierCatalog(): Promise<SyncSummary> {
@@ -94,7 +130,12 @@ async function doSync(): Promise<SyncSummary> {
     }
   }
   await saveSettings({ supplierSyncedAt: now.toISOString() });
-  return { products: rows.length, regions: groups.length, linked, updated };
+  // Costos nuevos: ningún paquete queda por debajo de la ganancia mínima.
+  const repriced = await enforceMinimumMargins().catch((e) => {
+    console.error("[proveedor] no se pudo aplicar la ganancia mínima:", (e as Error).message);
+    return [] as PriceChange[];
+  });
+  return { products: rows.length, regions: groups.length, linked, updated, repriced: repriced.length };
 }
 
 /** Sincroniza si la copia local está vieja (Central One: 15 min; RechargeGame: 3 h). Nunca lanza error. */
@@ -145,8 +186,8 @@ export async function listSupplierRegions(): Promise<SupplierRegion[]> {
  * Los que ya existen conservan su precio salvo que se pida recalcular.
  */
 export async function importRegionPackages(regionSlug: string, opts: { reprice?: boolean } = {}) {
-  const { usdtCop, margin } = await supplierRate();
-  const products = (await db.supplierProduct.findMany({ where: { game: GAME, regionSlug }, orderBy: { amount: "asc" } })).filter(isDiamondPack);
+  const { usdtCop, margin, minMargin } = await supplierRate();
+  const products = (await db.supplierProduct.findMany({ where: { game: GAME, regionSlug }, orderBy: { amount: "asc" } })).filter(sellableDiamonds);
   if (products.length === 0) return { created: 0, repriced: 0 };
   const existing = await db.diamondPackage.findMany({ where: { providerSku: { in: products.map((p) => p.productKey) } } });
   const latam =
@@ -160,7 +201,9 @@ export async function importRegionPackages(regionSlug: string, opts: { reprice?:
   let created = 0;
   let repriced = 0;
   for (const [i, p] of products.entries()) {
-    const price = regionalPrice({ amount: p.amount!, costCents: p.priceCents, usdtCop, latam })?.price ?? suggestedPrice(p.priceCents, usdtCop, margin);
+    const { diamonds, bonusDiamonds } = splitBonus(p.amount!, p.name);
+    const base = regionalPrice({ amount: p.amount!, costCents: p.priceCents, usdtCop, latam })?.price ?? suggestedPrice(p.priceCents, usdtCop, margin);
+    const price = withFloor(base, p.priceCents, usdtCop, minMarginFor({ diamonds, bonusDiamonds }, minMargin));
     const found = existing.find((e) => e.providerSku === p.productKey);
     if (found) {
       if (opts.reprice && found.price !== price) {
@@ -169,7 +212,6 @@ export async function importRegionPackages(regionSlug: string, opts: { reprice?:
       }
       continue;
     }
-    const { diamonds, bonusDiamonds } = splitBonus(p.amount!);
     let slug = `diamantes-${regionSlug}-${p.amount}`.slice(0, 180);
     if (await db.diamondPackage.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
     await db.diamondPackage.create({
@@ -205,21 +247,20 @@ export async function supplierPasses(regionSlug: string) {
  * Las que ya existen no se tocan.
  */
 export async function importRegionPasses(regionSlug: string): Promise<{ created: number; names: string[] }> {
-  const { usdtCop, margin } = await supplierRate();
+  const { usdtCop, margin, minMargin } = await supplierRate();
   const found = await supplierPasses(regionSlug);
   const existing = new Set((await db.diamondPackage.findMany({ where: { providerSku: { in: found.map((f) => f.product.productKey) } }, select: { providerSku: true } })).map((p) => p.providerSku));
   const names: string[] = [];
   for (const { product, kind } of found) {
     if (existing.has(product.productKey) || names.includes(PASS_INFO[kind].title)) continue;
-    let slug = `${kind === "weekly-lite" ? "tarjeta-semanal-basica" : kind === "weekly" ? "tarjeta-semanal" : kind === "monthly" ? "tarjeta-mensual" : "pase-booyah"}${regionSlug === DEFAULT_TOPUP_REGION ? "" : `-${regionSlug}`}`;
-    if (await db.diamondPackage.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
+    const slug = await freeSlug(passSlug(kind, regionSlug));
     await db.diamondPackage.create({
       data: {
         slug,
         name: PASS_INFO[kind].title,
         diamonds: 0,
         bonusDiamonds: 0,
-        price: suggestedPrice(product.priceCents, usdtCop, margin),
+        price: withFloor(suggestedPrice(product.priceCents, usdtCop, margin), product.priceCents, usdtCop, minMargin.general),
         region: regionSlug,
         providerSku: product.productKey,
         costCents: product.priceCents,
@@ -232,6 +273,136 @@ export async function importRegionPasses(regionSlug: string): Promise<{ created:
     names.push(PASS_INFO[kind].title);
   }
   return { created: names.length, names };
+}
+
+export type ActivatedPackage = { region: string; name: string; price: number };
+export type ActivationResult = {
+  regions: string[];
+  created: ActivatedPackage[];
+  reactivated: ActivatedPackage[];
+  deactivated: ActivatedPackage[];
+  repriced: PriceChange[];
+  /** Paquetes de diamantes del proveedor que no se venden por ser muy chicos (menos de MIN_DIAMOND_PACK). */
+  skippedSmall: number;
+  rate: { before: number; after: number; dailyUsd: number | null };
+};
+
+/**
+ * Activa todo lo que el proveedor vende de Free Fire y se entrega con el ID, en todas sus regiones: paquetes
+ * de diamantes (desde MIN_DIAMOND_PACK), tarjetas, pases, paquetes de nivel y acceso Evo. Precios con la
+ * ganancia mínima (`rule`, que queda guardada). Deja visibles todas las regiones con paquetes y desactiva
+ * (no borra) los paquetes cuyo producto ya no existe o ya no se entrega con el ID.
+ */
+export async function activateAllFreeFire(rule?: MinMarginRule): Promise<ActivationResult> {
+  // Copia fresca del catálogo (si llega vacío o incompleto, se detiene aquí sin tocar nada).
+  await syncSupplierCatalog();
+  // La regla se guarda después de sincronizar: así todos los precios que suben quedan en el informe de abajo.
+  if (rule) await saveSettings({ minMarginPct: String(rule.general), minMarginSmallPct: String(rule.small) });
+
+  // Tasa: si el dólar del día (+2 %, como «Usar la tasa del día») está por encima de la guardada, se usa ese.
+  const before = (await supplierRate()).usdtCop;
+  let dailyUsd: number | null = null;
+  try {
+    dailyUsd = await fetchDailyUsdCop();
+    const daily = Math.round(dailyUsd * 1.02);
+    if (daily > before) await saveSettings({ usdtCop: String(daily) });
+  } catch (e) {
+    console.error("[proveedor] no se pudo consultar la tasa del día:", (e as Error).message);
+  }
+  const { usdtCop, margin, minMargin } = await supplierRate();
+
+  const rows = await db.supplierProduct.findMany({ where: { game: GAME, delivery: "player_id" }, orderBy: [{ regionSlug: "asc" }, { amount: "asc" }, { priceCents: "asc" }] });
+  const deliverable = new Set(rows.map((r) => r.productKey));
+  const skippedSmall = rows.filter((r) => isDiamondPack(r) && !sellableDiamonds(r)).length;
+
+  // Qué se vende: un producto por cantidad de diamantes y uno por tipo de tarjeta/pase en cada región (el más barato).
+  type Wanted = { row: (typeof rows)[number]; key: string; kind: PassKind | null };
+  const wanted = new Map<string, Wanted>();
+  for (const row of rows) {
+    const kind = row.amount ? null : passKindOf(row.name);
+    if (!kind && !sellableDiamonds(row)) continue;
+    const key = `${row.regionSlug}|${kind ?? `d${row.amount}`}`;
+    const prev = wanted.get(key);
+    if (!prev || (prev.row.outOfStock && !row.outOfStock) || (prev.row.outOfStock === row.outOfStock && row.priceCents < prev.row.priceCents)) wanted.set(key, { row, key, kind });
+  }
+
+  const pkgs = await db.diamondPackage.findMany({ orderBy: { updatedAt: "desc" } });
+  const pkgKey = (p: (typeof pkgs)[number]) => {
+    const kind = p.diamonds > 0 ? null : passKindOf(p.name);
+    return `${p.region}|${kind ?? `d${p.diamonds + p.bonusDiamonds}`}`;
+  };
+  const created: ActivatedPackage[] = [];
+  const reactivated: ActivatedPackage[] = [];
+  const deactivated: ActivatedPackage[] = [];
+
+  // 1) Lo que ya no se puede entregar se desactiva (los pedidos y el historial no se tocan).
+  for (const p of pkgs) {
+    if (!p.active || !p.providerSku || deliverable.has(p.providerSku)) continue;
+    await db.diamondPackage.update({ where: { id: p.id }, data: { active: false } });
+    p.active = false;
+    deactivated.push({ region: p.region, name: p.name, price: p.price });
+  }
+
+  // 2) Cada producto vendible queda con un paquete activo: el que ya existe, uno desactivado que se reactiva, o uno nuevo.
+  const latam = (await db.diamondPackage.findMany({ where: { region: DEFAULT_TOPUP_REGION, active: true, diamonds: { gt: 0 } }, select: { diamonds: true, bonusDiamonds: true, price: true, costCents: true } })).map((l) => ({
+    amount: l.diamonds + l.bonusDiamonds,
+    price: l.price,
+    costCents: l.costCents,
+  }));
+  const order = new Map<string, number>();
+  for (const { row, key, kind } of [...wanted.values()].sort((a, b) => (a.row.amount ?? 0) - (b.row.amount ?? 0))) {
+    const linked = pkgs.filter((p) => p.providerSku === row.productKey);
+    if (linked.some((p) => p.active) || pkgs.some((p) => p.active && pkgKey(p) === key)) continue;
+    const old = linked.find((p) => !p.isDemo);
+    if (old) {
+      await db.diamondPackage.update({ where: { id: old.id }, data: { active: true, available: true, costCents: row.priceCents, supplierOutOfStock: row.outOfStock } });
+      old.active = true;
+      reactivated.push({ region: old.region, name: old.name, price: old.price });
+      continue;
+    }
+    if (row.outOfStock) continue; // no se crean paquetes agotados
+    const label = regionLabel(row.regionSlug, row.regionName);
+    if (kind) {
+      const price = withFloor(suggestedPrice(row.priceCents, usdtCop, margin), row.priceCents, usdtCop, minMargin.general);
+      const pkg = await db.diamondPackage.create({
+        data: { slug: await freeSlug(passSlug(kind, row.regionSlug)), name: PASS_INFO[kind].title, diamonds: 0, bonusDiamonds: 0, price, region: row.regionSlug, providerSku: row.productKey, costCents: row.priceCents, supplierOutOfStock: false, sortOrder: 100 + PASS_INFO[kind].sort, active: true, available: true },
+      });
+      pkgs.push(pkg);
+      created.push({ region: row.regionSlug, name: pkg.name, price });
+    } else {
+      const { diamonds, bonusDiamonds } = splitBonus(row.amount!, row.name);
+      const base = row.regionSlug === DEFAULT_TOPUP_REGION ? suggestedPrice(row.priceCents, usdtCop, margin) : (regionalPrice({ amount: row.amount!, costCents: row.priceCents, usdtCop, latam })?.price ?? suggestedPrice(row.priceCents, usdtCop, margin));
+      const price = withFloor(base, row.priceCents, usdtCop, minMarginFor({ diamonds, bonusDiamonds }, minMargin));
+      const n = order.get(row.regionSlug) ?? 0;
+      order.set(row.regionSlug, n + 1);
+      const pkg = await db.diamondPackage.create({
+        data: { slug: await freeSlug(`diamantes-${row.regionSlug}-${row.amount}`.slice(0, 180)), name: `${row.amount} diamantes (${label})`, diamonds, bonusDiamonds, price, region: row.regionSlug, providerSku: row.productKey, costCents: row.priceCents, supplierOutOfStock: false, sortOrder: 50 + n, active: true, available: true },
+      });
+      pkgs.push(pkg);
+      created.push({ region: row.regionSlug, name: pkg.name, price });
+    }
+  }
+
+  // 3) Todas las regiones con algo que vender quedan visibles (Latinoamérica primero, «Global» al final).
+  const withPackages = [...new Set(pkgs.filter((p) => p.active && p.providerSku && deliverable.has(p.providerSku)).map((p) => p.region))];
+  const regions = withPackages.map((slug) => ({ slug, label: regionLabel(slug) })).sort(compareRegions).map((r) => r.slug);
+  if (regions.length) await updateEnabledRegions(() => regions);
+
+  // 4) Ganancia mínima en todo (sube los que quedaron por debajo; nunca baja precios).
+  const repriced = await enforceMinimumMargins();
+  const result: ActivationResult = { regions, created, reactivated, deactivated, repriced, skippedSmall, rate: { before, after: usdtCop, dailyUsd } };
+  await audit({ actorId: null, action: "supplier.activate_all", entity: "DiamondPackage", data: { regions, created: created.length, reactivated: reactivated.length, deactivated: deactivated.length, repriced: repriced.length, minMargin, usdtCop } });
+  return result;
+}
+
+/** Slug de una tarjeta o pase: «tarjeta-semanal», «paquete-de-nivel-10-brazil»… */
+function passSlug(kind: PassKind, regionSlug: string) {
+  const base = kind === "booyah" ? "pase-booyah" : PASS_INFO[kind].title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `${base}${regionSlug === DEFAULT_TOPUP_REGION ? "" : `-${regionSlug}`}`.slice(0, 180);
+}
+
+async function freeSlug(slug: string) {
+  return (await db.diamondPackage.findUnique({ where: { slug }, select: { id: true } })) ? `${slug}-${Date.now().toString(36)}` : slug;
 }
 
 // Cambios a la lista de regiones activas, uno a la vez (dos clics seguidos no deben pisarse).
@@ -323,11 +494,20 @@ async function checkPerProduct(provider: TopUpProvider, playerId: string, region
   const order = [...new Set([preferred, ...regions].filter((r): r is string => !!r && regions.includes(r)))];
   let unverified: { slug: string; name: string; message?: string } | null = null;
   let checked = 0;
-  for (const slug of order) {
+  const check = async (slug: string) => {
     const product = await representativeProduct(slug);
-    if (!product) continue;
+    if (!product) return null;
     checked++;
-    const r = await provider.validatePlayer(playerId, { productKey: product.productKey, region: product.regionName });
+    return { slug, product, r: await provider.validatePlayer(playerId, { productKey: product.productKey, region: product.regionName }) };
+  };
+  // Primero la región que está viendo el cliente (lo normal: una sola consulta); si no es esa, las demás a la vez
+  // para no hacerlo esperar región por región. Gana la primera de la lista donde la cuenta existe.
+  const [first, ...rest] = order;
+  const results = first ? [await check(first)] : [];
+  if (!(results[0]?.r.verifiable && results[0].r.valid)) results.push(...(await Promise.all(rest.map(check))));
+  for (const x of results) {
+    if (!x) continue;
+    const { slug, product, r } = x;
     if (r.verifiable && r.valid) return { ok: true, playerId, region: product.regionName, regionSlug: slug, verified: true, nickname: r.nickname?.trim().slice(0, 64) || null };
     if (!r.verifiable) unverified ??= { slug, name: product.regionName, message: r.message };
   }

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { charmPrice, costInCop, isFreeFireProductKey, marginOf, MIN_MARGIN_PCT, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { charmPrice, costInCop, floorPrice, isFreeFireProductKey, marginOf, minMarginFor, MIN_MARGIN_PCT, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { verifyStandardWebhook } from "@/server/integrations/payments/signatures";
 
 describe("precios por región", () => {
@@ -13,6 +13,30 @@ describe("precios por región", () => {
     expect(suggestedPrice(76, 3400, 30)).toBe(3499); // 0,76 × 3400 × 1,3 = 3359,2 → 3.500 → 3.499
     expect(suggestedPrice(3576, 3400, 30)).toBe(158499); // 158.059,2 → 158.500 → 158.499
     expect(suggestedPrice(1, 3400, 0)).toBe(500); // mínimo
+  });
+
+  it("ganancia mínima: el precio deja al menos ese % del precio de venta (como lo muestra el panel)", () => {
+    for (const cents of [1, 67, 76, 150, 999, 3186, 3576, 25000]) {
+      for (const pct of [30, 40]) {
+        const p = floorPrice(cents, 3400, pct);
+        expect(marginOf(p, cents, 3400)!).toBeGreaterThanOrEqual(pct); // nunca por debajo del mínimo
+        expect(p % 500 === 499 || p % 500 === 0).toBe(true); // redondeo a $500 terminado en 9
+        // y no sobra más de un escalón de $500 (salvo el mínimo de $999)
+        if (p > 999) expect(p - 500).toBeLessThan(((cents / 100) * 3400) / (1 - pct / 100) + 1);
+      }
+    }
+    expect(floorPrice(76, 3400, 30)).toBe(3999); // 2.584 ÷ 0,7 = 3.691 → 4.000 → 3.999
+    expect(floorPrice(76, 3400, 40)).toBe(4499); // 2.584 ÷ 0,6 = 4.307 → 4.500 → 4.499
+    expect(floorPrice(1, 3400, 30)).toBe(999); // mínimo $1.000 → $999
+  });
+
+  it("los paquetes de 100 diamantes (o menos) llevan su propia ganancia mínima", () => {
+    const rule = { general: 30, small: 40 };
+    expect(minMarginFor({ diamonds: 100, bonusDiamonds: 10 }, rule)).toBe(40);
+    expect(minMarginFor({ diamonds: 100, bonusDiamonds: 0 }, rule)).toBe(40);
+    expect(minMarginFor({ diamonds: 310, bonusDiamonds: 31 }, rule)).toBe(30);
+    expect(minMarginFor({ diamonds: 0, bonusDiamonds: 0 }, rule)).toBe(30); // tarjetas y pases
+    expect(minMarginFor({ diamonds: 100, bonusDiamonds: 10 }, { general: 30, small: 0 })).toBe(30);
   });
 
   it("precio psicológico solo en precios redondos", () => {
@@ -31,8 +55,16 @@ describe("precios por región", () => {
   it("separa base + bonus (estándar conocido o 10 % del total)", () => {
     expect(splitBonus(110)).toEqual({ diamonds: 100, bonusDiamonds: 10 });
     expect(splitBonus(6160)).toEqual({ diamonds: 5600, bonusDiamonds: 560 });
-    expect(splitBonus(100)).toEqual({ diamonds: 90, bonusDiamonds: 10 }); // 10 % del total como bonus
-    expect(splitBonus(22640)).toEqual({ diamonds: 20376, bonusDiamonds: 2264 });
+    // Bonus de Garena (+10 % de la base): el total es múltiplo de 11.
+    expect(splitBonus(231)).toEqual({ diamonds: 210, bonusDiamonds: 21 });
+    expect(splitBonus(2420)).toEqual({ diamonds: 2200, bonusDiamonds: 220 });
+    // El nombre del proveedor manda cuando lo dice.
+    expect(splitBonus(110, "Free Fire 110 Diamantes (100 + 10% de bono)")).toEqual({ diamonds: 100, bonusDiamonds: 10 });
+    expect(splitBonus(572, "520 + 52 Diamonds")).toEqual({ diamonds: 520, bonusDiamonds: 52 });
+    // Sin dato confiable no se inventa bonus.
+    expect(splitBonus(100)).toEqual({ diamonds: 100, bonusDiamonds: 0 });
+    expect(splitBonus(5600)).toEqual({ diamonds: 5600, bonusDiamonds: 0 });
+    expect(splitBonus(22640)).toEqual({ diamonds: 22640, bonusDiamonds: 0 });
   });
 });
 

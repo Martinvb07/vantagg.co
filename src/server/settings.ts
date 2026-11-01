@@ -31,11 +31,13 @@ export const SETTING_DEFAULTS = {
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
   usdtCop: "3400", // pesos por 1 USDT, para calcular costos y márgenes
   topupMargin: "30", // % de margen para precios sugeridos de regiones nuevas
+  minMarginPct: "0", // ganancia mínima (% del precio de venta) de todos los paquetes; 0 = sin mínimo
+  minMarginSmallPct: "0", // ganancia mínima de los paquetes de 100 diamantes o menos; 0 = la general
   supplierSyncedAt: "", // última sincronización del catálogo (ISO)
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "supplierSyncedAt"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

@@ -1,0 +1,90 @@
+name: Activar catálogo Free Fire
+
+# Manual. Lo mismo que Panel → Proveedor → «Activar todo»: activa todas las regiones del proveedor con todo lo que
+# se entrega con el ID (diamantes, tarjetas, pases, paquetes de nivel, acceso Evo), con la ganancia mínima indicada
+# (% del precio de venta). Sube precios que quedaron por debajo, nunca los baja. Desactiva (no borra) lo que el
+# proveedor ya no vende. Antes hace un respaldo de la base de datos. No compra nada ni toca pedidos ni pagos.
+# Muestra precios de venta (son públicos en la tienda), nunca costos, saldo ni llaves.
+on:
+  workflow_dispatch:
+    inputs:
+      ganancia:
+        description: "Ganancia mínima de todos los paquetes (% del precio de venta)"
+        type: string
+        default: "30"
+      ganancia_100:
+        description: "Ganancia mínima de los paquetes de 100 diamantes o menos (%)"
+        type: string
+        default: "40"
+
+jobs:
+  activar:
+    name: Activar catálogo
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Activar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          GANANCIA: ${{ inputs.ganancia }}
+          GANANCIA_100: ${{ inputs.ganancia_100 }}
+        run: |
+          set -euo pipefail
+          num='^[0-9]{1,2}([.][0-9])?$'
+          [[ "$GANANCIA" =~ $num && "$GANANCIA_100" =~ $num ]] || { echo "✖ Las ganancias deben ser números entre 0 y 80 (ej. 30)."; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' GANANCIA='$GANANCIA' GANANCIA_100='$GANANCIA_100' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+
+          # Respaldo de la base de datos antes de cambiar el catálogo (si falla, no se cambia nada).
+          dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
+          archivo="$dest/db-antes-catalogo-$(date +%Y%m%d-%H%M).sql.gz"
+          mysqldump --defaults-extra-file="$HOME/.my-vanta.cnf" --single-transaction --routines --no-tablespaces vanta_store | gzip > "$archivo"
+          [ "$(gzip -cd "$archivo" | head -c 100000 | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "✖ El respaldo salió vacío: no se cambió nada."; exit 1; }
+          echo "✔ respaldo: $(basename "$archivo") ($(du -h "$archivo" | cut -f1))"
+
+          s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          [ -n "$s" ] || { echo "✖ Falta CRON_SECRET en .env"; exit 1; }
+          r=$(curl -sS --max-time 300 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" \
+            --data "{\"general\": $GANANCIA, \"small\": $GANANCIA_100}" http://127.0.0.1:3020/api/cron/activar-catalogo || true)
+          printf '%s' "$r" | node -e '
+            let t = ""; process.stdin.on("data", (c) => (t += c)).on("end", () => {
+              let j; try { j = JSON.parse(t); } catch { console.log("✖ Respuesta inesperada:", t.slice(0, 300)); process.exit(1); }
+              if (!j.ok) { console.log("✖ No se activó:", j.error || t.slice(0, 300)); process.exit(1); }
+              const cop = (n) => "$" + Number(n).toLocaleString("es-CO");
+              console.log(`✔ Ganancia mínima: ${process.env.GANANCIA} % (paquetes de 100 diamantes o menos: ${process.env.GANANCIA_100} %)`);
+              console.log(`✔ Tasa usada: ${cop(j.rate.after)} por USDT${j.rate.after !== j.rate.before ? ` (antes ${cop(j.rate.before)}; dólar del día ${cop(j.rate.dailyUsd)} + 2 %)` : ""}`);
+              console.log(`✔ Regiones visibles: ${j.regions.join(", ")}`);
+              const list = (title, xs, f) => { console.log(""); console.log(`== ${title}: ${xs.length}`); for (const x of xs) console.log("   " + f(x)); };
+              list("Paquetes nuevos", j.created, (x) => `${x.region} · ${x.name} · ${cop(x.price)}`);
+              list("Reactivados", j.reactivated, (x) => `${x.region} · ${x.name}`);
+              list("Desactivados (el proveedor ya no los vende; no se borraron)", j.deactivated, (x) => `${x.region} · ${x.name}`);
+              list("Precios subidos para cumplir la ganancia mínima", j.repriced, (x) => `${x.region} · ${x.name} · ${cop(x.from)} → ${cop(x.to)}`);
+              if (j.skippedSmall) { console.log(""); console.log(`ℹ ${j.skippedSmall} paquete(s) de menos de 100 diamantes no se activaron (la comisión de la pasarela se come la ganancia).`); }
+            });'
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

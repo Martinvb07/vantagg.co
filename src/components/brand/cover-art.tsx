@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { PassKind } from "@/domain/packs";
+import type { PassArt } from "@/domain/packs";
 
 /**
  * Arte de las portadas de los paquetes (identidad de VANTAGG): fondo negro verdoso con la V verde lima,
@@ -283,8 +283,18 @@ function PassCard({ x, y, w, rot = 0, u, days = 0, gold = false }: { x: number; 
   );
 }
 
+/** Estrella de cinco puntas (centro x, y; radio exterior). */
+function Star({ x, y, r, fill }: { x: number; y: number; r: number; fill: string }) {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = (Math.PI / 5) * i - Math.PI / 2;
+    const k = i % 2 ? r * 0.45 : r;
+    return `${(x + Math.cos(a) * k).toFixed(1)} ${(y + Math.sin(a) * k).toFixed(1)}`;
+  });
+  return <path d={`M${pts.join(" L")}Z`} fill={fill} stroke="#3b2203" strokeWidth="2.2" strokeLinejoin="round" />;
+}
+
 /** Escena de las tarjetas y el pase. */
-function PassScene({ kind, u }: { kind: PassKind; u: (n: string) => string }): ReactNode {
+function PassScene({ kind, u }: { kind: PassArt; u: (n: string) => string }): ReactNode {
   switch (kind) {
     // Semanal básica: una tarjeta con sus 7 días
     case "weekly-lite":
@@ -321,7 +331,74 @@ function PassScene({ kind, u }: { kind: PassKind; u: (n: string) => string }): R
           <RingFront cx={100} cy={136} rx={64} ry={13} u={u} />
         </>
       );
-    // Pase Booyah: pase dorado con estrella
+    // Pase Booyah (básico): pase negro con borde lima y estrella blanca
+    case "booyah-basic":
+      return (
+        <>
+          <g stroke={LIME} strokeOpacity="0.22" strokeWidth="3" strokeLinecap="round">
+            {[-48, -16, 16, 48].map((a) => (
+              <path key={a} d="M100 58 L100 22" transform={`rotate(${a} 100 96)`} />
+            ))}
+          </g>
+          <RingBack cx={100} cy={136} rx={60} ry={12} />
+          <PassCard x={100} y={98} w={112} rot={-6} u={u} />
+          <Star x={100} y={64} r={22} fill="#f4f7f2" />
+          <Gems list={[[46, 72, 16, -16], [156, 76, 16, 16]]} />
+          <RingFront cx={100} cy={136} rx={60} ry={12} u={u} />
+        </>
+      );
+    // Pase Booyah Premium Plus: pase dorado con corona y dos estrellas
+    case "booyah-plus":
+      return (
+        <>
+          <g stroke="#ffd36b" strokeOpacity="0.28" strokeWidth="3" strokeLinecap="round">
+            {[-72, -48, -24, 0, 24, 48, 72].map((a) => (
+              <path key={a} d="M100 56 L100 14" transform={`rotate(${a} 100 96)`} />
+            ))}
+          </g>
+          <RingBack cx={100} cy={136} rx={64} ry={13} />
+          <PassCard x={112} y={86} w={96} rot={9} u={u} gold />
+          <PassCard x={94} y={104} w={112} rot={-6} u={u} gold />
+          <g transform="translate(100 52)">
+            <path d="M-26 10 L-30 -14 L-14 -2 L0 -22 L14 -2 L30 -14 L26 10Z" fill={u("goldline")} stroke="#3b2203" strokeWidth="2.4" strokeLinejoin="round" />
+            <rect x="-27" y="9" width="54" height="8" rx="2" fill={u("goldline")} stroke="#3b2203" strokeWidth="2.2" />
+            <circle cx="0" cy="-22" r="3.2" fill="#fff" />
+          </g>
+          <Star x={44} y={84} r={11} fill={u("goldline")} />
+          <Star x={158} y={70} r={13} fill={u("goldline")} />
+          <RingFront cx={100} cy={136} rx={64} ry={13} u={u} />
+        </>
+      );
+    // Acceso Evo: emblema hexagonal con un rayo
+    case "evo":
+      return (
+        <>
+          <RingBack cx={100} cy={136} rx={58} ry={12} />
+          <circle cx="100" cy="88" r="46" fill={u("gemglow")} />
+          <path d="M100 38 L142 62 V110 L100 134 L58 110 V62Z" fill={u("dark")} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M100 46 L135 66 V106 L100 126 L65 106 V66Z" fill="none" stroke={LIME} strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME} filter={u("soft")} opacity="0.7" />
+          <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME_SOFT} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
+          <Gems list={[[40, 64, 16, -16], [160, 58, 18, 16]]} />
+          <RingFront cx={100} cy={136} rx={58} ry={12} u={u} />
+        </>
+      );
+    // Paquete de nivel: escudo con flechas hacia arriba
+    case "level":
+      return (
+        <>
+          <RingBack cx={100} cy={136} rx={58} ry={12} />
+          <circle cx="100" cy="86" r="46" fill={u("gemglow")} />
+          <path d="M100 36 L140 50 V88 C140 112 122 126 100 136 C78 126 60 112 60 88 V50Z" fill={u("dark")} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M100 44 L133 56 V88 C133 107 118 119 100 128 C82 119 67 107 67 88 V56Z" fill="none" stroke={LIME} strokeWidth="2.2" strokeLinejoin="round" />
+          {[0, 1, 2].map((i) => (
+            <path key={i} d={`M80 ${104 - i * 18} L100 ${86 - i * 18} L120 ${104 - i * 18}`} fill="none" stroke={i === 2 ? LIME_SOFT : LIME} strokeOpacity={0.45 + i * 0.27} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+          <Gems list={[[42, 70, 16, -16], [158, 64, 18, 16, true]]} />
+          <RingFront cx={100} cy={136} rx={58} ry={12} u={u} />
+        </>
+      );
+    // Pase Booyah Premium: pase dorado con estrella
     default:
       return (
         <>
@@ -344,7 +421,7 @@ function PassScene({ kind, u }: { kind: PassKind; u: (n: string) => string }): R
 }
 
 /** Qué se dibuja: nivel de diamantes (1–6) o tarjeta/pase. */
-export type CoverArtKey = number | PassKind;
+export type CoverArtKey = number | PassArt;
 
 /** Nombre del archivo en public/portadas: «paquete-3», «pase-weekly», y «arte-…» para la versión sin fondo. */
 export function coverFile(art: CoverArtKey, bare = false): string {
@@ -361,7 +438,7 @@ export function CoverSvg({ art, bare = false, id = "c" }: { art: CoverArtKey; ba
   const scale = t ? SCALE[t - 1] : 1.1;
   // Las tarjetas suben un poco: abajo va su nombre en grande.
   const lift = t ? 90 : 78;
-  const scene = t ? <Scene t={t} u={u} /> : <PassScene kind={art as PassKind} u={u} />;
+  const scene = t ? <Scene t={t} u={u} /> : <PassScene kind={art as PassArt} u={u} />;
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
       <CoverDefs id={id} glow={bare ? 0 : 0.2 + (t || 5) * 0.04} />
@@ -396,6 +473,6 @@ export function CoverSvg({ art, bare = false, id = "c" }: { art: CoverArtKey; ba
 /** Todas las portadas que se generan como archivo. */
 export const COVER_FILES: Array<{ art: CoverArtKey; bare: boolean }> = [
   ...[1, 2, 3, 4, 5, 6].map((t) => ({ art: t, bare: false })),
-  ...(["weekly-lite", "weekly", "monthly", "booyah"] as const).map((k) => ({ art: k, bare: false })),
+  ...(["weekly-lite", "weekly", "monthly", "booyah", "booyah-basic", "booyah-plus", "evo", "level"] as const).map((k) => ({ art: k, bare: false })),
   { art: 5, bare: true },
 ];

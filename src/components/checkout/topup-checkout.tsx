@@ -320,7 +320,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
       >
         <div role="radiogroup" aria-label="Cantidad de diamantes o tarjeta" className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
           {packages.map((p, i) => (
-            <PackGroup key={p.id} title={p.pass && !packages[i - 1]?.pass ? "Tarjetas y pases" : null}>
+            <PackGroup key={p.id} title={p.pass && !packages[i - 1]?.pass ? "Tarjetas, pases y más" : null}>
               <PackageOption
                 p={p}
                 selected={p.id === pkgId}

@@ -262,7 +262,7 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       subject: account ? `Entrega completada · ${o.number}` : o.isPass ? `¡Tu compra llegó! · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
       block: account
         ? { badge: "Entregado", tone: "success", steps: steps(3), title: "Entrega completada", intro: "Cambia la contraseña y el correo de recuperación de la cuenta si aún no lo hiciste. El chat sigue abierto 7 días por si necesitas algo.", preheader: "Tu cuenta fue entregada", cta: view, note: test }
-        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: o.isPass ? `Abre Free Fire: tu ${o.item} ya está activa en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
+        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
     },
     delivery_failed: {
       subject: `Estamos revisando tu entrega · ${o.number}`,

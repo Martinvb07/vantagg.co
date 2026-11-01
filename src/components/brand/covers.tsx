@@ -75,7 +75,7 @@ export function DiamondCover({
 export function PackCover({ p, plain, className }: { p: { diamonds: number; bonusDiamonds: number; pass?: PassKind | null }; plain?: boolean; className?: string }) {
   if (p.pass) {
     const info = PASS_INFO[p.pass];
-    return <DiamondCover tier={1} diamonds={0} art={p.pass} headline={info.headline} caption={info.caption} plain={plain} className={className} />;
+    return <DiamondCover tier={1} diamonds={0} art={info.art} headline={info.headline} caption={info.caption} plain={plain} className={className} />;
   }
   return <DiamondCover tier={tierFor(p.diamonds)} diamonds={p.diamonds} bonus={p.bonusDiamonds} plain={plain} className={className} />;
 }

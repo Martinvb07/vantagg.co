@@ -21,11 +21,13 @@ const REGION_META: Record<string, { label: string; flag?: string }> = {
   vietnam: { label: "Vietnam", flag: "VN" },
   cambodia: { label: "Camboya", flag: "KH" },
   bangladesh: { label: "Bangladesh", flag: "BD" },
+  id: { label: "Indonesia", flag: "ID" },
+  global: { label: "Global · otras regiones" },
 };
 
-/** Orden fijo de regiones: primero las de los clientes de la tienda (Latinoamérica, Brasil), luego alfabético. */
+/** Orden fijo de regiones: primero las de los clientes de la tienda (Latinoamérica, Brasil), luego alfabético y «Global» al final. */
 export function compareRegions(a: { slug: string; label: string }, b: { slug: string; label: string }): number {
-  const rank = (slug: string) => (slug === DEFAULT_TOPUP_REGION ? 0 : slug === "brazil" ? 1 : 2);
+  const rank = (slug: string) => (slug === DEFAULT_TOPUP_REGION ? 0 : slug === "brazil" ? 1 : slug === "global" ? 3 : 2);
   return rank(a.slug) - rank(b.slug) || a.label.localeCompare(b.label, "es");
 }
 
@@ -59,11 +61,20 @@ const STANDARD_SPLIT: Record<number, [number, number]> = {
   6160: [5600, 560],
 };
 
-export function splitBonus(amount: number): { diamonds: number; bonusDiamonds: number } {
+export function splitBonus(amount: number, name?: string | null): { diamonds: number; bonusDiamonds: number } {
   const s = STANDARD_SPLIT[amount];
   if (s) return { diamonds: s[0], bonusDiamonds: s[1] };
-  const bonus = Math.round(amount * 0.1);
-  return { diamonds: amount - bonus, bonusDiamonds: bonus };
+  // El nombre del proveedor lo dice: «110 Diamantes (100 + 10% de bono)» o «100 + 10 Diamonds».
+  const m = /(\d[\d.,]*)\s*\+\s*(\d[\d.,]*)\s*(%)?/.exec(name ?? "");
+  if (m) {
+    const base = Number(m[1].replace(/[.,]/g, ""));
+    const bonus = m[3] ? Math.round((base * Number(m[2].replace(",", "."))) / 100) : Number(m[2].replace(/[.,]/g, ""));
+    if (base > 0 && bonus > 0 && base + bonus === amount) return { diamonds: base, bonusDiamonds: bonus };
+  }
+  // Bonus estándar de Garena (+10 % sobre la base): el total es múltiplo de 11 (231 = 210 + 21).
+  if (amount >= 110 && amount % 11 === 0) return { diamonds: (amount / 11) * 10, bonusDiamonds: amount / 11 };
+  // Sin dato confiable no se inventa un bonus: se muestra el total.
+  return { diamonds: amount, bonusDiamonds: 0 };
 }
 
 /** Costo del proveedor convertido a pesos (redondeado al peso). */
@@ -80,6 +91,31 @@ export function charmPrice(price: number): number {
 export function suggestedPrice(costCents: number, usdtCop: number, marginPct: number): number {
   const raw = (costCents / 100) * usdtCop * (1 + marginPct / 100);
   return charmPrice(Math.max(500, Math.ceil(raw / 500) * 500));
+}
+
+/**
+ * Precio mínimo para ganar al menos `marginPct` % del precio de venta (la misma cuenta que muestra el panel):
+ * costo ÷ (1 − margen), redondeado hacia arriba a $500 y terminado en 9 (ej. $3.499), nunca por debajo del margen.
+ */
+export function floorPrice(costCents: number, usdtCop: number, marginPct: number): number {
+  const pct = Math.min(Math.max(marginPct, 0), 90) / 100;
+  const raw = ((costCents / 100) * usdtCop) / (1 - pct);
+  return charmPrice(Math.max(1000, Math.ceil((raw + 1) / 500) * 500));
+}
+
+/** Ganancia mínima de la tienda (Panel → Proveedor): general y para los paquetes de 100 diamantes o menos. */
+export type MinMarginRule = { general: number; small: number };
+
+/** Hasta este total de diamantes un paquete cuenta como «de 100 diamantes» (100 + 10 = 110). */
+export const SMALL_PACK_MAX = 110;
+/** Paquetes más chicos que esto no se venden: la comisión fija de la pasarela se come la ganancia. */
+export const MIN_DIAMOND_PACK = 100;
+
+/** Ganancia mínima (%) que le toca a un paquete; 0 = sin mínimo. */
+export function minMarginFor(p: { diamonds: number; bonusDiamonds: number }, rule: MinMarginRule): number {
+  const total = p.diamonds + p.bonusDiamonds;
+  if (p.diamonds > 0 && total <= SMALL_PACK_MAX && rule.small > 0) return rule.small;
+  return rule.general;
 }
 
 /** Margen sobre el precio de venta, en %. null si no se conoce el costo. */

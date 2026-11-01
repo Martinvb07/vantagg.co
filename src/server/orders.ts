@@ -128,7 +128,7 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
     if (passOf(pkg) && topup.wholesale?.playerCheck === "per-product") {
       const v = await topup.validatePlayer(data.playerId, { productKey: pkg.providerSku, region: regionName });
       if (v.verifiable && !v.valid) {
-        return { ok: false, error: `Esta cuenta no puede recibir la ${PASS_INFO[passOf(pkg)!].title} ahora mismo. Si ya tiene una activa, espera a que termine.` };
+        return { ok: false, error: `Esta cuenta no puede recibir «${PASS_INFO[passOf(pkg)!].title}» ahora mismo: puede que ya lo tenga activo o que no cumpla lo que pide el juego. Revisa tu cuenta e intenta más tarde.` };
       }
     }
   } else {

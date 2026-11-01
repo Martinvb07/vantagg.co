@@ -9,8 +9,8 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { formatDate, formatMoney } from "@/lib/money";
 import { timeAgo } from "@/components/store/time-ago";
-import { costInCop, MIN_MARGIN_PCT, regionFlag } from "@/domain/topup-regions";
-import { dailyRateAction, repriceRegionAction, saveSupplierRatesAction, syncSupplierAction, toggleRegionAction } from "@/app/actions/supplier";
+import { costInCop, MIN_DIAMOND_PACK, MIN_MARGIN_PCT, regionFlag, SMALL_PACK_MAX } from "@/domain/topup-regions";
+import { activateAllAction, dailyRateAction, repriceRegionAction, saveSupplierRatesAction, syncSupplierAction, toggleRegionAction } from "@/app/actions/supplier";
 import { activeWholesale } from "@/server/integrations/topup";
 import { ensureFreshCatalog, listSupplierRegions, supplierRate } from "@/server/supplier";
 import { getSettings } from "@/server/settings";
@@ -164,7 +164,7 @@ export default async function SupplierAdmin() {
           value={env.topup.forceTest ? "Solo prueba" : "Automáticos"}
           hint={env.topup.forceTest ? "TOPUP_TEST_MODE=true: nada se cobra ni se entrega." : "Pagos de prueba → entrega simulada (no se compra nada). Pagos reales → recarga real."}
         />
-        <Stat label="Catálogo" value={rate.syncedAt ? timeAgo(rate.syncedAt) : "Nunca"} hint={`${rate.syncedAt ? `${formatDate(rate.syncedAt)} · ` : ""}Costos y existencias se actualizan cada ${api && api.catalogMaxAgeMs < 3600_000 ? `${Math.round(api.catalogMaxAgeMs / 60_000)} minutos` : "3 horas"}. Tus precios no cambian solos.`} />
+        <Stat label="Catálogo" value={rate.syncedAt ? timeAgo(rate.syncedAt) : "Nunca"} hint={`${rate.syncedAt ? `${formatDate(rate.syncedAt)} · ` : ""}Costos y existencias se actualizan cada ${api && api.catalogMaxAgeMs < 3600_000 ? `${Math.round(api.catalogMaxAgeMs / 60_000)} minutos` : "3 horas"}. Los precios solo suben solos para cumplir la ganancia mínima.`} />
       </div>
 
       {balanceUsdt != null && largest > 0 && balanceUsdt * 100 < largest && (
@@ -183,6 +183,15 @@ export default async function SupplierAdmin() {
             <Field label="Margen para precios sugeridos (%)" hint="Se aplica al activar una región o al recalcular precios.">
               <input name="topupMargin" inputMode="decimal" defaultValue={settings.topupMargin} className="field tabular-nums" />
             </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Ganancia mínima (%)" hint="Del precio de venta, como el % que ves en Paquetes. 0 = sin mínimo.">
+                <input name="minMarginPct" inputMode="decimal" defaultValue={settings.minMarginPct} className="field tabular-nums" />
+              </Field>
+              <Field label={`Ganancia mínima ≤ ${SMALL_PACK_MAX} diamantes (%)`} hint="Paquetes de 100 diamantes: la comisión fija de la pasarela pesa más. 0 = la general.">
+                <input name="minMarginSmallPct" inputMode="decimal" defaultValue={settings.minMarginSmallPct} className="field tabular-nums" />
+              </Field>
+            </div>
+            <p className="text-[12px] text-fg-subtle">Si el proveedor sube un costo, el precio sube solo hasta la ganancia mínima. Nunca se bajan precios solos.</p>
             <SubmitButton size="sm">Guardar</SubmitButton>
           </ActionForm>
           <ActionForm action={dailyRateAction} className="mt-3 border-t border-white/[0.06] pt-3">
@@ -249,6 +258,16 @@ export default async function SupplierAdmin() {
               </Table>
             </div>
           </details>
+        )}
+        {api && (
+          <ActionForm action={activateAllAction} className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] px-4 py-3">
+            <p className="max-w-xl text-[12.5px] text-fg-muted">
+              <strong className="text-fg">Vender todo Free Fire:</strong> activa todas las regiones con todo lo que el proveedor entrega con el ID (diamantes desde {MIN_DIAMOND_PACK}, tarjetas, pases, paquetes de nivel y acceso Evo), con la ganancia mínima. Desactiva (sin borrar) lo que el proveedor ya no vende.
+            </p>
+            <SubmitButton size="sm" variant="secondary">
+              Activar todo
+            </SubmitButton>
+          </ActionForm>
         )}
         <p className="border-t border-white/[0.06] px-4 py-3 text-[12px] text-fg-subtle">
           Precios fuera de LATAM: el mismo margen que deja el paquete equivalente de LATAM, sin pasar el precio de LATAM (o su precio por diamante si la cantidad no existe allá) y con un mínimo de {MIN_MARGIN_PCT} % para no vender a pérdida; redondeo a $500. LATAM usa el margen general de «Tasa y margen». Puedes editar cualquier precio en «Diamantes y precios». Solo se venden las regiones visibles; al verificar el ID, la tienda detecta la región de la cuenta.

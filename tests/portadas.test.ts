@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { COVER_FILES, CoverSvg, coverFile } from "@/components/brand/cover-art";
-import { passKindOf } from "@/domain/packs";
+import { PASS_INFO, passKindOf } from "@/domain/packs";
 
 const PUBLIC = path.resolve(__dirname, "..", "public");
 const update = process.env.PORTADAS_ACTUALIZAR === "1";
@@ -37,9 +37,21 @@ describe("Tarjetas y pases del proveedor", () => {
     expect(passKindOf("Tarjeta Semanal de Free Fire")).toBe("weekly");
     expect(passKindOf("Tarjeta Mensual de Free Fire")).toBe("monthly");
     expect(passKindOf("Pase Booyah Premium de Free fire")).toBe("booyah");
-    expect(passKindOf("Free Fire (BR) · Pase Booyah Premium Plus")).toBeNull();
+    expect(passKindOf("Free Fire (BR) · Pase Booyah Premium Plus")).toBe("booyah-plus");
+    expect(passKindOf("Free Fire (BR) · Pase Booyah")).toBe("booyah-basic");
+    expect(passKindOf("Free Fire (ID) · BP Card")).toBe("bp-card");
+    expect(passKindOf("Free Fire (BR) · Acceso Evo 7 días")).toBe("evo-7");
+    expect(passKindOf("Free Fire (BR) · Acceso Evo 30 días")).toBe("evo-30");
+    expect(passKindOf("Free Fire (ID) · Paquete de Nivel 6")).toBe("level-6");
+    expect(passKindOf("Free Fire (BR) · Paquete de Nivel 30")).toBe("level-30");
+    expect(passKindOf("Free Fire · Tarjeta Semanal Básica (excepto VN/TH/ID/Medio Oriente)")).toBe("weekly-lite");
+    expect(passKindOf("Free Fire · Tarjeta Mensual (excepto VN/TH/ID/Medio Oriente)")).toBe("monthly");
+    // Los nombres que usa la tienda vuelven a su tipo (se guardan así en los paquetes y los pedidos).
+    for (const [kind, info] of Object.entries(PASS_INFO)) expect(passKindOf(info.title)).toBe(kind);
+    // Lo que no se vende: códigos PIN, diamantes y niveles o días que no existen.
     expect(passKindOf("Free Fire 110 Diamantes (100 + 10% de bono) · PIN")).toBeNull();
     expect(passKindOf("Free Fire 110 Diamantes")).toBeNull();
-    expect(passKindOf("Free Fire (BR) · Acceso Evo 7 días")).toBeNull();
+    expect(passKindOf("Paquete de Nivel 12")).toBeNull();
+    expect(passKindOf("Acceso Evo 5 días")).toBeNull();
   });
 });

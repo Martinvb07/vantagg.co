@@ -65,7 +65,7 @@ const SECTIONS: Array<{ title: string; subtitle: string; href: string; icon: Sea
 
 const PACKAGE_KW = ["diamantes", "diamante", "recarga", "recargar", "paquete", "paquetes", "dimas", "bonus"];
 /** Palabras de las tarjetas y el pase («semanal», «mensual», «booyah»…). */
-const PASS_KW = ["tarjeta", "tarjetas", "semanal", "mensual", "membresia", "membresias", "pase", "booyah", "basica"];
+const PASS_KW = ["tarjeta", "tarjetas", "semanal", "mensual", "membresia", "membresias", "pase", "pases", "booyah", "basica", "nivel", "niveles", "evo", "plus", "bp"];
 const ACCOUNT_KW = ["cuentas", "cuenta", "perfil", "perfiles"];
 
 export async function smartSearch(raw: string): Promise<SearchResult> {

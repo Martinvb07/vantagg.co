@@ -5,7 +5,7 @@ import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { DEFAULT_TOPUP_REGION, regionLabel } from "@/domain/topup-regions";
-import { fetchDailyUsdCop, importRegionPackages, importRegionPasses, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
+import { activateAllFreeFire, enforceMinimumMargins, fetchDailyUsdCop, importRegionPackages, importRegionPasses, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
 import { saveSettings } from "@/server/settings";
 import type { ActionResult } from "./admin";
 
@@ -37,13 +37,18 @@ export async function saveSupplierRatesAction(_: ActionResult, form: FormData): 
   const user = await requireAdmin();
   const rate = Number(str(form, "usdtCop").replace(/[.\s]/g, "").replace(",", "."));
   const margin = Number(str(form, "topupMargin").replace(",", "."));
+  const pct = (k: string) => Number(str(form, k).replace(",", ".") || "0");
+  const [minGeneral, minSmall] = [pct("minMarginPct"), pct("minMarginSmallPct")];
   if (!Number.isFinite(rate) || rate < 1000 || rate > 10000) return fail("La tasa debe estar entre 1.000 y 10.000 pesos por dólar.");
   if (!Number.isFinite(margin) || margin < 0 || margin > 300) return fail("El margen debe estar entre 0 % y 300 %.");
-  const values = { usdtCop: String(Math.round(rate)), topupMargin: String(Math.round(margin * 10) / 10) };
+  if (![minGeneral, minSmall].every((v) => Number.isFinite(v) && v >= 0 && v <= 80)) return fail("La ganancia mínima debe estar entre 0 % y 80 %.");
+  const values = { usdtCop: String(Math.round(rate)), topupMargin: String(Math.round(margin * 10) / 10), minMarginPct: String(Math.round(minGeneral * 10) / 10), minMarginSmallPct: String(Math.round(minSmall * 10) / 10) };
   await saveSettings(values);
   await audit({ actorId: user.id, action: "supplier.rates", entity: "Setting", data: values });
+  // Con ganancia mínima, los paquetes que quedaron por debajo suben ya (nunca se bajan precios).
+  const repriced = await enforceMinimumMargins();
   refresh();
-  return ok("Tasa y margen guardados. Los precios actuales no cambian; usa «Recalcular precios» en la región que quieras.");
+  return ok(`Tasa y márgenes guardados.${repriced.length ? ` ${repriced.length} paquete(s) subieron de precio para cumplir la ganancia mínima.` : " Ningún precio tuvo que cambiar."}`);
 }
 
 export async function dailyRateAction(_: ActionResult, _form: FormData): Promise<ActionResult> {
@@ -108,4 +113,20 @@ export async function repriceRegionAction(_: ActionResult, form: FormData): Prom
   await audit({ actorId: user.id, action: "supplier.reprice", entity: "DiamondPackage", entityId: slug, data: r });
   refresh();
   return ok(`${regionLabel(slug)}: ${r.repriced} precio(s) recalculados${r.created ? ` y ${r.created} paquete(s) nuevos` : ""}.`);
+}
+
+/** Activa todo el catálogo de Free Fire del proveedor (todas las regiones, tarjetas y pases) con la ganancia mínima guardada. */
+export async function activateAllAction(_: ActionResult, _form: FormData): Promise<ActionResult> {
+  const user = await requireAdmin();
+  if (!rateLimit(`supplier-activate:${user.id}`, 3, 10 * 60_000).ok) return fail("Espera unos minutos antes de repetirlo.");
+  try {
+    const r = await activateAllFreeFire();
+    await audit({ actorId: user.id, action: "supplier.activate_all", entity: "DiamondPackage", data: { regions: r.regions, created: r.created.length, reactivated: r.reactivated.length, deactivated: r.deactivated.length, repriced: r.repriced.length } });
+    refresh();
+    return ok(
+      `Listo: ${r.regions.length} región(es) visibles · ${r.created.length} paquete(s) nuevos · ${r.reactivated.length} reactivados · ${r.deactivated.length} desactivados (ya no existen en el proveedor) · ${r.repriced.length} con precio ajustado a la ganancia mínima.`,
+    );
+  } catch (e) {
+    return fail(`No se pudo activar el catálogo: ${(e as Error).message}`);
+  }
 }

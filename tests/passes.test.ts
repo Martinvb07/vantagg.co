@@ -58,23 +58,24 @@ describe.skipIf(!cfg.enabled)("Tarjetas y pases (base de pruebas)", () => {
     await db.$disconnect();
   });
 
-  it("crea las 4 tarjetas y pases (sin diamantes, con su nombre y precio sugerido) y no los repite", async () => {
+  it("crea las tarjetas y pases (sin diamantes, con su nombre y precio sugerido) y no los repite", async () => {
     const first = await importRegionPasses(REGION);
-    expect(first.created).toBe(4);
-    expect(first.names.sort()).toEqual(["Pase Booyah Premium", "Tarjeta Mensual", "Tarjeta Semanal", "Tarjeta Semanal Básica"]);
+    expect(first.created).toBe(5);
+    expect(first.names.sort()).toEqual(["Pase Booyah Premium", "Pase Booyah Premium Plus", "Tarjeta Mensual", "Tarjeta Semanal", "Tarjeta Semanal Básica"]);
     const rows = await db.diamondPackage.findMany({ where: { region: REGION }, orderBy: { sortOrder: "asc" } });
     expect(rows.map((r) => [r.name, r.diamonds, r.bonusDiamonds, r.active])).toEqual([
       ["Tarjeta Semanal Básica", 0, 0, true],
       ["Tarjeta Semanal", 0, 0, true],
       ["Tarjeta Mensual", 0, 0, true],
       ["Pase Booyah Premium", 0, 0, true],
+      ["Pase Booyah Premium Plus", 0, 0, true],
     ]);
     const weekly = rows.find((r) => r.name === "Tarjeta Semanal")!;
     expect(weekly.providerSku).toBe(`${RUN}-semanal`);
     expect(weekly.costCents).toBe(300);
     expect(weekly.price).toBe(suggestedPrice(300, 4000, 30));
-    // El Booyah Premium Plus, los PIN y los diamantes no se agregan como tarjetas.
-    expect(rows.some((r) => r.providerSku === `${RUN}-plus` || r.providerSku === `${RUN}-pin` || r.providerSku === `${RUN}-110`)).toBe(false);
+    // Los PIN y los diamantes no se agregan como tarjetas.
+    expect(rows.some((r) => r.providerSku === `${RUN}-pin` || r.providerSku === `${RUN}-110`)).toBe(false);
 
     const again = await importRegionPasses(REGION);
     expect(again.created).toBe(0);
