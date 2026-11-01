@@ -58,13 +58,19 @@ jobs:
           };
           const plain = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
           // Mismas reglas que la tienda (src/domain/packs.ts y centralone-core.ts), resumidas.
+          const LEVELS = [6, 10, 15, 20, 25, 30], EVO = [3, 7, 30];
           const passKind = (name) => {
             const n = plain(name);
-            if (/\bpin\b/.test(n) || /\bplus\b/.test(n)) return null;
+            if (/\bpin\b/.test(n)) return null;
             if (/semanal\s+b.{0,3}sica/.test(n)) return "Tarjeta Semanal Básica";
             if (/semanal/.test(n)) return "Tarjeta Semanal";
             if (/mensual/.test(n)) return "Tarjeta Mensual";
-            if (/booyah/.test(n) && /premium/.test(n)) return "Pase Booyah Premium";
+            const lv = /\b(?:nivel|level(?:\s*up)?)\s*(\d{1,2})\b/.exec(n);
+            if (lv) return LEVELS.includes(Number(lv[1])) ? `Paquete de Nivel ${lv[1]}` : null;
+            const evo = /\bevo\b\D*(\d{1,2})\s*(?:dias?|d\b|days?)/.exec(n);
+            if (evo) return EVO.includes(Number(evo[1])) ? `Acceso Evo ${evo[1]} días` : null;
+            if (/\bbp\s*card\b/.test(n)) return "BP Card";
+            if (/booyah/.test(n)) return /premium/.test(n) ? (/\bplus\b/.test(n) ? "Pase Booyah Premium Plus" : "Pase Booyah Premium") : "Pase Booyah";
             return null;
           };
           const amountOf = (name) => {
@@ -127,9 +133,12 @@ jobs:
 
             const pkgs = await db.diamondPackage.findMany({ where: { active: true }, orderBy: [{ region: "asc" }, { sortOrder: "asc" }, { diamonds: "asc" }] });
             // ID para la verificación gratuita: el de un pedido anterior (las tarjetas rechazan IDs inventados), o uno de ejemplo.
-            const realId = (await db.order.findFirst({ where: { type: "TOPUP", playerId: { not: null } }, orderBy: { createdAt: "desc" }, select: { playerId: true } }))?.playerId;
+            const last = await db.order.findFirst({ where: { type: "TOPUP", playerId: { not: null } }, orderBy: { createdAt: "desc" }, select: { playerId: true, itemSnapshot: true } });
+            const realId = last?.playerId;
             const testId = realId && /^\d{6,12}$/.test(realId) ? realId : "123456789";
-            console.log(`== ID para verificar: ${testId === "123456789" ? "de ejemplo" : `${testId.slice(0, 2)}****${testId.slice(-2)} (de un pedido anterior)`}`);
+            // La cuenta de prueba es de una sola región: el ID solo se verifica con los paquetes de esa región.
+            const testRegion = (last?.itemSnapshot && last.itemSnapshot.region) || "latam";
+            console.log(`== ID para verificar: ${testId === "123456789" ? "de ejemplo" : `${testId.slice(0, 2)}****${testId.slice(-2)} (de un pedido anterior)`} · se verifica en: ${testRegion}`);
             const regions = [...new Set(pkgs.map((p) => p.region))];
             let problems = 0, warnings = 0, validations = 0;
             for (const region of regions) {
@@ -171,7 +180,7 @@ jobs:
                   else if (need > 0 && margin < need - 0.002) { notes.push(`⚠ ganancia por debajo del mínimo (${Math.round(need * 100)} %)`); warn = true; }
                   else if (margin < 0.1) { notes.push("⚠ margen bajo (<10 %)"); warn = true; }
                   else notes.push(need > 0 ? `✔ ganancia ≥ ${Math.round(need * 100)} %` : "✔ precio cubre el costo");
-                  if (shown && validations < 12) {
+                  if (shown && region === testRegion && validations < 12) {
                     validations++;
                     const target_payload = Object.fromEntries(schemaOf(it).map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : testId]));
                     const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: p.providerSku, target_payload }) });
@@ -201,6 +210,7 @@ jobs:
             const skus = new Set(pkgs.map((p) => p.providerSku));
             const missing = new Set();
             for (const it of items.values()) {
+              if (!String(it.product_id || "").startsWith("topup/free-fire/")) continue;
               const kind = passKind(it.name);
               if (kind && visible.includes(regionSlug(it.region || it.market)) && byId(it) && !skus.has(it.product_id) && !pkgs.some((p) => p.name === kind && p.region === regionSlug(it.region || it.market))) missing.add(kind);
             }
