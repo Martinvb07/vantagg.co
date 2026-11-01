@@ -1,0 +1,78 @@
+name: Catálogo Free Fire del proveedor
+
+# Manual y de solo lectura (no cambia nada ni llama al proveedor). Lista, por región, lo que el proveedor vende de
+# Free Fire según la copia local del catálogo (se actualiza sola cada 15 min): paquetes de diamantes, tarjetas y
+# pases, y qué tiene ya la tienda. El repositorio es público: no se muestran precios, costos ni saldo.
+on:
+  workflow_dispatch:
+
+jobs:
+  catalogo:
+    name: Catálogo Free Fire
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Listar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH'
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          cat > /tmp/catalogo-ff.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          (async () => {
+            const settings = Object.fromEntries((await db.setting.findMany()).map((s) => [s.key, s.value]));
+            const visible = String(settings.topupRegions || "latam").split(",").map((s) => s.trim()).filter(Boolean);
+            const synced = settings.supplierSyncedAt ? Math.round((Date.now() - new Date(settings.supplierSyncedAt).getTime()) / 60000) : null;
+            const rows = await db.supplierProduct.findMany({ where: { game: "free-fire" }, orderBy: [{ regionSlug: "asc" }, { amount: "asc" }] });
+            const pkgs = await db.diamondPackage.findMany({ select: { region: true, providerSku: true, active: true, diamonds: true } });
+            console.log(`== copia del catálogo: hace ${synced == null ? "?" : synced + " min"} · ${rows.length} productos de Free Fire · regiones visibles hoy: ${visible.join(", ")}`);
+            const delivery = {};
+            for (const r of rows) delivery[r.delivery] = (delivery[r.delivery] || 0) + 1;
+            console.log(`   formas de entrega: ${Object.entries(delivery).map(([k, v]) => `${k} ${v}`).join(" · ")}`);
+            const regions = [...new Set(rows.map((r) => r.regionSlug))];
+            for (const slug of regions) {
+              const list = rows.filter((r) => r.regionSlug === slug);
+              const name = list[0].regionName;
+              const dia = list.filter((r) => r.unit === "Diamonds" && (r.amount || 0) > 0 && r.delivery === "player_id");
+              const other = list.filter((r) => !dia.includes(r));
+              const inStore = pkgs.filter((p) => p.region === slug && p.active).length;
+              console.log("");
+              console.log(`== ${slug} («${name}») · ${visible.includes(slug) ? "VISIBLE" : "oculta"} · tienda: ${inStore} activo(s)`);
+              console.log(`   diamantes (${dia.length}${dia.some((d) => d.outOfStock) ? `, ${dia.filter((d) => d.outOfStock).length} agotado(s)` : ""}): ${dia.map((d) => d.amount + (d.outOfStock ? "✗" : "")).join(", ") || "—"}`);
+              for (const o of other) console.log(`   · ${o.name}${o.amount ? ` [${o.amount} ${o.unit || ""}]` : ""} · entrega: ${o.delivery}${o.outOfStock ? " · agotado" : ""}`);
+            }
+            await db.$disconnect();
+          })().catch(async (e) => { console.error("✖", e.message); await db.$disconnect(); process.exitCode = 1; });
+          JS
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/catalogo-ff.cjs
+          rm -f /tmp/catalogo-ff.cjs
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
