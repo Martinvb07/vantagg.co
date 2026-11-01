@@ -28,6 +28,7 @@ export const SETTING_DEFAULTS = {
   maintenanceMessage: "", // texto para los clientes durante el mantenimiento (vacío: uno genérico)
   googleTagId: "", // etiqueta de Google para medir campañas: AW-… (Google Ads) y/o G-… (Analytics), separados por coma
   googleAdsPurchase: "", // conversión de compra de Google Ads: AW-…/etiqueta
+  metaPixelId: "", // Meta Pixel (Facebook e Instagram Ads): el número del píxel
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)

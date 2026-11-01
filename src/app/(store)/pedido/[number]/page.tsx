@@ -18,6 +18,7 @@ import { getOrderForCustomer } from "@/server/order-view";
 import { checkPendingPayment, refreshDeliveryIfStale } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { googleTagConfig } from "@/domain/google-tag";
+import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { PurchaseTracker } from "@/components/analytics/purchase-tracker";
 import { chatState, listMessages, markRead } from "@/server/chat";
 import { OrderChat } from "@/components/orders/order-chat";
@@ -79,19 +80,20 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     ? `${formatNumber(order.item.diamonds!)}${order.item.bonusDiamonds ? ` + ${formatNumber(order.item.bonusDiamonds)} Bonus` : ""} diamantes`
     : order.item.name;
 
-  // Compra pagada → conversión para Google Ads / Analytics (solo el cliente, no el equipo ni pedidos de prueba).
+  // Compra pagada → conversión para Meta Pixel y Google (solo el cliente, no el equipo ni pedidos de prueba).
   const gtag = googleTagConfig(settings);
+  const tracking = !!gtag || !!parseMetaPixelId(settings.metaPixelId);
   const paid = ["PAID", "PROCESSING", "DELIVERED"].includes(order.status);
 
   return (
     <Container className="max-w-[1000px] py-8 sm:py-10">
-      {gtag && paid && !order.isTest && !order.viewerIsStaff && (
+      {tracking && paid && !order.isTest && !order.viewerIsStaff && (
         <PurchaseTracker
           number={order.number}
           value={order.total}
           currency={order.currency}
           item={{ id: isTopup ? (pass ?? `diamantes-${(order.item.diamonds ?? 0) + (order.item.bonusDiamonds ?? 0)}`) : "cuenta", name: title }}
-          sendTo={gtag.purchase}
+          googleSendTo={gtag?.purchase ?? null}
         />
       )}
       {order.isTest && (

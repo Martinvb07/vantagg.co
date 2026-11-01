@@ -14,6 +14,8 @@ import { isHalloween } from "@/domain/season";
 import { maintenanceNotice } from "@/domain/maintenance";
 import { googleTagConfig } from "@/domain/google-tag";
 import { GoogleTag } from "@/components/analytics/google-tag";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
+import { parseMetaPixelId } from "@/domain/meta-pixel";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, user, showAccounts] = await Promise.all([getSettings(), getCurrentUser().catch(() => null), accountsVisible()]);
@@ -26,9 +28,11 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   const paused = maintenanceNotice(settings);
   // Etiqueta de Google (campañas): solo si se configuró en Panel → Ajustes → Publicidad.
   const gtag = googleTagConfig(settings);
+  const metaPixel = parseMetaPixelId(settings.metaPixelId);
 
   return (
     <div data-season={halloween ? "halloween" : undefined}>
+      {metaPixel && <MetaPixel id={metaPixel} />}
       {gtag && <GoogleTag cfg={gtag} />}
       {paused && (
         <div role="status" data-maintenance className="flex items-center justify-center gap-2 border-b border-warn-400/25 bg-warn-400/[0.08] px-4 py-2.5 text-center text-[13px] font-medium text-fg">
@@ -50,7 +54,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         {children}
       </main>
       <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />
-      <CookieNotice consent={!!gtag} />
+      <CookieNotice ads={[...(metaPixel ? ["Meta (Facebook e Instagram)"] : []), ...(gtag ? ["Google"] : [])]} />
       {wa && (
         <aside aria-label="Contacto por WhatsApp">
           <a

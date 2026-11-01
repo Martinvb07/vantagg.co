@@ -109,11 +109,14 @@ export default async function SettingsAdmin() {
           </Field>
         </Panel>
 
-        <Panel title="Publicidad (Google Ads y Analytics)">
+        <Panel title="Publicidad (Meta Pixel y Google)">
           <p className="mb-3 text-[12.5px] text-fg-muted">
-            Etiqueta de Google para medir tus campañas: registra visitas, inicios de compra y compras pagadas (con su valor). Los clientes eligen en el aviso de cookies si aceptan las de publicidad; sin su permiso Google no guarda cookies. Déjalo vacío para no usarla.
+            Para medir tus campañas: registran visitas, inicios de compra y compras pagadas (con su valor). Los clientes eligen en el aviso de cookies si aceptan las de publicidad; sin su permiso no se envía nada a Meta y Google no guarda cookies. Deja vacío lo que no uses.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="ID del píxel de Meta (Facebook e Instagram)" hint="Administrador de eventos → Orígenes de datos → tu píxel → Configuración → «Identificador del conjunto de datos». Solo el número." className="sm:col-span-2">
+              <input name="metaPixelId" defaultValue={s.metaPixelId} inputMode="numeric" placeholder="123456789012345" className="field font-mono" />
+            </Field>
             <Field label="ID de la etiqueta de Google" hint="Google Ads → Herramientas → Configuración de la etiqueta de Google: AW-123456789. Si también usas Analytics, agrega su G-… separado por coma.">
               <input name="googleTagId" defaultValue={s.googleTagId} placeholder="AW-123456789, G-ABC123XYZ" className="field font-mono" />
             </Field>

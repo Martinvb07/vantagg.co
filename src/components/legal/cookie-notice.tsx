@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Cookie, X } from "lucide-react";
 import { CONSENT_KEY } from "@/domain/google-tag";
-import { gtagConsent } from "@/lib/gtag";
+import { adsConsent } from "@/lib/ads";
 
 const KEY = "vx_cookie_notice";
 /** Evento para volver a mostrar la elección (botón «Cambiar mis preferencias» en la política de cookies). */
@@ -13,10 +13,12 @@ const REOPEN = "vx:cookie-choice";
  * Aviso de cookies.
  *  - Sin etiqueta de Google: la tienda solo usa cookies técnicas necesarias, no hace falta pedir consentimiento;
  *    igual se informa una vez, sin bloquear la página.
- *  - Con etiqueta de Google (`consent`): se pide permiso para las cookies de medición de anuncios (Ley 1581:
- *    autorización previa, expresa e informada). Hasta que la persona acepta, Google no guarda cookies.
+ *  - Con Meta Pixel o la etiqueta de Google (`ads`: sus nombres): se pide permiso para las cookies de medición de
+ *    anuncios (Ley 1581: autorización previa, expresa e informada). Hasta que la persona acepta, no se envía nada
+ *    a Meta y Google no guarda cookies.
  */
-export function CookieNotice({ consent = false }: { consent?: boolean }) {
+export function CookieNotice({ ads = [] }: { ads?: string[] }) {
+  const consent = ads.length > 0;
   const [show, setShow] = useState(false);
   useEffect(() => {
     try {
@@ -38,7 +40,7 @@ export function CookieNotice({ consent = false }: { consent?: boolean }) {
   };
   const choose = (granted: boolean) => {
     setShow(false);
-    gtagConsent(granted);
+    adsConsent(granted);
     try {
       localStorage.setItem(CONSENT_KEY, granted ? "granted" : "denied");
       localStorage.setItem(KEY, "1");
@@ -52,7 +54,7 @@ export function CookieNotice({ consent = false }: { consent?: boolean }) {
         {consent ? (
           <div className="min-w-0 flex-1">
             <p>
-              Usamos cookies necesarias para que la tienda funcione y, si aceptas, cookies de Google para medir nuestros anuncios.{" "}
+              Usamos cookies necesarias para que la tienda funcione y, si aceptas, cookies de {ads.join(" y ")} para medir nuestros anuncios.{" "}
               <a href="/legal/cookies" className="text-fg underline underline-offset-2">
                 Más información
               </a>

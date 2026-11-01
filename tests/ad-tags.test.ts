@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { googleTagConfig, googleTagInitScript, parseConversionLabel, parseGoogleTagIds } from "@/domain/google-tag";
+import { metaPixelInitScript, parseMetaPixelId } from "@/domain/meta-pixel";
 
 describe("Etiqueta de Google (Google Ads / Analytics)", () => {
   it("acepta solo IDs válidos y los normaliza", () => {
@@ -30,5 +31,24 @@ describe("Etiqueta de Google (Google Ads / Analytics)", () => {
     expect(js).toMatch(/c==="granted"\?"granted":"denied"/);
     expect(js).toContain('["AW-123456789","G-ABC123XYZ"]');
     expect(() => new Function(js)).not.toThrow(); // JavaScript válido
+  });
+});
+
+describe("Meta Pixel", () => {
+  it("acepta solo el número del píxel", () => {
+    expect(parseMetaPixelId("123456789012345")).toBe("123456789012345");
+    expect(parseMetaPixelId(" 123456789012345 ")).toBe("123456789012345");
+    expect(parseMetaPixelId("")).toBeNull();
+    expect(parseMetaPixelId("fbq('init', '123456789012345');")).toBeNull();
+    expect(parseMetaPixelId('123456789012345");alert(1);//')).toBeNull();
+  });
+
+  it("el script inicial no envía nada sin consentimiento y registra la vista de página", () => {
+    const js = metaPixelInitScript("123456789012345");
+    expect(js).toContain('n("consent",c==="granted"?"grant":"revoke")');
+    expect(js.indexOf('"consent"')).toBeLessThan(js.indexOf('"init"')); // el consentimiento va antes de iniciar
+    expect(js).toContain('n("init","123456789012345")');
+    expect(js).toContain('n("track","PageView")');
+    expect(() => new Function(js)).not.toThrow();
   });
 });

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BadgeCheck, Check, CircleAlert, Info, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { PackCover } from "@/components/brand/covers";
 import { PASS_INFO, packDetail } from "@/domain/packs";
-import { gtagEvent } from "@/lib/gtag";
+import { trackInitiateCheckout } from "@/lib/ads";
 import { Button } from "@/components/ui/button";
 import { Alert, DemoBadge } from "@/components/ui/primitives";
 import { PRODUCT_LABELS } from "@/domain/labels";
@@ -245,7 +245,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
         acceptTerms: accept,
       });
       if (!r.ok) return setError(r.error);
-      gtagEvent("begin_checkout", { currency: pkg.currency, value: total, items: [{ item_id: pkg.slug, item_name: pkg.pass ? PASS_INFO[pkg.pass].title : `${pkg.diamonds + pkg.bonusDiamonds} diamantes`, price: total, quantity: 1 }] });
+      trackInitiateCheckout({ value: total, currency: pkg.currency, item: { id: pkg.slug, name: pkg.pass ? PASS_INFO[pkg.pass].title : `${pkg.diamonds + pkg.bonusDiamonds} diamantes` } });
       try {
         localStorage.setItem(MEMORY_KEY, JSON.stringify({ playerId, email: email.trim() }));
       } catch {

@@ -27,6 +27,7 @@ import { supportReplyEmail, testEmail } from "@/server/email-templates";
 import { env } from "@/lib/env";
 import { floorPrice, minMarginFor } from "@/domain/topup-regions";
 import { parseConversionLabel, parseGoogleTagIds } from "@/domain/google-tag";
+import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { supplierRate } from "@/server/supplier";
 
 export type ActionResult = { ok: boolean; message: string } | null;
@@ -658,6 +659,11 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
     const label = parseConversionLabel(values.googleAdsPurchase);
     if (!label) return fail("La conversión de compra debe verse así: AW-123456789/AbCdEfGhIjKl (en Google Ads: Objetivos → Conversiones → tu acción → Configuración de la etiqueta).");
     values.googleAdsPurchase = label;
+  }
+  if (values.metaPixelId) {
+    const id = parseMetaPixelId(values.metaPixelId);
+    if (!id) return fail("El ID del píxel de Meta es solo un número (ej. 123456789012345): Administrador de eventos → tu píxel → Configuración. Pega solo el número, no el código.");
+    values.metaPixelId = id;
   }
   await saveSettings(values);
   await audit({ actorId: user.id, action: "settings.update", entity: "Setting", data: values });

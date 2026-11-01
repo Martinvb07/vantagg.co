@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { StoreSettings } from "@/server/settings";
 import { googleTagConfig } from "@/domain/google-tag";
+import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { CookieChoiceButton } from "@/components/legal/cookie-notice";
 
 /**
@@ -13,8 +14,12 @@ export type LegalDoc = { title: string; description: string; body: (s: StoreSett
 export const LEGAL_UPDATED = "2026-11-01";
 
 const company = (s: StoreSettings) => s.legalName || s.storeName;
-/** La tienda usa la etiqueta de Google para medir anuncios (Panel → Ajustes → Publicidad). */
-const ads = (s: StoreSettings) => !!googleTagConfig(s);
+/** Herramientas de medición de anuncios instaladas (Panel → Ajustes → Publicidad). */
+const meta = (s: StoreSettings) => !!parseMetaPixelId(s.metaPixelId);
+const google = (s: StoreSettings) => !!googleTagConfig(s);
+const ads = (s: StoreSettings) => meta(s) || google(s);
+/** «Meta (Facebook e Instagram) y Google» según lo que esté instalado. */
+const adsNames = (s: StoreSettings) => [meta(s) && "Meta (Facebook e Instagram)", google(s) && "Google"].filter(Boolean).join(" y ");
 const contact = (s: StoreSettings) => [s.supportEmail, s.whatsapp && `WhatsApp ${s.whatsapp}`].filter(Boolean).join(" · ") || "los canales publicados en el centro de ayuda";
 
 /** Datos del vendedor que exige el Estatuto del Consumidor (Ley 1480, art. 50). Solo se listan los que estén configurados. */
@@ -129,7 +134,7 @@ export const LEGAL: Record<string, LegalDoc> = {
           <strong>No</strong> pedimos tu contraseña de Free Fire ni de redes sociales, ni datos de tarjetas: el pago se hace en la plataforma de la
           pasarela.{" "}
           {ads(s)
-            ? "Solo si aceptas las cookies de publicidad en el aviso de cookies, Google recibe datos de tu visita (páginas vistas, inicio de compra y compras con su valor) para medir nuestros anuncios; nunca le enviamos tu correo ni tu ID de jugador."
+            ? `Solo si aceptas las cookies de publicidad en el aviso de cookies, ${adsNames(s)} ${meta(s) && google(s) ? "reciben" : "recibe"} datos de tu visita (páginas vistas, inicio de compra y compras con su valor) para medir nuestros anuncios; nunca le enviamos tu correo ni tu ID de jugador.`
             : "No usamos herramientas de analítica ni publicidad que te rastreen."}
         </p>
         <h2 id="finalidades">Finalidades</h2>
@@ -151,7 +156,14 @@ export const LEGAL: Record<string, LegalDoc> = {
           <li><strong>Proveedor de recargas</strong>: el ID de jugador y el paquete, para acreditar los diamantes.</li>
           <li><strong>Resend</strong> (envío de correos, Estados Unidos): tu correo y el contenido del mensaje.</li>
           <li><strong>Google</strong> (solo si eliges «Continuar con Google»): Google nos confirma tu correo y nombre; no recibimos tu contraseña.</li>
-          {ads(s) && (
+          {meta(s) && (
+            <li>
+              <strong>Meta Platforms</strong> (Meta Pixel de Facebook e Instagram, Irlanda y Estados Unidos, solo si aceptas las cookies de publicidad):
+              datos de navegación y de compras en la tienda, para medir los anuncios. Puedes cambiar tu elección en la{" "}
+              <a href="/legal/cookies">política de cookies</a>.
+            </li>
+          )}
+          {google(s) && (
             <li>
               <strong>Google Ads y Google Analytics</strong> (Estados Unidos, solo si aceptas las cookies de publicidad): datos de navegación y de compras
               en la tienda, para medir los anuncios. Puedes cambiar tu elección en la <a href="/legal/cookies">política de cookies</a>.
@@ -190,7 +202,7 @@ export const LEGAL: Record<string, LegalDoc> = {
         <h2 id="cookies">Cookies</h2>
         <p>
           {ads(s)
-            ? "Usamos cookies técnicas necesarias para que el sitio funcione y, solo si las aceptas, cookies de Google para medir nuestros anuncios. Detalle en la "
+            ? `Usamos cookies técnicas necesarias para que el sitio funcione y, solo si las aceptas, cookies de ${adsNames(s)} para medir nuestros anuncios. Detalle en la `
             : "Usamos solo cookies técnicas necesarias para que el sitio funcione (sesión y seguridad). Detalle en la "}
           <a href="/legal/cookies">política de cookies</a>.
         </p>
@@ -210,7 +222,7 @@ export const LEGAL: Record<string, LegalDoc> = {
         {ads(s) ? (
           <p>
             Las cookies son pequeños archivos que la página guarda en tu navegador. Usamos las necesarias para que la tienda funcione y, solo si las
-            aceptas, cookies de Google para medir nuestros anuncios. No usamos cookies de redes sociales.
+            aceptas, cookies de {adsNames(s)} para medir nuestros anuncios.
           </p>
         ) : (
           <p>
@@ -231,9 +243,9 @@ export const LEGAL: Record<string, LegalDoc> = {
           <>
             <h2>Cookies de publicidad (opcionales)</h2>
             <p>
-              Si aceptas en el aviso de cookies, Google Ads y Google Analytics guardan cookies para saber qué anuncio te trajo y si terminaste una
+              Si aceptas en el aviso de cookies, {adsNames(s)} guarda{meta(s) && google(s) ? "n" : ""} cookies para saber qué anuncio te trajo y si terminaste una
               compra (con su valor). Así medimos qué campañas funcionan. No les enviamos tu correo, tu teléfono ni tu ID de jugador. Si eliges «Solo
-              necesarias», Google no guarda cookies y solo recibe avisos anónimos sin identificarte.
+              necesarias», {[meta(s) && "no se envía nada a Meta", google(s) && "Google no guarda cookies (solo recibe avisos anónimos sin identificarte)"].filter(Boolean).join(" y ")}.
             </p>
             <p>
               <CookieChoiceButton />
