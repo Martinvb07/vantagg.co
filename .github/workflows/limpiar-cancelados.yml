@@ -62,7 +62,7 @@ jobs:
               console.log(`== Cancelados guardados ahora: ${j.cancelled} · listos para borrar: ${j.due} · esperan su correo de recordatorio: ${j.waiting ?? 0} · se conservan (cobro, entrega, chat, notas o soporte): ${j.kept}`);
               if (j.last24h) console.log(`== Últimas 24 h: ${j.last24h.deleted} pedido(s) cancelado(s) borrados · ${j.last24h.customers} cliente(s) guardados al borrarlos`);
               if (j.savedCustomers != null) console.log(`== Clientes guardados con pedidos sin pagar: ${j.savedCustomers} (${j.withoutPurchase} sin permiso de ofertas: no reciben ofertas)`);
-            });
+            });'
           if [ "$MODO" = "activar" ]; then
             # Respaldo de la base antes de borrar (si falla, no se borra nada).
             dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
