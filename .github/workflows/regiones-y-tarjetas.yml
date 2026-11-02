@@ -89,7 +89,11 @@ jobs:
           const schemaOf = (it) => (it.target_schema?.length ? it.target_schema : (it.target_fields || []).map((key) => ({ key, type: "text" })));
           (async () => {
             const c = await call("/catalog");
-            const items = (c.j?.items || []).filter((i) => String(i.product_id || "").startsWith("topup/free-fire/") && kindOf(i.name) && ["latam", "global"].includes(reg(i.region || i.market)));
+            const live = new Map((c.j?.items || []).map((i) => [i.product_id, i]));
+            // Las tarjetas se toman de la copia del catálogo que usa la tienda (misma región y nombre que ve la tienda).
+            const rows = await db.supplierProduct.findMany({ where: { regionSlug: { in: ["latam", "global"] } }, select: { productKey: true, regionSlug: true, name: true } });
+            const items = rows.filter((r) => kindOf(r.name) && live.has(r.productKey)).map((r) => ({ ...live.get(r.productKey), region: r.regionSlug }));
+            console.log(`   catálogo en vivo: ${live.size} productos · tarjetas de Latinoamérica y Global en la copia de la tienda: ${rows.filter((r) => kindOf(r.name)).length} (${items.length} también en vivo)`);
             const orders = await db.order.findMany({ where: { type: "TOPUP", status: "DELIVERED", isTest: false, playerId: { not: null } }, orderBy: { deliveredAt: "desc" }, take: 60, select: { playerId: true, itemSnapshot: true } });
             const ids = [...new Set(orders.filter((o) => (o.itemSnapshot || {}).region === "latam").map((o) => o.playerId))].slice(0, 2);
             console.log(`== Diagnóstico Central One (catálogo HTTP ${c.s}) · ${ids.length} cuenta(s) de Latinoamérica`);
