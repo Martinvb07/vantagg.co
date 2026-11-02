@@ -178,8 +178,12 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     expect(r.after).toEqual(["latam", "global"]);
     expect(state.settings.topupRegions).toBe("latam,global");
     expect(state.settings.topupRegionsOff).toBe("id");
+    expect(r.deactivated).toBeGreaterThanOrEqual(1);
+    expect((await db.diamondPackage.findUniqueOrThrow({ where: { slug: `gc-${RUN}-i110` } })).active).toBe(false);
     const all = await activateAllFreeFire({ general: 30, small: 40 });
     expect(all.regions).not.toContain("id");
+    // «Activar todo» no reactiva ni crea paquetes de la región quitada.
+    expect(await db.diamondPackage.count({ where: { region: "id", active: true } })).toBe(0);
     expect(state.settings.topupRegions.split(",")).not.toContain("id");
     // Sus paquetes no se borran.
     expect(await db.diamondPackage.count({ where: { slug: `gc-${RUN}-i110` } })).toBe(1);

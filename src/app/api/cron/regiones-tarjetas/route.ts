@@ -27,10 +27,10 @@ export async function POST(req: Request) {
   try {
     const before = parseRegionList((await getSettings()).topupRegions);
     const regions = dryRun
-      ? { before, after: before.filter((r) => !off.includes(r)), off: parseRegionList((await getSettings()).topupRegionsOff) }
+      ? { before, after: before.filter((r) => !off.includes(r)), off: parseRegionList((await getSettings()).topupRegionsOff), deactivated: 0 }
       : off.length
         ? await turnOffRegions(off)
-        : { before, after: before, off: parseRegionList((await getSettings()).topupRegionsOff) };
+        : { before, after: before, off: parseRegionList((await getSettings()).topupRegionsOff), deactivated: 0 };
     const evidence = await globalDeliveredToLatam();
     const cards = body.cards === true ? await moveGlobalCardsToLatam({ dryRun }) : null;
     return NextResponse.json({ ok: true, dryRun, regions, evidence, cards });

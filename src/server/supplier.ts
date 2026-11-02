@@ -312,8 +312,11 @@ export async function activateAllFreeFire(rule?: MinMarginRule): Promise<Activat
   }
   const { usdtCop, margin, minMargin } = await supplierRate();
 
-  const rows = await db.supplierProduct.findMany({ where: { game: GAME, delivery: "player_id" }, orderBy: [{ regionSlug: "asc" }, { amount: "asc" }, { priceCents: "asc" }] });
-  const deliverable = new Set(rows.map((r) => r.productKey));
+  // Regiones quitadas a mano (p. ej. Europa e Indonesia): no se crea ni se reactiva nada de ellas.
+  const off = new Set(parseRegionList((await getSettings()).topupRegionsOff));
+  const all = await db.supplierProduct.findMany({ where: { game: GAME, delivery: "player_id" }, orderBy: [{ regionSlug: "asc" }, { amount: "asc" }, { priceCents: "asc" }] });
+  const deliverable = new Set(all.map((r) => r.productKey));
+  const rows = all.filter((r) => !off.has(r.regionSlug));
   const skippedSmall = rows.filter((r) => isDiamondPack(r) && !sellableDiamonds(r)).length;
 
   // Qué se vende: un producto por cantidad de diamantes y uno por tipo de tarjeta/pase en cada región (el más barato).
@@ -385,8 +388,7 @@ export async function activateAllFreeFire(rule?: MinMarginRule): Promise<Activat
   }
 
   // 3) Todas las regiones con algo que vender quedan visibles (Latinoamérica primero, «Global» al final),
-  //    salvo las que se apagaron a mano (p. ej. Indonesia): esas siguen ocultas.
-  const off = new Set(parseRegionList((await getSettings()).topupRegionsOff));
+  //    salvo las que se quitaron a mano: esas siguen ocultas.
   const withPackages = [...new Set(pkgs.filter((p) => p.active && p.providerSku && deliverable.has(p.providerSku) && !off.has(p.region)).map((p) => p.region))];
   const regions = withPackages.map((slug) => ({ slug, label: regionLabel(slug) })).sort(compareRegions).map((r) => r.slug);
   if (regions.length) await updateEnabledRegions(() => regions);
@@ -419,15 +421,21 @@ export async function rememberRegionsOff(slugs: string[], off: boolean): Promise
   return next;
 }
 
-/** Apaga regiones en la tienda (siempre queda al menos una). Los paquetes y pedidos no se tocan. */
-export async function turnOffRegions(slugs: string[]): Promise<{ before: string[]; after: string[]; off: string[] }> {
+/**
+ * Quita regiones de la tienda de forma definitiva (siempre queda al menos una): dejan de verse, sus paquetes se
+ * desactivan y «Activar todo» no las vuelve a traer. Los pedidos y su historial no se tocan.
+ */
+export async function turnOffRegions(slugs: string[]): Promise<{ before: string[]; after: string[]; off: string[]; deactivated: number }> {
   const before = parseRegionList((await getSettings()).topupRegions);
   const after = await updateEnabledRegions((current) => {
     const next = current.filter((r) => !slugs.includes(r));
     return next.length ? next : current;
   });
-  const off = await rememberRegionsOff(slugs.filter((r) => !after.includes(r)), true);
-  return { before, after, off };
+  const removed = slugs.filter((r) => !after.includes(r));
+  const off = await rememberRegionsOff(removed, true);
+  const { count } = removed.length ? await db.diamondPackage.updateMany({ where: { region: { in: removed }, active: true }, data: { active: false } }) : { count: 0 };
+  if (removed.length) await audit({ actorId: null, action: "supplier.regions_removed", entity: "Setting", data: { regions: removed, deactivated: count } });
+  return { before, after, off, deactivated: count };
 }
 
 // Cambios a la lista de regiones activas, uno a la vez (dos clics seguidos no deben pisarse).

@@ -139,7 +139,7 @@ jobs:
               const R = j.regions;
               console.log("");
               console.log(`== Regiones visibles: ${R.before.join(", ")}${j.dryRun ? "  →  quedarían: " : "  →  ahora: "}${R.after.join(", ")}`);
-              if (!j.dryRun) console.log(`   Apagadas a mano («Activar todo» no las vuelve a mostrar): ${R.off.join(", ") || "ninguna"}`);
+              if (!j.dryRun) console.log(`   Quitadas de la tienda («Activar todo» no las vuelve a traer): ${R.off.join(", ") || "ninguna"} · ${R.deactivated} paquete(s) desactivados`);
               console.log("");
               console.log(`== Historial: ${j.evidence.globalDelivered} recarga(s) de Global entregadas · ${j.evidence.latamAccounts} de ellas a cuentas que también recibieron recargas de Latinoamérica`);
               if (j.cards) {
