@@ -147,6 +147,15 @@ export function buildTargetPayload(schema: CoTargetField[], playerId: string, re
   return hasPlayer ? out : null;
 }
 
+/**
+ * target_payload de un producto para una región de la tienda. Si el producto es de otra región (p. ej. una tarjeta
+ * de Global que se vende en Latinoamérica) y pide elegir servidor, se usa el de su propia región.
+ */
+export function targetPayloadFor(item: Pick<CoCatalogItem, "requires_target" | "target_fields" | "target_schema" | "region">, playerId: string, regionName?: string | null): Record<string, string> | null {
+  const schema = targetSchemaOf(item);
+  return buildTargetPayload(schema, playerId, regionName ?? item.region) ?? (regionName && item.region && regionName !== item.region ? buildTargetPayload(schema, playerId, item.region) : null);
+}
+
 /** Catálogo de Free Fire agrupado por región, en la forma que usa la sincronización de la tienda. */
 export function normalizeCatalog(items: CoCatalogItem[]): { currency: string; groups: NormalizedGroup[] } {
   const groups = new Map<string, NormalizedGroup>();

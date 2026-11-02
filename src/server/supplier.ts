@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { compareRegions, DEFAULT_TOPUP_REGION, floorPrice, MIN_DIAMOND_PACK, minMarginFor, type MinMarginRule, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { PASS_INFO, passKindOf, type PassKind } from "@/domain/packs";
 import { audit } from "@/lib/audit";
-import { activeWholesale } from "./integrations/topup";
+import { activeTopUpProvider, activeWholesale } from "./integrations/topup";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import type { TopUpProvider } from "./integrations/topup/types";
 import { getSettings, saveSettings } from "./settings";
@@ -384,8 +384,10 @@ export async function activateAllFreeFire(rule?: MinMarginRule): Promise<Activat
     }
   }
 
-  // 3) Todas las regiones con algo que vender quedan visibles (Latinoamérica primero, «Global» al final).
-  const withPackages = [...new Set(pkgs.filter((p) => p.active && p.providerSku && deliverable.has(p.providerSku)).map((p) => p.region))];
+  // 3) Todas las regiones con algo que vender quedan visibles (Latinoamérica primero, «Global» al final),
+  //    salvo las que se apagaron a mano (p. ej. Indonesia): esas siguen ocultas.
+  const off = new Set(parseRegionList((await getSettings()).topupRegionsOff));
+  const withPackages = [...new Set(pkgs.filter((p) => p.active && p.providerSku && deliverable.has(p.providerSku) && !off.has(p.region)).map((p) => p.region))];
   const regions = withPackages.map((slug) => ({ slug, label: regionLabel(slug) })).sort(compareRegions).map((r) => r.slug);
   if (regions.length) await updateEnabledRegions(() => regions);
 
@@ -404,6 +406,28 @@ function passSlug(kind: PassKind, regionSlug: string) {
 
 async function freeSlug(slug: string) {
   return (await db.diamondPackage.findUnique({ where: { slug }, select: { id: true } })) ? `${slug}-${Date.now().toString(36)}` : slug;
+}
+
+/**
+ * Recuerda las regiones apagadas a mano (para que «Activar todo» no las vuelva a mostrar) o las quita de esa
+ * lista al encenderlas de nuevo.
+ */
+export async function rememberRegionsOff(slugs: string[], off: boolean): Promise<string[]> {
+  const current = parseRegionList((await getSettings()).topupRegionsOff);
+  const next = off ? [...new Set([...current, ...slugs])] : current.filter((r) => !slugs.includes(r));
+  if (next.join(",") !== current.join(",")) await saveSettings({ topupRegionsOff: next.join(",") });
+  return next;
+}
+
+/** Apaga regiones en la tienda (siempre queda al menos una). Los paquetes y pedidos no se tocan. */
+export async function turnOffRegions(slugs: string[]): Promise<{ before: string[]; after: string[]; off: string[] }> {
+  const before = parseRegionList((await getSettings()).topupRegions);
+  const after = await updateEnabledRegions((current) => {
+    const next = current.filter((r) => !slugs.includes(r));
+    return next.length ? next : current;
+  });
+  const off = await rememberRegionsOff(slugs.filter((r) => !after.includes(r)), true);
+  return { before, after, off };
 }
 
 // Cambios a la lista de regiones activas, uno a la vez (dos clics seguidos no deben pisarse).
@@ -527,4 +551,120 @@ async function checkPerProduct(provider: TopUpProvider, playerId: string, region
     ok: false,
     error: regions.length > 1 ? `No encontramos ese ID en ${regionsText(regions)}. Revísalo e intenta de nuevo.` : "No encontramos ese ID de jugador. Revísalo e intenta de nuevo.",
   };
+}
+
+// ---------------------------------------------------------------------
+// Tarjetas de Global en Latinoamérica
+// ---------------------------------------------------------------------
+
+/** Tarjetas de membresía (no pases): las que se pasan de Global a Latinoamérica si allá son más baratas. */
+export const MEMBERSHIP_CARDS: PassKind[] = ["weekly-lite", "weekly", "monthly"];
+
+export type CardMove = {
+  card: string;
+  action: "moved" | "created" | "kept" | "skipped";
+  reason: string;
+  priceFrom: number | null;
+  priceTo: number | null;
+  /** Comprobación con Central One: cuentas reales de Latinoamérica que el producto de Global acepta. */
+  checks: { valid: number; invalid: number; unverified: number };
+};
+
+/**
+ * Pasa las tarjetas de membresía de Latinoamérica al producto de Global cuando el de Global es más barato (o en
+ * Latinoamérica no existe o está agotado), para venderlas a mejor precio. Solo si Central One confirma, con IDs
+ * reales de cuentas de Latinoamérica (de pedidos entregados), que el producto de Global las acepta: es la misma
+ * comprobación gratuita que se hace con cada cliente, no compra nada. El precio baja al de la tarjeta de Global
+ * en la tienda (o al sugerido), nunca por debajo de la ganancia mínima. `dryRun`: solo informa.
+ */
+export async function moveGlobalCardsToLatam(opts: { dryRun?: boolean } = {}): Promise<{ moves: CardMove[]; accounts: number }> {
+  const provider = activeTopUpProvider();
+  if (!provider?.wholesale || provider.wholesale.playerCheck !== "per-product") throw new SupplierError("not_configured", 0, "Hace falta Central One para comprobar las cuentas.");
+  await syncSupplierCatalog();
+  const { usdtCop, margin, minMargin } = await supplierRate();
+  const latamName = (await supplierRegionName(DEFAULT_TOPUP_REGION)) ?? "LATAM";
+
+  const cheapest = async (region: string) => {
+    const byKind = new Map<PassKind, Awaited<ReturnType<typeof supplierPasses>>[number]["product"]>();
+    for (const { product, kind } of await supplierPasses(region)) {
+      const prev = byKind.get(kind);
+      if (!prev || (prev.outOfStock && !product.outOfStock) || (prev.outOfStock === product.outOfStock && product.priceCents < prev.priceCents)) byKind.set(kind, product);
+    }
+    return byKind;
+  };
+  const [global, latam] = await Promise.all([cheapest(GLOBAL_REGION), cheapest(DEFAULT_TOPUP_REGION)]);
+
+  // Cuentas reales de Latinoamérica: IDs de recargas entregadas en esa región (los más recientes, sin repetir).
+  const recent = await db.order.findMany({
+    where: { type: "TOPUP", status: "DELIVERED", isTest: false, playerId: { not: null }, itemSnapshot: { path: "$.region", equals: DEFAULT_TOPUP_REGION } },
+    orderBy: { deliveredAt: "desc" },
+    take: 60,
+    select: { playerId: true },
+  });
+  const ids = [...new Set(recent.map((r) => r.playerId!).filter((id) => /^\d{6,12}$/.test(id)))].slice(0, 5);
+
+  const pkgs = await db.diamondPackage.findMany({ where: { diamonds: 0 }, orderBy: { updatedAt: "desc" } });
+  const moves: CardMove[] = [];
+  for (const kind of MEMBERSHIP_CARDS) {
+    const card = PASS_INFO[kind].title;
+    const g = global.get(kind);
+    const pkg = pkgs.find((p) => p.region === DEFAULT_TOPUP_REGION && p.active && passKindOf(p.name) === kind) ?? null;
+    const move = (action: CardMove["action"], reason: string, checks = { valid: 0, invalid: 0, unverified: 0 }, priceTo: number | null = pkg?.price ?? null): CardMove => ({ card, action, reason, priceFrom: pkg?.price ?? null, priceTo, checks });
+    if (!g) { moves.push(move("skipped", "Central One no vende esta tarjeta en Global.")); continue; }
+    if (g.outOfStock) { moves.push(move("skipped", "La de Global está agotada.")); continue; }
+    if (pkg?.providerSku === g.productKey) { moves.push(move("kept", "Ya usa la tarjeta de Global.")); continue; }
+    const own = latam.get(kind);
+    const currentCost = pkg?.costCents ?? own?.priceCents ?? null;
+    const latamUsable = !!pkg && !pkg.supplierOutOfStock && currentCost != null;
+    if (latamUsable && g.priceCents >= currentCost!) { moves.push(move("kept", "La de Latinoamérica ya cuesta igual o menos que la de Global.")); continue; }
+
+    // ¿Central One entrega la de Global a cuentas de Latinoamérica? Se pregunta con cuentas reales (gratis).
+    const checks = { valid: 0, invalid: 0, unverified: 0 };
+    for (const id of ids) {
+      const r = await provider.validatePlayer(id, { productKey: g.productKey, region: latamName }).catch(() => ({ valid: true, verifiable: false }) as const);
+      if (r.verifiable && r.valid) checks.valid++;
+      else if (r.verifiable) checks.invalid++;
+      else checks.unverified++;
+      if (checks.valid >= 2) break;
+    }
+    if (!ids.length) { moves.push(move("skipped", "No hay cuentas de Latinoamérica con entregas para comprobarla.", checks)); continue; }
+    if (!checks.valid) { moves.push(move("skipped", "Central One no confirmó que la tarjeta de Global sirva para cuentas de Latinoamérica.", checks)); continue; }
+
+    // Precio: el de esa tarjeta en Global en la tienda (o el sugerido), nunca más caro que el actual ni bajo la ganancia mínima.
+    const globalListing = pkgs.find((p) => p.active && p.providerSku === g.productKey);
+    const target = globalListing?.price ?? suggestedPrice(g.priceCents, usdtCop, margin);
+    const price = withFloor(pkg ? Math.min(pkg.price, target) : target, g.priceCents, usdtCop, minMargin.general);
+    if (opts.dryRun) { moves.push(move(pkg ? "moved" : "created", "Se haría (modo revisar).", checks, price)); continue; }
+    if (pkg) {
+      await db.diamondPackage.update({
+        where: { id: pkg.id },
+        // Si el precio cambia, se quita el «precio anterior» tachado (no se inventan descuentos).
+        data: { providerSku: g.productKey, costCents: g.priceCents, supplierOutOfStock: false, available: true, price, ...(pkg.compareAtPrice != null && (price !== pkg.price || pkg.compareAtPrice <= price) ? { compareAtPrice: null } : {}) },
+      });
+      moves.push(move("moved", pkg.supplierOutOfStock ? "La de Latinoamérica estaba agotada; ahora usa la de Global." : "Ahora usa la tarjeta de Global (más barata).", checks, price));
+    } else {
+      await db.diamondPackage.create({
+        data: { slug: await freeSlug(passSlug(kind, DEFAULT_TOPUP_REGION)), name: card, diamonds: 0, bonusDiamonds: 0, price, region: DEFAULT_TOPUP_REGION, providerSku: g.productKey, costCents: g.priceCents, supplierOutOfStock: false, sortOrder: 100 + PASS_INFO[kind].sort, active: true, available: true },
+      });
+      moves.push(move("created", "Latinoamérica no la tenía: se agregó con la de Global.", checks, price));
+    }
+  }
+  if (!opts.dryRun && moves.some((m) => m.action === "moved" || m.action === "created")) {
+    await audit({ actorId: null, action: "supplier.global_cards_latam", entity: "DiamondPackage", data: { moves: moves.map(({ card, action, priceFrom, priceTo, checks }) => ({ card, action, priceFrom, priceTo, checks })) } });
+  }
+  return { moves, accounts: ids.length };
+}
+
+/**
+ * Prueba con el historial: recargas de Global ya entregadas a cuentas que también recibieron recargas de
+ * Latinoamérica (es decir, cuentas de Latinoamérica a las que el producto de Global sí les llegó). Solo conteos.
+ */
+export async function globalDeliveredToLatam(): Promise<{ globalDelivered: number; latamAccounts: number }> {
+  const where = (region: string) => ({ type: "TOPUP" as const, status: "DELIVERED" as const, isTest: false, playerId: { not: null }, itemSnapshot: { path: "$.region", equals: region } });
+  const [g, l] = await Promise.all([
+    db.order.findMany({ where: where(GLOBAL_REGION), select: { playerId: true }, take: 5000 }),
+    db.order.findMany({ where: where(DEFAULT_TOPUP_REGION), select: { playerId: true }, distinct: ["playerId"], take: 20000 }),
+  ]);
+  const latamIds = new Set(l.map((o) => o.playerId));
+  return { globalDelivered: g.length, latamAccounts: new Set(g.map((o) => o.playerId).filter((id) => latamIds.has(id))).size };
 }

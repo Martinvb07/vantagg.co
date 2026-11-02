@@ -1,0 +1,113 @@
+name: Regiones y tarjetas de Global
+
+# Manual. 1) Apaga regiones en la tienda (por defecto Indonesia); «Activar todo» ya no las vuelve a mostrar.
+# 2) Pasa las tarjetas de membresía (Semanal Básica, Semanal, Mensual) de Latinoamérica al producto de Global si
+#    allá es más barato, solo si Central One confirma con cuentas reales de Latinoamérica que la de Global les llega
+#    (comprobación gratuita, no compra nada). El precio baja, nunca por debajo de la ganancia mínima.
+# Modo «revisar»: no cambia nada, solo informa. Modo «aplicar»: respalda la base de datos y aplica.
+# El repositorio es público: se muestran precios de venta (son públicos), nunca costos, saldo ni IDs de jugadores.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: revisar (no cambia nada) o aplicar
+        type: choice
+        options: [revisar, aplicar]
+        default: revisar
+      apagar_regiones:
+        description: "Regiones a apagar, separadas por coma (id = Indonesia). Vacío = ninguna"
+        type: string
+        default: id
+      tarjetas_global:
+        description: Pasar las tarjetas de Global a Latinoamérica
+        type: choice
+        options: [si, no]
+        default: si
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    name: Regiones y tarjetas
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Revisar o aplicar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          MODO: ${{ inputs.modo }}
+          APAGAR: ${{ inputs.apagar_regiones }}
+          TARJETAS: ${{ inputs.tarjetas_global }}
+        run: |
+          set -euo pipefail
+          [[ "$APAGAR" =~ ^[a-z0-9,\ -]{0,120}$ ]] || { echo "✖ Regiones inválidas (usa slugs como id, eu, brazil)."; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' MODO='$MODO' APAGAR='$APAGAR' TARJETAS='$TARJETAS' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD) · modo: $MODO"
+
+          if [ "$MODO" = "aplicar" ]; then
+            # Respaldo de la base de datos antes de cambiar regiones y paquetes (si falla, no se cambia nada).
+            dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
+            archivo="$dest/db-antes-regiones-tarjetas-$(date +%Y%m%d-%H%M).sql.gz"
+            mysqldump --defaults-extra-file="$HOME/.my-vanta.cnf" --single-transaction --routines --no-tablespaces vanta_store | gzip > "$archivo"
+            [ "$(gzip -cd "$archivo" | head -c 100000 | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "✖ El respaldo salió vacío: no se cambió nada."; exit 1; }
+            echo "✔ respaldo: $(basename "$archivo") ($(du -h "$archivo" | cut -f1))"
+          fi
+
+          s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          [ -n "$s" ] || { echo "✖ Falta CRON_SECRET en .env"; exit 1; }
+          body=$(node -e 'const off = (process.env.APAGAR || "").split(",").map((x) => x.trim()).filter(Boolean); console.log(JSON.stringify({ off, cards: process.env.TARJETAS === "si", dryRun: process.env.MODO !== "aplicar" }))')
+          r=$(curl -sS --max-time 300 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" \
+            --data "$body" http://127.0.0.1:3020/api/cron/regiones-tarjetas || true)
+          printf '%s' "$r" | node -e '
+            let t = ""; process.stdin.on("data", (c) => (t += c)).on("end", () => {
+              let j; try { j = JSON.parse(t); } catch { console.log("✖ Respuesta inesperada:", t.slice(0, 300)); process.exit(1); }
+              if (!j.ok) { console.log("✖ No se pudo:", j.error || t.slice(0, 300)); process.exit(1); }
+              const cop = (n) => (n == null ? "—" : "$" + Number(n).toLocaleString("es-CO"));
+              const R = j.regions;
+              console.log("");
+              console.log(`== Regiones visibles: ${R.before.join(", ")}${j.dryRun ? "  →  quedarían: " : "  →  ahora: "}${R.after.join(", ")}`);
+              if (!j.dryRun) console.log(`   Apagadas a mano («Activar todo» no las vuelve a mostrar): ${R.off.join(", ") || "ninguna"}`);
+              console.log("");
+              console.log(`== Historial: ${j.evidence.globalDelivered} recarga(s) de Global entregadas · ${j.evidence.latamAccounts} de ellas a cuentas que también recibieron recargas de Latinoamérica`);
+              if (j.cards) {
+                console.log("");
+                console.log(`== Tarjetas de Global en Latinoamérica (${j.cards.accounts} cuenta(s) real(es) de Latinoamérica para comprobar):`);
+                const icon = { moved: "✔", created: "✔", kept: "•", skipped: "⚠" };
+                for (const m of j.cards.moves) {
+                  const c = m.checks, tot = c.valid + c.invalid + c.unverified;
+                  const price = m.priceFrom != null && m.priceTo != null && m.priceFrom !== m.priceTo ? ` · ${cop(m.priceFrom)} → ${cop(m.priceTo)}` : m.priceTo != null ? ` · ${cop(m.priceTo)}` : "";
+                  const chk = tot ? ` · Central One: ${c.valid} cuenta(s) aceptada(s), ${c.invalid} rechazada(s), ${c.unverified} sin respuesta` : "";
+                  console.log(`   ${icon[m.action] || "•"} ${m.card}: ${m.reason}${price}${chk}`);
+                }
+              }
+              if (j.dryRun) { console.log(""); console.log("ℹ Modo revisar: no se cambió nada. Corre de nuevo con modo «aplicar» para hacerlo."); }
+            });'
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

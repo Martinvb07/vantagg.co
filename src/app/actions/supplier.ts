@@ -5,7 +5,7 @@ import { audit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { DEFAULT_TOPUP_REGION, regionLabel } from "@/domain/topup-regions";
-import { activateAllFreeFire, enforceMinimumMargins, fetchDailyUsdCop, importRegionPackages, importRegionPasses, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
+import { activateAllFreeFire, enforceMinimumMargins, fetchDailyUsdCop, importRegionPackages, importRegionPasses, rememberRegionsOff, syncSupplierCatalog, updateEnabledRegions } from "@/server/supplier";
 import { saveSettings } from "@/server/settings";
 import type { ActionResult } from "./admin";
 
@@ -87,6 +87,8 @@ export async function toggleRegionAction(_: ActionResult, form: FormData): Promi
     return next;
   });
   if (lastOne) return fail("Debe quedar al menos una región activa.");
+  // Apagada a mano: «Activar todo» la respeta. Encendida: sale de esa lista.
+  await rememberRegionsOff([slug], !enable);
   await audit({ actorId: user.id, action: enable ? "supplier.region_on" : "supplier.region_off", entity: "Setting", entityId: slug, data: { created } });
   refresh();
   const name = regionLabel(slug);

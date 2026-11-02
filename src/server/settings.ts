@@ -45,6 +45,7 @@ export const SETTING_DEFAULTS = {
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
+  topupRegionsOff: "", // regiones apagadas a mano (p. ej. "id"): «Activar todo» no las vuelve a mostrar
   usdtCop: "3400", // pesos por 1 USDT, para calcular costos y márgenes
   topupMargin: "30", // % de margen para precios sugeridos de regiones nuevas
   minMarginPct: "0", // ganancia mínima (% del precio de venta) de todos los paquetes; 0 = sin mínimo
@@ -53,7 +54,7 @@ export const SETTING_DEFAULTS = {
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

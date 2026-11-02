@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { verifyCentralOneWebhook } from "../payments/signatures";
-import { buildTargetPayload, idempotencyKeyFor, mapCoOrder, normalizeCatalog, targetSchemaOf, type CoCatalogItem, type CoOrder } from "./centralone-core";
+import { idempotencyKeyFor, mapCoOrder, normalizeCatalog, targetPayloadFor, type CoCatalogItem, type CoOrder } from "./centralone-core";
 import { SupplierError } from "./rechargegame";
 import type { PlayerValidation, TopUpProvider, TopUpRequest, TopUpResult, WholesaleApi, WholesaleOrder } from "./types";
 
@@ -81,7 +81,7 @@ async function catalogItem(productId: string): Promise<CoCatalogItem> {
 
 async function payloadFor(productId: string, playerId: string, regionName?: string | null) {
   const item = await catalogItem(productId);
-  const payload = buildTargetPayload(targetSchemaOf(item), playerId, regionName ?? item.region);
+  const payload = targetPayloadFor(item, playerId, regionName);
   if (!payload) throw new SupplierError("unsupported_target", 422, "Este producto pide datos que la tienda no maneja (además del ID del jugador).");
   return payload;
 }
