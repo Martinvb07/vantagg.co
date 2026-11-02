@@ -159,11 +159,12 @@ export default async function SettingsAdmin() {
 
         <Panel title="Pedidos cancelados">
           <p className="mb-3 text-[12.5px] text-fg-muted">
-            Los pedidos que vencieron sin pagar se borran solos para que no llenen el historial: 24 horas después del correo «¿Aún quieres tus diamantes?», o 2 días después de cancelarse si no les tocaba correo. Los clientes no se borran: las cuentas y los contactos que aceptaron ofertas siguen recibiendo correos.
+            Los pedidos que vencieron sin pagar se borran solos 12 horas después de cancelarse, cuando ya se les envió el correo «¿Aún quieres tus diamantes?» (o si ese correo no les tocaba). Del pedido queda solo el cliente: su correo, su ID de jugador y cuántos pedidos dejó sin pagar, para ver en Clientes si compra después. Sin su permiso no recibe ofertas.
           </p>
           <Check name="purgeCancelled" label="Borrar los pedidos cancelados sin pago" defaultChecked={s.purgeCancelled === "true"} />
           <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
             {purge.due ? `Ahora mismo hay ${purge.due} pedido(s) cancelado(s) listos para borrar.` : "No hay pedidos cancelados para borrar ahora."}
+            {purge.waiting ? ` ${purge.waiting} esperan su correo de recordatorio antes de borrarse.` : ""}
             {purge.kept ? ` ${purge.kept} cancelado(s) se conservan porque tienen cobro, entrega, chat, notas o soporte.` : ""} Nunca se borran pedidos pagados ni con dinero de por medio.
           </p>
         </Panel>

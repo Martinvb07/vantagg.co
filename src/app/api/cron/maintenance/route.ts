@@ -44,7 +44,7 @@ export async function GET(req: Request) {
   });
   // Tasas de cambio del día para los precios en otros países (cada 12 h).
   await ensureFxRates().catch(() => false);
-  // Pedidos cancelados sin pago: se borran 24 h después del correo «comprar de nuevo» (si está activado en Ajustes).
+  // Pedidos cancelados sin pago: se borran 12 h después de cancelarse, ya enviado el correo «comprar de nuevo»; queda el cliente.
   const purged = (await getSettings()).purgeCancelled === "true" ? await purgeCancelledOrders().then((r) => r.deleted).catch((e) => {
     console.error("[pedidos] no se pudieron borrar los cancelados:", (e as Error).message);
     return 0;

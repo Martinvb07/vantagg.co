@@ -20,5 +20,5 @@ export async function POST(req: Request) {
   const dryRun = body.dryRun !== false;
   if (!dryRun && body.enable === true) await saveSettings({ purgeCancelled: "true" });
   const r = await purgeCancelledOrders({ dryRun });
-  return NextResponse.json({ ok: true, dryRun, due: r.due, kept: r.kept, deleted: r.deleted, enabled: !dryRun && body.enable === true });
+  return NextResponse.json({ ok: true, dryRun, due: r.due, kept: r.kept, waiting: r.waiting, deleted: r.deleted, customers: r.customers, enabled: !dryRun && body.enable === true });
 }

@@ -58,15 +58,18 @@ model User {
 /// Comprador sin cuenta que aceptó ofertas por correo al pagar (Ley 1581: autorización previa y expresa).
 /// Se conserva aunque se borren sus pedidos sin pagar, para los correos de ofertas; se da de baja con un clic.
 model EmailContact {
-  id        String    @id @default(cuid())
-  email     String    @unique @db.VarChar(191)
-  playerId  String?   @db.VarChar(12) // ID de Free Fire de su última compra, para recargar en un clic
-  optIn     Boolean   @default(true)
-  consentAt DateTime? // cuándo aceptó
-  optOutAt  DateTime? // cuándo se dio de baja
-  source    String    @db.VarChar(40) // dónde aceptó (ej. «checkout-recarga»)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  email        String    @unique @db.VarChar(191)
+  playerId     String?   @db.VarChar(12) // ID de Free Fire de su última compra, para recargar en un clic
+  optIn        Boolean   @default(true)
+  consentAt    DateTime? // cuándo aceptó
+  optOutAt     DateTime? // cuándo se dio de baja
+  source       String    @db.VarChar(40) // dónde aceptó (ej. «checkout-recarga») o «pedido-sin-pagar» (cliente sin permiso de ofertas)
+  /// Pedidos que dejó sin pagar y ya se borraron (el pedido se borra; el cliente queda para ver si compra después).
+  unpaidOrders Int       @default(0)
+  lastOrderAt  DateTime? // último pedido que hizo (pagado o no)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 enum EmailCodePurpose {

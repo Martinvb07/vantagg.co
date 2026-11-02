@@ -18,18 +18,19 @@ export default async function CustomerDetail({ searchParams }: { searchParams: P
   const email = (await searchParams).correo?.trim().toLowerCase().slice(0, 191);
   if (!email) notFound();
 
-  const [orders, tickets, user] = await Promise.all([
+  const [orders, tickets, user, contact] = await Promise.all([
     db.order.findMany({ where: { customerEmail: email }, orderBy: { createdAt: "desc" }, take: 200 }),
     db.supportTicket.findMany({ where: { email }, orderBy: { createdAt: "desc" }, take: 50 }),
     db.user.findUnique({ where: { email }, select: { name: true, createdAt: true, role: true, disabled: true } }),
+    db.emailContact.findUnique({ where: { email }, select: { playerId: true, unpaidOrders: true, lastOrderAt: true, optIn: true, createdAt: true } }),
   ]);
-  if (!orders.length && !tickets.length && !user) notFound();
+  if (!orders.length && !tickets.length && !user && !contact) notFound();
 
   const sold = orders.filter((o) => (REVENUE_STATUSES as readonly OrderStatusValue[]).includes(o.status) && !o.isTest);
   const spent = sold.reduce((n, o) => n + o.total, 0);
   const name = user?.name ?? orders.find((o) => o.customerName)?.customerName ?? null;
   const phone = orders.find((o) => o.customerPhone)?.customerPhone ?? null;
-  const players = [...new Set(orders.map((o) => o.playerId).filter(Boolean))] as string[];
+  const players = [...new Set([...orders.map((o) => o.playerId), contact?.playerId].filter(Boolean))] as string[];
   const wa = whatsappLink(phone, `Hola${name ? ` ${name.split(" ")[0]}` : ""}, te escribimos de la tienda.`);
 
   return (
@@ -44,6 +45,7 @@ export default async function CustomerDetail({ searchParams }: { searchParams: P
             {email}
             {user ? <Badge tone="info">Registrado {formatDate(user.createdAt, false)}</Badge> : <Badge tone="neutral">Compra como invitado</Badge>}
             {user?.disabled && <Badge tone="danger">Deshabilitado</Badge>}
+            {contact?.optIn && <Badge tone="success">Acepta ofertas</Badge>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -59,7 +61,11 @@ export default async function CustomerDetail({ searchParams }: { searchParams: P
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Compras confirmadas" value={formatNumber(sold.length)} hint={`${orders.length} pedido(s) en total`} />
+        <Stat
+          label="Compras confirmadas"
+          value={formatNumber(sold.length)}
+          hint={`${orders.length + (contact?.unpaidOrders ?? 0)} pedido(s) en total${contact?.unpaidOrders ? ` · ${contact.unpaidOrders} sin pagar (borrados)` : ""}`}
+        />
         <Stat label="Gasto total" value={formatMoney(spent)} hint="Excluye pedidos de prueba" />
         <Stat label="Ticket promedio" value={formatMoney(sold.length ? Math.round(spent / sold.length) : 0)} />
         <Stat label="Primera compra" value={orders.length ? formatDate(orders[orders.length - 1].createdAt, false) : "—"} hint={phone ? `Tel. ${phone}` : undefined} />

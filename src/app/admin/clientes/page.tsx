@@ -18,7 +18,10 @@ const SORTS = {
   pedidos: "Más pedidos",
 } as const;
 
-/** Clientes agrupados por correo de compra (con o sin cuenta en la tienda). */
+/**
+ * Clientes agrupados por correo de compra (con o sin cuenta en la tienda). Incluye a quienes solo dejaron pedidos
+ * sin pagar: esos pedidos se borran, pero el cliente queda (con cuántos dejó sin pagar) para ver si compra después.
+ */
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; orden?: string; prueba?: string }> }) {
   const viewer = await requireStaff();
   const sp = await searchParams;
@@ -26,15 +29,25 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const sort = (sp.orden && sp.orden in SORTS ? sp.orden : "reciente") as keyof typeof SORTS;
   const base: Prisma.OrderWhereInput = { ...(q ? { customerEmail: { contains: q } } : {}), ...(sp.prueba === "0" ? { isTest: false } : {}) };
 
-  const [all, paid] = await Promise.all([
+  const [all, paid, contacts] = await Promise.all([
     db.order.groupBy({ by: ["customerEmail"], where: base, _count: { _all: true }, _max: { createdAt: true }, orderBy: { _max: { createdAt: "desc" } }, take: 1000 }),
     db.order.groupBy({ by: ["customerEmail"], where: { ...base, status: { in: [...REVENUE_STATUSES] } }, _count: { _all: true }, _sum: { total: true }, orderBy: { _sum: { total: "desc" } }, take: 1000 }),
+    db.emailContact.findMany({ where: q ? { email: { contains: q } } : {}, select: { email: true, unpaidOrders: true, lastOrderAt: true, optIn: true, createdAt: true }, orderBy: { updatedAt: "desc" }, take: 2000 }),
   ]);
   const paidBy = new Map(paid.map((p) => [p.customerEmail, p]));
+  const contactBy = new Map(contacts.map((c) => [c.email.toLowerCase(), c]));
+  const later = (a: Date | null | undefined, b: Date | null | undefined) => (a && b ? (a > b ? a : b) : (a ?? b ?? null));
   const rows = all.map((a) => {
     const p = paidBy.get(a.customerEmail);
-    return { email: a.customerEmail, orders: a._count._all, purchases: p?._count._all ?? 0, spent: p?._sum.total ?? 0, last: a._max.createdAt };
+    const c = contactBy.get(a.customerEmail.toLowerCase());
+    return { email: a.customerEmail, orders: a._count._all + (c?.unpaidOrders ?? 0), unpaid: c?.unpaidOrders ?? 0, offers: !!c?.optIn, purchases: p?._count._all ?? 0, spent: p?._sum.total ?? 0, last: later(a._max.createdAt, c?.lastOrderAt) };
   });
+  // Clientes que ya no tienen pedidos guardados (los dejaron sin pagar y se borraron) o que solo aceptaron ofertas.
+  const seen = new Set(rows.map((r) => r.email.toLowerCase()));
+  for (const c of contacts) {
+    if (seen.has(c.email.toLowerCase())) continue;
+    rows.push({ email: c.email, orders: c.unpaidOrders, unpaid: c.unpaidOrders, offers: c.optIn, purchases: 0, spent: 0, last: c.lastOrderAt ?? c.createdAt });
+  }
   rows.sort((a, b) => (sort === "gasto" ? b.spent - a.spent : sort === "pedidos" ? b.purchases - a.purchases : (b.last?.getTime() ?? 0) - (a.last?.getTime() ?? 0)));
 
   const buyers = rows.filter((r) => r.purchases > 0);
@@ -47,7 +60,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader
         title="Clientes"
-        description="Agrupados por el correo con el que compraron."
+        description="Agrupados por el correo con el que compraron. Incluye a quienes dejaron pedidos sin pagar: el pedido se borra a las 12 horas, el cliente queda."
         actions={
           viewer.role === "ADMIN" && (
             <a
@@ -61,7 +74,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Clientes con compra" value={formatNumber(buyers.length)} hint={`${formatNumber(rows.length)} correos en total`} />
+        <Stat label="Clientes con compra" value={formatNumber(buyers.length)} hint={`${formatNumber(rows.length)} correos en total · ${formatNumber(rows.length - buyers.length)} aún sin comprar`} />
         <Stat label="Clientes que repiten" value={formatNumber(repeat)} hint={buyers.length ? `${Math.round((repeat / buyers.length) * 100)}% de los compradores` : "—"} />
         <Stat label="Gasto total" value={formatMoney(totalSpent)} hint="Pagos confirmados" />
         <Stat label="Gasto promedio" value={formatMoney(buyers.length ? Math.round(totalSpent / buyers.length) : 0)} hint="Por cliente con compra" />
@@ -115,9 +128,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 </Link>
                 {users.has(r.email) && <span className="ml-2 rounded bg-sky-400/12 px-1.5 py-px text-[10.5px] font-semibold text-sky-300">Registrado</span>}
                 {r.purchases > 1 && <span className="ml-1.5 rounded bg-volt-400/12 px-1.5 py-px text-[10.5px] font-semibold text-volt-300">Recurrente</span>}
+                {r.purchases === 0 && <span className="ml-1.5 rounded bg-warn-400/12 px-1.5 py-px text-[10.5px] font-semibold text-warn-400">Sin compra</span>}
+                {r.offers && <span className="ml-1.5 rounded bg-ok-400/12 px-1.5 py-px text-[10.5px] font-semibold text-ok-400">Acepta ofertas</span>}
               </td>
               <td className="tabular-nums">{r.purchases}</td>
-              <td className="tabular-nums text-fg-muted">{r.orders}</td>
+              <td className="tabular-nums text-fg-muted">
+                {r.orders}
+                {r.unpaid > 0 && <span className="block text-[11px] text-fg-subtle">{r.unpaid} sin pagar (borrados)</span>}
+              </td>
               <td className="font-medium tabular-nums">{formatMoney(r.spent)}</td>
               <td className="whitespace-nowrap text-fg-muted">{r.last ? formatDate(r.last) : "—"}</td>
             </tr>
