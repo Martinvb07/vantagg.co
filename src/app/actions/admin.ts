@@ -66,7 +66,8 @@ export async function orderAction(_: ActionResult, form: FormData): Promise<Acti
       result = await reconcilePayment(orderId, actor);
       break;
     case "retry":
-      result = await retryDelivery(orderId, actor);
+      // Botón manual: el equipo ya revisó en el proveedor; se reintenta ya (sin la espera de 15 min).
+      result = await retryDelivery(orderId, actor, { manual: true });
       break;
     case "delivered": {
       const note = str(form, "note").slice(0, 500);

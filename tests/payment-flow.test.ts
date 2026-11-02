@@ -333,6 +333,30 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await statusOf(order.id)).toBe("DELIVERED");
   });
 
+  it("botón manual: reintenta en el momento (sin los 15 min) si el proveedor confirma que la anterior falló", async () => {
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-man`, simulated: false, message: "[refunded] reembolsado" });
+    const { order } = await makeOrder();
+    await applyVerifiedPayment("bold", approved(order.number, `TX-${RUN}-man`), "WEBHOOK:bold");
+    expect(await statusOf(order.id)).toBe("DELIVERY_FAILED");
+
+    // Recién fallado: el automático esperaría; el botón no. Si el proveedor dice que se entregó, no compra de nuevo.
+    fakes.topup.getTransactionStatus.mockResolvedValueOnce({ status: "SUCCESS", providerRef: `co-${RUN}-man`, simulated: false });
+    const delivered = await retryDelivery(order.id, "ADMIN:prueba", { manual: true });
+    expect(delivered.ok).toBe(true);
+    expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
+    expect(await statusOf(order.id)).toBe("DELIVERED");
+
+    // Otro pedido: el proveedor confirma que falló (reembolsado) → se compra de inmediato con clave nueva.
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-man2`, simulated: false, message: "[refunded] reembolsado" });
+    const { order: o2 } = await makeOrder();
+    await applyVerifiedPayment("bold", approved(o2.number, `TX-${RUN}-man2`), "WEBHOOK:bold");
+    const now = await retryDelivery(o2.id, "ADMIN:prueba", { manual: true });
+    expect(now.ok).toBe(true);
+    expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(3);
+    expect(fakes.topup.createTopUp.mock.calls[2][0].idempotencyKey).toBe(`topup-${o2.id}-r2`);
+    expect(await statusOf(o2.id)).toBe("DELIVERED");
+  });
+
   it("fallo confirmado por el proveedor → clave nueva; reintentos simultáneos → uno solo", async () => {
     fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-2`, simulated: false, message: "[out_of_stock] agotado" });
     const { order } = await makeOrder();

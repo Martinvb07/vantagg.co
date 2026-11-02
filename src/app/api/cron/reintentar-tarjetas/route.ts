@@ -54,9 +54,8 @@ export async function POST(req: Request) {
     // 3) Entrega fallida (o pagado sin intento): se reintenta con el producto correcto.
     const now = await db.order.findUniqueOrThrow({ where: { id: o.id }, include: { delivery: true } });
     if (now.status === "DELIVERY_FAILED" || (now.status === "PAID" && !now.delivery)) {
-      // La espera entre intentos se cuenta desde la compra original (el proveedor ya tuvo tiempo de cerrarla).
-      const from = now.delivery && now.delivery.attempts <= 1 ? now.delivery.createdAt : undefined;
-      const r = await retryDelivery(o.id, actor, { cooldownFrom: from });
+      // Como el botón manual: sin espera; antes se confirma con el proveedor que la orden anterior falló.
+      const r = await retryDelivery(o.id, actor, { manual: true });
       notes.push(r.message);
     }
     const after = (await db.order.findUniqueOrThrow({ where: { id: o.id }, select: { status: true } })).status;

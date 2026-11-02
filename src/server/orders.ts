@@ -678,7 +678,12 @@ async function fulfillAccount(order: Order) {
 // Operaciones del panel (seguras)
 // ---------------------------------------------------------------------
 
-export async function retryDelivery(orderId: string, actor: string, opts: { cooldownFrom?: Date } = {}): Promise<{ ok: boolean; message: string }> {
+/**
+ * Reintenta una entrega. `manual` (botón del panel): el equipo ya revisó en el proveedor, así que se reintenta en el
+ * momento, sin la espera de 15 min. Siempre se consulta antes al proveedor la orden anterior: si se entregó o sigue en
+ * proceso, no se compra otra vez (nunca dos cobros por la misma recarga).
+ */
+export async function retryDelivery(orderId: string, actor: string, opts: { manual?: boolean } = {}): Promise<{ ok: boolean; message: string }> {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { delivery: true } });
   if (!order || order.type !== "TOPUP") return { ok: false, message: "Solo aplica a recargas." };
   if (order.status === "PAID" && !order.delivery) {
@@ -700,8 +705,8 @@ export async function retryDelivery(orderId: string, actor: string, opts: { cool
   const d = order.delivery;
   const providerForDelivery = getTopUpProvider(d.provider) ?? provider;
   // Con una transacción anterior, se espera a que el proveedor la dé por cerrada antes de comprar otra vez.
-  const cooldown = d.providerRef ? (providerForDelivery.retryCooldownMs ?? 0) : 0;
-  const waitMs = (opts.cooldownFrom ?? d.updatedAt).getTime() + cooldown - Date.now();
+  const cooldown = d.providerRef && !opts.manual ? (providerForDelivery.retryCooldownMs ?? 0) : 0;
+  const waitMs = d.updatedAt.getTime() + cooldown - Date.now();
   if (waitMs > 0) {
     return { ok: false, message: `Espera ${Math.ceil(waitMs / 60_000)} min antes de reintentar: el proveedor todavía puede completar la entrega anterior.` };
   }
