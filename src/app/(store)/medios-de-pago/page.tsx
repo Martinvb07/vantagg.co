@@ -35,7 +35,10 @@ const STEPS = [
 export default async function PaymentMethodsPage() {
   const settings = await getSettings();
   const methods = parsePaymentMethods(settings.paymentMethods);
-  const paymentsReady = publicPaymentOptions().length > 0;
+  const options = publicPaymentOptions();
+  const paymentsReady = options.length > 0;
+  const epayco = options.some((o) => o.id === "epayco");
+  const usdAbroad = epayco && settings.foreignPricing === "usd";
 
   return (
     <Container className="py-8 sm:py-10">
@@ -47,7 +50,11 @@ export default async function PaymentMethodsPage() {
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="max-w-2xl">
           <h1 className="text-[28px] font-bold tracking-tight sm:text-[34px]">Medios de pago</h1>
-          <p className="mt-1.5 text-[15px] text-fg-muted">Pagas en pesos colombianos a través de Bold, pasarela de pagos colombiana. Elige el medio que prefieras al momento de pagar.</p>
+          <p className="mt-1.5 text-[15px] text-fg-muted">
+            {epayco
+              ? `Pagas a través de Bold o ePayco, pasarelas de pagos colombianas. Elige el medio que prefieras al momento de pagar.${usdAbroad ? " Si estás fuera de Colombia, con ePayco pagas en dólares (US$) con tarjeta." : ""}`
+              : "Pagas en pesos colombianos a través de Bold, pasarela de pagos colombiana. Elige el medio que prefieras al momento de pagar."}
+          </p>
         </div>
         <div className="flex items-center gap-3 rounded-[14px] bg-ink-850 px-4 py-3 ring-1 ring-white/[0.08]">
           <Lock className="size-4 text-volt-300" />

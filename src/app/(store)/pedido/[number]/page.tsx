@@ -12,7 +12,7 @@ import { OrderTimeline } from "@/components/orders/order-tracker";
 import { Alert, Container, DemoBadge } from "@/components/ui/primitives";
 import { ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { getCurrentUser } from "@/lib/auth";
-import { formatDate, formatMoney, formatNumber } from "@/lib/money";
+import { formatCharge, formatDate, formatMoney, formatNumber } from "@/lib/money";
 import { cn, whatsappLink } from "@/lib/utils";
 import { getOrderForCustomer } from "@/server/order-view";
 import { checkPendingPayment, refreshDeliveryIfStale } from "@/server/orders";
@@ -27,7 +27,7 @@ import { OrderChat } from "@/components/orders/order-chat";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Estado del pedido", robots: { index: false, follow: false } };
 
-const PROVIDER_NAMES: Record<string, string> = { bold: "Bold" };
+const PROVIDER_NAMES: Record<string, string> = { bold: "Bold", epayco: "ePayco" };
 
 const HERO: Record<OrderStatusValue, { icon: typeof Clock; tone: string; title: string }> = {
   PENDING_PAYMENT: { icon: Clock, tone: "text-warn-400 bg-warn-400/12 ring-warn-400/25", title: "Esperando tu pago" },
@@ -52,7 +52,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   let order = await getOrderForCustomer(orderNumber, t, user);
   if (!order) notFound();
   // Pago pendiente: se pregunta a la pasarela (además del webhook y el cron) por si ya lo aprobó. Se espera
-  // poco: si Bold tarda, la página sale igual y la consulta termina sola (la página se actualiza cada pocos s).
+  // poco: si la pasarela tarda, la página sale igual y la consulta termina sola (la página se actualiza cada pocos s).
   if (order.status === "PENDING_PAYMENT" && !order.viewerIsStaff) {
     if (await within(3_500, checkPendingPayment(order.id), false)) order = (await getOrderForCustomer(orderNumber, t, user)) ?? order;
   }
@@ -142,7 +142,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         </div>
         <div className="flex items-end justify-between gap-4 border-t border-white/[0.06] pt-3 sm:block sm:border-0 sm:pt-0 sm:text-right">
           <p className="text-[12px] text-fg-subtle">Total</p>
-          <p className="text-2xl font-bold tabular-nums">{formatMoney(order.total, order.currency)}</p>
+          {order.charge ? (
+            <>
+              <p className="text-2xl font-bold tabular-nums">{formatCharge(order.charge.amount, order.charge.currency)}</p>
+              <p className="text-[12px] tabular-nums text-fg-subtle">≈ {formatMoney(order.total, order.currency)}</p>
+            </>
+          ) : (
+            <p className="text-2xl font-bold tabular-nums">{formatMoney(order.total, order.currency)}</p>
+          )}
         </div>
       </div>
 

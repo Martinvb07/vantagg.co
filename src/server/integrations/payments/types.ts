@@ -1,15 +1,20 @@
 export type ProviderMode = "sandbox" | "production";
 export type NormalizedPaymentStatus = "PENDING" | "APPROVED" | "DECLINED" | "VOIDED" | "ERROR";
 
-/** Datos mínimos de la orden que una pasarela necesita para iniciar el cobro. */
+/**
+ * Montos de cobro: en pesos (COP) son pesos enteros; en dólares (USD) son centavos (US$ 7,99 → 799).
+ * Así un mismo número entero sirve para comparar lo cobrado con lo esperado sin decimales.
+ */
 export type CheckoutOrder = {
   number: string; // referencia única de la orden
-  total: number; // COP enteros
-  currency: string;
+  total: number; // monto a cobrar (COP enteros o centavos de USD)
+  currency: string; // "COP" o "USD"
   description: string;
   customerEmail: string;
   trackingToken: string;
   expiresAt: Date;
+  /** IP del comprador (algunas pasarelas la piden para su antifraude). */
+  customerIp?: string | null;
 };
 
 /** Pago consultado o verificado directamente con la pasarela. Nunca proviene del navegador. */
@@ -17,7 +22,7 @@ export type VerifiedPayment = {
   providerRef: string;
   reference: string; // número de orden
   status: NormalizedPaymentStatus;
-  amount: number; // COP enteros
+  amount: number; // COP enteros o centavos de USD (ver CheckoutOrder)
   currency: string;
   method?: string | null;
 };
@@ -31,6 +36,13 @@ export interface PaymentProvider {
   readonly displayName: string;
   /** Medios que ofrece la pasarela, solo informativo para el cliente. */
   readonly methodsLabel: string;
+  /** Monedas en las que puede cobrar (Bold: solo pesos). */
+  readonly currencies: readonly string[];
+  /**
+   * true: la consulta directa de la transacción (getPayment) es la fuente de verdad, y un aviso «aprobado» solo cuenta
+   * si esa consulta lo confirma (pasarelas cuyo cobro no se conoce hasta que el cliente paga, como ePayco).
+   */
+  readonly confirmByPayment?: boolean;
   mode(): ProviderMode;
   /** Variables faltantes. Vacía = configurada. */
   missingConfig(): string[];

@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/primitives";
 import { LEGAL, LEGAL_UPDATED } from "@/content/legal";
 import { cn } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
+import { publicPaymentOptions } from "@/server/integrations/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
         <p className="mt-1 text-[12.5px] text-fg-subtle">
           Vigente desde el <time dateTime={LEGAL_UPDATED}>{new Date(`${LEGAL_UPDATED}T12:00:00-05:00`).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "America/Bogota" })}</time>
         </p>
-        <div className="prose-store mt-8">{doc.body(settings)}</div>
+        <div className="prose-store mt-8">{doc.body(settings, { epayco: publicPaymentOptions().some((o) => o.id === "epayco") })}</div>
       </article>
     </Container>
   );

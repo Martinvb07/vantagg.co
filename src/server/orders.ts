@@ -2,17 +2,19 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma, type Order } from "@prisma/client";
 import { db } from "@/lib/db";
-import { generateOrderNumber, randomToken } from "@/lib/crypto";
+import { generateOrderNumber, randomToken, safeEqual } from "@/lib/crypto";
+import { clientIp } from "@/lib/request";
 import { env, isProduction } from "@/lib/env";
-import { formatNumber } from "@/lib/money";
+import { formatCharge, formatNumber } from "@/lib/money";
 import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validation";
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
 import { PASS_INFO, passOf } from "@/domain/packs";
 import { maintenanceNotice } from "@/domain/maintenance";
+import { usdPriceCents } from "@/domain/market";
 import { costInCop, parseRegionList, regionLabel } from "@/domain/topup-regions";
 import { getPaymentProvider } from "./integrations/payments";
-import type { VerifiedPayment } from "./integrations/payments/types";
+import type { PaymentProvider, VerifiedPayment } from "./integrations/payments/types";
 import { gatewayConfirms } from "./integrations/payments/confirm";
 import { activeTopUpProvider, getTopUpProvider } from "./integrations/topup";
 import type { TopUpProvider, TopUpRequest, TopUpResult } from "./integrations/topup/types";
@@ -23,6 +25,7 @@ import { audit } from "@/lib/audit";
 import { recordCheckoutConsent } from "./marketing";
 import { orderLimitError } from "./order-limits";
 import { getSettings } from "./settings";
+import { getMarket } from "./market";
 import { SupplierError } from "./integrations/topup/rechargegame";
 import { checkPlayerRegion, supplierRate, supplierRegionName } from "./supplier";
 
@@ -58,19 +61,51 @@ async function existingByIdempotency(key: string): Promise<CreateOrderResult | n
   return startCheckout(existing);
 }
 
+/** IP del comprador en la solicitud actual (null fuera de una solicitud, p. ej. tareas programadas). */
+async function requestIp(): Promise<string | null> {
+  try {
+    const ip = await clientIp();
+    return ip && ip !== "unknown" ? ip : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lo que la pasarela debe cobrar: el total en pesos o, si el pedido se cobra en dólares, ese monto (centavos). */
+export function chargeOf(order: Pick<Order, "total" | "currency" | "chargeAmount" | "chargeCurrency">): { amount: number; currency: string } {
+  return order.chargeCurrency && order.chargeAmount != null ? { amount: order.chargeAmount, currency: order.chargeCurrency } : { amount: order.total, currency: order.currency };
+}
+
+/**
+ * Cobro en dólares para clientes de otros países (Panel → Ajustes → Precios fuera de Colombia → «Cobrar en dólares»):
+ * solo con una pasarela que cobre en dólares (ePayco). El total del pedido sigue en pesos (ventas, reportes, códigos);
+ * se guarda aparte lo que se cobra: el precio convertido a la tasa del día con el recargo, igual al que vio el cliente.
+ */
+async function foreignCharge(totalCop: number, currency: string, payment: PaymentProvider): Promise<{ chargeCurrency: string; chargeAmount: number } | null> {
+  if (currency !== "COP" || !payment.currencies.includes("USD")) return null;
+  const settings = await getSettings();
+  if (settings.foreignPricing !== "usd") return null;
+  const market = await getMarket().catch(() => null);
+  if (!market || market.home || !market.copPerUsd) return null;
+  const cents = usdPriceCents(totalCop, market.copPerUsd, market.surchargePct);
+  return cents > 0 ? { chargeCurrency: "USD", chargeAmount: cents } : null;
+}
+
 async function startCheckout(order: Order): Promise<CreateOrderResult> {
   const provider = getPaymentProvider(order.paymentProvider);
   if (!provider?.isEnabled()) return { ok: false, error: "El medio de pago seleccionado no está disponible." };
   const snapshot = order.itemSnapshot as { name: string };
+  const charge = chargeOf(order);
   try {
     const { redirectUrl, checkoutRef } = await provider.createCheckout({
       number: order.number,
-      total: order.total,
-      currency: order.currency,
+      total: charge.amount,
+      currency: charge.currency,
       description: snapshot.name,
       customerEmail: order.customerEmail,
       trackingToken: order.trackingToken,
       expiresAt: order.expiresAt,
+      customerIp: await requestIp(),
     });
     // Se guarda el cobro creado (p. ej. link de Bold) para conciliarlo si el webhook no llega.
     if (checkoutRef) await addEvent(order.id, "CHECKOUT_STARTED", `Cobro iniciado en ${provider.displayName}.`, "SYSTEM", { data: { provider: provider.id, checkoutRef } });
@@ -151,6 +186,7 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
   const promo = data.promoCode ? await reservePromo({ code: data.promoCode, kind: "TOPUP", subtotal: quote.price, email: data.email }) : null;
   if (promo && "error" in promo) return { ok: false, error: promo.error };
   const promoDiscountValue = promo?.discount ?? 0;
+  const foreign = await foreignCharge(quote.price - promoDiscountValue, pkg.currency, payment).catch(() => null);
 
   try {
     const order = await db.order.create({
@@ -182,6 +218,7 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
         discount: promoDiscountValue,
         total: quote.price - promoDiscountValue,
         currency: pkg.currency,
+        ...(foreign ?? {}),
         promoCode: promo?.code ?? null,
         redemption: promo ? { create: { promoCodeId: promo.promoCodeId, email: data.email, discount: promoDiscountValue } } : undefined,
         paymentProvider: payment.id,
@@ -271,6 +308,7 @@ export async function createAccountOrder(input: unknown, userId: string | null):
   }
 
   // 4) Creación de la orden. Si falla, se libera la reserva (compensación).
+  const foreign = await foreignCharge(quote.price - promoDiscountValue, listing.currency, payment).catch(() => null);
   try {
     const order = await db.order.create({
       data: {
@@ -300,6 +338,7 @@ export async function createAccountOrder(input: unknown, userId: string | null):
         discount: promoDiscountValue,
         total: quote.price - promoDiscountValue,
         currency: listing.currency,
+        ...(foreign ?? {}),
         promoCode: promo?.code ?? null,
         redemption: promo ? { create: { promoCodeId: promo.promoCodeId, email: data.email, discount: promoDiscountValue } } : undefined,
         paymentProvider: payment.id,
@@ -369,7 +408,7 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
   });
 
   if (p.status === "VOIDED") {
-    await handleVoidedPayment(order.id, p, actor);
+    await handleVoidedPayment(order.id, p, actor, providerId);
     return { handled: true };
   }
 
@@ -383,11 +422,12 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     return { handled: true };
   }
 
-  if (p.amount !== order.total || p.currency !== order.currency) {
-    await addEvent(order.id, "PAYMENT_AMOUNT_MISMATCH", `Monto aprobado (${p.amount} ${p.currency}) distinto al de la orden. Requiere revisión manual.`, actor, {
-      data: { expected: order.total, received: p.amount },
+  const expected = chargeOf(order);
+  if (p.amount !== expected.amount || p.currency !== expected.currency) {
+    await addEvent(order.id, "PAYMENT_AMOUNT_MISMATCH", `Monto aprobado (${formatCharge(p.amount, p.currency)}) distinto al de la orden (${formatCharge(expected.amount, expected.currency)}). Requiere revisión manual.`, actor, {
+      data: { expected: expected.amount, expectedCurrency: expected.currency, received: p.amount, receivedCurrency: p.currency },
     });
-    void notifyStaffPaymentIssue(order.id, "amount", "Pago con monto distinto", `Bold aprobó ${p.amount} ${p.currency} y el pedido es de ${order.total} ${order.currency}. No se entregó nada.`).catch(() => {});
+    void notifyStaffPaymentIssue(order.id, "amount", "Pago con monto distinto", `${gatewayName(providerId)} aprobó ${formatCharge(p.amount, p.currency)} y el pedido es de ${formatCharge(expected.amount, expected.currency)}. No se entregó nada.`).catch(() => {});
     return { handled: false, reason: "Monto no coincide" };
   }
 
@@ -398,7 +438,7 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     data: { status: "PAID", paidAt: now, cancelledAt: null },
   });
   if (won.count === 0) {
-    await flagDuplicatePayment(order.id, p, actor);
+    await flagDuplicatePayment(order.id, p, actor, providerId);
     return { handled: true, duplicate: true };
   }
   await confirmRedemption(order.id);
@@ -422,51 +462,57 @@ async function checkoutRefsOf(orderId: string): Promise<string[]> {
  * Segundo cobro aprobado para una orden ya pagada (el cliente pagó dos links): no se entrega dos veces;
  * se avisa al equipo y al cliente para devolver el duplicado. Una misma transacción repetida no cuenta.
  */
-async function flagDuplicatePayment(orderId: string, p: VerifiedPayment, actor: string) {
+async function flagDuplicatePayment(orderId: string, p: VerifiedPayment, actor: string, providerId: string) {
   const links = await checkoutRefsOf(orderId);
   if (links.includes(p.providerRef)) return;
   const others = await db.payment.count({ where: { orderId, status: "APPROVED", NOT: { providerRef: { in: [p.providerRef, ...links] } } } });
   if (others === 0) return;
   const seen = await db.orderEvent.count({ where: { orderId, type: "PAYMENT_DUPLICATE", message: { contains: p.providerRef } } });
   if (seen > 0) return;
-  await addEvent(orderId, "PAYMENT_DUPLICATE", `Cobro adicional aprobado ${p.providerRef} (${p.amount} ${p.currency}) para un pedido ya pagado. No se entregó de nuevo: devolver el duplicado.`, actor, { data: { providerRef: p.providerRef, amount: p.amount } });
+  await addEvent(orderId, "PAYMENT_DUPLICATE", `Cobro adicional aprobado ${p.providerRef} (${formatCharge(p.amount, p.currency)}) para un pedido ya pagado. No se entregó de nuevo: devolver el duplicado.`, actor, { data: { providerRef: p.providerRef, amount: p.amount } });
   await addEvent(orderId, "PAYMENT_DUPLICATE_PUBLIC", "Recibimos un segundo pago por este pedido. Te devolveremos el valor duplicado; nuestro equipo ya fue notificado.", "SYSTEM", { public: true });
-  void notifyStaffPaymentIssue(orderId, "duplicate", "Pago duplicado", `El cliente pagó dos veces este pedido (cobro adicional ${p.providerRef} por ${p.amount} ${p.currency}). La recarga se entregó una sola vez: devuelve el cobro duplicado en Bold.`).catch(() => {});
+  void notifyStaffPaymentIssue(orderId, "duplicate", "Pago duplicado", `El cliente pagó dos veces este pedido (cobro adicional ${p.providerRef} por ${formatCharge(p.amount, p.currency)}). La recarga se entregó una sola vez: devuelve el cobro duplicado en ${gatewayName(providerId)}.`).catch(() => {});
+}
+
+/** Nombre de la pasarela para los mensajes del equipo (Bold, ePayco…). */
+function gatewayName(providerId: string): string {
+  return getPaymentProvider(providerId)?.displayName ?? providerId;
 }
 
 /**
- * Bold anuló un cobro. Si era el único cobro aprobado del pedido y aún no se entregó, el pedido se cancela
+ * La pasarela anuló un cobro. Si era el único cobro aprobado del pedido y aún no se entregó, el pedido se cancela
  * (la entrega queda bloqueada). Si ya se envió o entregó, no se toca el estado: se avisa al equipo.
  */
-async function handleVoidedPayment(orderId: string, p: VerifiedPayment, actor: string) {
+async function handleVoidedPayment(orderId: string, p: VerifiedPayment, actor: string, providerId: string) {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { status: true } });
   if (!order) return;
+  const gw = gatewayName(providerId);
   const stillPaid = await db.payment.count({ where: { orderId, status: "APPROVED", NOT: { providerRef: p.providerRef } } });
   if (order.status === "PENDING_PAYMENT" || order.status === "CANCELLED") {
     await addEvent(orderId, "PAYMENT_NOT_APPROVED", "La pasarela informó que el pago no fue aprobado. Puedes intentarlo de nuevo.", actor, { public: true, data: { status: p.status, providerRef: p.providerRef } });
     return;
   }
   if (stillPaid > 0) {
-    await addEvent(orderId, "PAYMENT_VOIDED_EXTRA", `Bold anuló el cobro adicional ${p.providerRef}; el pedido sigue pagado con otro cobro.`, actor);
+    await addEvent(orderId, "PAYMENT_VOIDED_EXTRA", `${gw} anuló el cobro adicional ${p.providerRef}; el pedido sigue pagado con otro cobro.`, actor);
     return;
   }
   if (order.status === "REFUND_REQUESTED" || order.status === "REFUNDED") {
-    await addEvent(orderId, "PAYMENT_VOIDED", `Bold anuló el cobro ${p.providerRef} (devolución del pedido).`, actor);
+    await addEvent(orderId, "PAYMENT_VOIDED", `${gw} anuló el cobro ${p.providerRef} (devolución del pedido).`, actor);
     return;
   }
   if (order.status === "PAID" || order.status === "DELIVERY_FAILED") {
     const r = await db.order.updateMany({ where: { id: orderId, status: { in: ["PAID", "DELIVERY_FAILED"] } }, data: { status: "CANCELLED", cancelledAt: new Date() } });
     if (r.count === 1) {
       await releaseRedemption(orderId);
-      await addEvent(orderId, "PAYMENT_VOIDED", `Bold anuló el cobro ${p.providerRef} antes de la entrega: pedido cancelado y entrega bloqueada.`, actor);
+      await addEvent(orderId, "PAYMENT_VOIDED", `${gw} anuló el cobro ${p.providerRef} antes de la entrega: pedido cancelado y entrega bloqueada.`, actor);
       await addEvent(orderId, "STATUS_PUBLIC", "La pasarela anuló el pago de este pedido, así que no se entregará. Si fue un error, escríbenos.", "SYSTEM", { public: true });
-      void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado", `Bold anuló el cobro ${p.providerRef} antes de entregar: el pedido se canceló y no se enviará la recarga.`).catch(() => {});
+      void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado", `${gw} anuló el cobro ${p.providerRef} antes de entregar: el pedido se canceló y no se enviará la recarga.`).catch(() => {});
       return;
     }
   }
   // Ya en camino o entregado: no se revierte nada automáticamente.
-  await addEvent(orderId, "PAYMENT_VOIDED_AFTER_DELIVERY", `Bold anuló el cobro ${p.providerRef} con el pedido en estado ${order.status}. Revisar posible contracargo.`, actor);
-  void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado después de entregar", `Bold anuló el cobro ${p.providerRef} y el pedido ya está ${ORDER_STATUS_META[order.status].label.toLowerCase()}. Revisa en Bold si es un contracargo o una devolución.`).catch(() => {});
+  await addEvent(orderId, "PAYMENT_VOIDED_AFTER_DELIVERY", `${gw} anuló el cobro ${p.providerRef} con el pedido en estado ${order.status}. Revisar posible contracargo.`, actor);
+  void notifyStaffPaymentIssue(orderId, "voided", "Pago anulado después de entregar", `${gw} anuló el cobro ${p.providerRef} y el pedido ya está ${ORDER_STATUS_META[order.status].label.toLowerCase()}. Revisa en ${gw} si es un contracargo o una devolución.`).catch(() => {});
 }
 
 // ---------------------------------------------------------------------
@@ -710,7 +756,7 @@ async function checkoutsOf(orderId: string, provider: NonNullable<ReturnType<typ
 export async function confirmApprovedWebhook(providerId: string, p: VerifiedPayment): Promise<boolean> {
   if (p.status !== "APPROVED") return true;
   const provider = getPaymentProvider(providerId);
-  if (!provider?.getCheckout) return true;
+  if (!provider || (!provider.getCheckout && !provider.confirmByPayment)) return true;
   const order = await db.order.findUnique({ where: { number: p.reference }, select: { id: true } });
   if (!order) {
     // No debería pasar (el enlace de pago vence con el pedido), pero si llega un cobro de un pedido que ya no existe
@@ -718,7 +764,13 @@ export async function confirmApprovedWebhook(providerId: string, p: VerifiedPaym
     await alertUnknownPayment(providerId, p).catch(() => {});
     return false;
   }
-  return gatewayConfirms(p, await checkoutsOf(order.id, provider));
+  const fromGateway = await checkoutsOf(order.id, provider);
+  // ePayco: el cobro se conoce por su referencia (ref_payco), que se consulta directamente a la pasarela.
+  if (provider.confirmByPayment && !gatewayConfirms(p, fromGateway)) {
+    const direct = await provider.getPayment(p.providerRef).catch(() => null);
+    if (direct) fromGateway.push(direct);
+  }
+  return gatewayConfirms(p, fromGateway);
 }
 
 /** Aviso al equipo, una vez por referencia: cobro aprobado de un pedido que no existe en la tienda. */
@@ -726,7 +778,7 @@ async function alertUnknownPayment(providerId: string, p: VerifiedPayment) {
   const key = `${providerId}:${p.reference}`.slice(0, 190);
   if (await db.auditLog.count({ where: { action: "payment.unknown_order", entityId: key } })) return;
   await audit({ actorId: null, action: "payment.unknown_order", entity: "Payment", entityId: key, data: { amount: p.amount, currency: p.currency, providerRef: p.providerRef } });
-  await notifyStaffUnknownPayment(p.reference, `${formatNumber(p.amount)} ${p.currency}`, providerId);
+  await notifyStaffUnknownPayment(p.reference, formatCharge(p.amount, p.currency), providerId);
 }
 
 const pendingChecks = new Map<string, number>();
@@ -745,14 +797,42 @@ export async function checkPendingPayment(orderId: string): Promise<boolean> {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, paymentProvider: true } });
   if (!order || order.status !== "PENDING_PAYMENT") return false;
   const provider = getPaymentProvider(order.paymentProvider);
-  if (!provider?.isEnabled() || !provider.getCheckout) return false;
+  if (!provider?.isEnabled() || (!provider.getCheckout && !provider.confirmByPayment)) return false;
+  const found = await checkoutsOf(order.id, provider);
+  // Pasarelas con referencia por transacción (ePayco): los cobros que quedaron pendientes (p. ej. PSE) se vuelven a consultar.
+  if (provider.confirmByPayment) {
+    const pending = await db.payment.findMany({ where: { orderId: order.id, provider: provider.id, status: "PENDING" }, select: { providerRef: true }, take: 5 });
+    for (const r of pending) {
+      const v = await provider.getPayment(r.providerRef).catch(() => null);
+      if (v) found.push(v);
+    }
+  }
   let applied = false;
-  for (const v of await checkoutsOf(order.id, provider)) {
+  for (const v of found) {
     if (v.status !== "APPROVED") continue;
     await applyVerifiedPayment(provider.id, v, `POLL:${provider.id}`);
     applied = true;
   }
   return applied;
+}
+
+/**
+ * El cliente volvió de la pasarela con la referencia del cobro (ePayco agrega ?ref_payco=…). La referencia sola no
+ * prueba nada: se consulta a la pasarela y se aplica lo que ella informe (y solo si el cobro es de este pedido).
+ * Devuelve el pedido si el enlace es válido.
+ */
+export async function applyGatewayReturn(number: string, token: string, providerRef: string | null) {
+  const order = await db.order.findUnique({ where: { number }, select: { id: true, number: true, trackingToken: true, paymentProvider: true } });
+  if (!order || !token || !safeEqual(order.trackingToken, token)) return null;
+  const provider = getPaymentProvider(order.paymentProvider);
+  if (providerRef && provider?.isEnabled() && provider.confirmByPayment) {
+    const v = await provider.getPayment(providerRef).catch((e) => {
+      console.warn(`[orders] no se pudo consultar el cobro al volver de ${provider.id}:`, (e as Error).message);
+      return null;
+    });
+    if (v && v.reference === order.number) await applyVerifiedPayment(provider.id, v, `RETURN:${provider.id}`);
+  }
+  return order;
 }
 
 /** Mantenimiento: revisa pagos pendientes recientes por si el webhook de la pasarela se demora. */

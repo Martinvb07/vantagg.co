@@ -18,6 +18,8 @@ export type Market = {
   surchargePct: number;
   copPerUsd: number | null;
   localPerUsd: number | null;
+  /** Ajustes → «Cobrar en dólares»: fuera de Colombia, la pasarela que cobra en dólares (ePayco) cobra el precio en US$. */
+  usdCharge: boolean;
 };
 
 export const getMarket = cache(async (): Promise<Market> => {
@@ -25,14 +27,16 @@ export const getMarket = cache(async (): Promise<Market> => {
   const currency = currencyForCountry(country);
   const surcharge = Number(s.foreignSurchargePct);
   const copPerUsd = fx?.rates.COP ?? null;
+  const home = !country || country === HOME_COUNTRY || !copPerUsd;
   return {
     country,
     countryName: country ? (COUNTRY_NAMES[country] ?? country) : null,
     chosen: source === "elegido",
-    home: !country || country === HOME_COUNTRY || !copPerUsd,
+    home,
     currency,
     surchargePct: surcharge >= 0 && surcharge <= 50 ? surcharge : FOREIGN_SURCHARGE_PCT,
     copPerUsd,
     localPerUsd: fx?.rates[currency] ?? null,
+    usdCharge: !home && s.foreignPricing === "usd",
   };
 });

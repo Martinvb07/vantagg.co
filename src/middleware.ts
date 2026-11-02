@@ -77,21 +77,28 @@ const GOOGLE_TAG_HOSTS = "https://*.google-analytics.com https://*.analytics.goo
 /** Meta Pixel (Facebook e Instagram Ads, solo si se configura en el panel): a dónde envía sus mediciones. */
 const META_PIXEL_HOSTS = "https://www.facebook.com https://connect.facebook.net";
 
-function buildCsp(nonce: string) {
+/**
+ * ePayco: solo en la página que abre su checkout (/pagar/epayco/…). Su script se carga con el nonce; esto permite sus
+ * llamadas, imágenes, estilos y el envío a su página de pago. El resto de la tienda no lo permite.
+ */
+const EPAYCO_HOSTS = "https://*.epayco.co https://*.payco.co";
+
+function buildCsp(nonce: string, opts: { epayco?: boolean } = {}) {
   const dev = !isProd;
+  const ep = opts.epayco ? ` ${EPAYCO_HOSTS}` : "";
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
-    "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob:${storageOrigin()} ${GOOGLE_TAG_HOSTS} ${META_PIXEL_HOSTS}`,
-    "font-src 'self' data:",
-    `connect-src 'self' ${GOOGLE_TAG_HOSTS} ${META_PIXEL_HOSTS}${dev ? " ws: wss:" : ""}`,
+    `style-src 'self' 'unsafe-inline'${ep}`,
+    `img-src 'self' data: blob:${storageOrigin()} ${GOOGLE_TAG_HOSTS} ${META_PIXEL_HOSTS}${ep}`,
+    `font-src 'self' data:${ep}`,
+    `connect-src 'self' ${GOOGLE_TAG_HOSTS} ${META_PIXEL_HOSTS}${ep}${dev ? " ws: wss:" : ""}`,
     "media-src 'self'",
-    "frame-src https://td.doubleclick.net https://www.googletagmanager.com",
+    `frame-src https://td.doubleclick.net https://www.googletagmanager.com${ep}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action 'self'${ep}`,
     "manifest-src 'self'",
     "worker-src 'self' blob:",
     ...(dev ? [] : ["upgrade-insecure-requests"]),
@@ -115,7 +122,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(publicUrl(req, `${pathname}${req.nextUrl.search}`), 308);
   }
   const nonce = btoa(crypto.randomUUID());
-  const csp = buildCsp(nonce);
+  const csp = buildCsp(nonce, { epayco: pathname.startsWith("/pagar/epayco/") });
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
@@ -151,7 +158,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(publicUrl(req, `/ingresar?next=${encodeURIComponent(pathname)}`));
   }
 
-  return withSecurity(NextResponse.next({ request: { headers: requestHeaders } }), csp, isAccount);
+  // Pago intermedio (lleva el token del pedido): sin caché ni indexación, igual que el área de clientes.
+  return withSecurity(NextResponse.next({ request: { headers: requestHeaders } }), csp, isAccount || pathname.startsWith("/pagar/"));
 }
 
 export const config = {

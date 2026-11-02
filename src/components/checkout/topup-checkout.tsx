@@ -7,11 +7,11 @@ import { DELIVERY_TIME } from "@/domain/delivery-time";
 import { PackCover } from "@/components/brand/covers";
 import { PASS_INFO, packDetail } from "@/domain/packs";
 import { trackInitiateCheckout } from "@/lib/ads";
-import { PriceHint, useMarket } from "@/components/store/market";
+import { PriceHint, useMarket, useUsdCharge } from "@/components/store/market";
 import { Button } from "@/components/ui/button";
 import { Alert, DemoBadge } from "@/components/ui/primitives";
 import { PRODUCT_LABELS } from "@/domain/labels";
-import { formatMoney, formatNumber } from "@/lib/money";
+import { formatCharge, formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { createTopUpOrderAction, validatePlayerAction, type PlayerCheck } from "@/app/actions/store";
 import type { PackageView, TopupRegionView } from "@/server/catalog";
@@ -21,7 +21,7 @@ import { GatewayMark, GatewayTitle } from "@/components/checkout/gateway-label";
 import type { PublicPaymentOption } from "@/server/integrations/payments";
 import { PromoCodeField, type AppliedPromo } from "./promo-code-field";
 import { PaymentBadges } from "@/components/brand/payment-badges";
-import { paymentMethodsSentence, type PaymentMethodId } from "@/domain/payment-methods";
+import type { PaymentMethodId } from "@/domain/payment-methods";
 
 /** Último ID de jugador y correo usados en este dispositivo (solo en el navegador del cliente). */
 const MEMORY_KEY = "vx_checkout_v1";
@@ -130,11 +130,14 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   const [player, setPlayer] = useState<Extract<PlayerCheck, { ok: true }> | null>(null);
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [confirmedId, setConfirmedId] = useState(false);
-  const [provider, setProvider] = useState<string | null>(payments.length === 1 ? payments[0].id : null);
+  const market = useMarket();
+  // Fuera de Colombia con cobro en dólares: se sugiere la pasarela que cobra en dólares (ePayco); Bold sigue disponible.
+  const [provider, setProvider] = useState<string | null>(
+    payments.length === 1 ? payments[0].id : market?.usdCharge ? (payments.find((p) => p.currencies.includes("USD"))?.id ?? null) : null,
+  );
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [accept, setAccept] = useState(false);
   const [marketing, setMarketing] = useState(false);
-  const market = useMarket();
   const [promo, setPromo] = useState<AppliedPromo>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, startCheck] = useTransition();
@@ -191,6 +194,8 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   const validId = /^\d{6,12}$/.test(playerId);
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
   const total = pkg ? pkg.quote.price - (promo?.discount ?? 0) : 0;
+  const usdCents = useUsdCharge(total, payments.find((p) => p.id === provider)?.currencies);
+  const payText = usdCents != null ? formatCharge(usdCents, "USD") : formatMoney(total, pkg?.currency);
   const ready = !!pkg && !!player && !regionMismatch && confirmedId && !!provider && emailOk && accept;
   const onPromo = useCallback((p: AppliedPromo) => setPromo(p), []);
 
@@ -484,7 +489,10 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                     <span className="flex flex-wrap items-center gap-2 text-[14px] font-semibold">
                       <GatewayTitle option={p} />
                     </span>
-                    <span className="block truncate text-[12px] text-fg-muted">{methods.length ? (p.id === "bold" ? shortMethods(methods) : paymentMethodsSentence(methods)) : p.methods}</span>
+                    <span className="block truncate text-[12px] text-fg-muted">
+                      {p.id === "bold" ? (methods.length ? shortMethods(methods) : p.methods) : p.methods}
+                      {market && !market.home ? (market.usdCharge && p.currencies.includes("USD") ? " · en dólares (US$)" : " · en pesos (COP)") : ""}
+                    </span>
                   </span>
                 </label>
               ))}
@@ -529,13 +537,17 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 <div className="flex items-baseline justify-between border-t border-white/[0.06] pt-2.5">
                   <dt className="font-semibold">Total</dt>
                   <dd className="text-right text-2xl font-bold tabular-nums">
-                    {formatMoney(total, pkg.currency)}
-                    <PriceHint cop={total} className="text-[12px]" />
+                    {payText}
+                    {usdCents != null ? <span className="block text-[12px] font-normal text-fg-subtle">≈ {formatMoney(total, pkg.currency)}</span> : <PriceHint cop={total} className="text-[12px]" />}
                   </dd>
                 </div>
                 {market && !market.home && (
                   <p className="pt-1 text-[11.5px] leading-relaxed text-fg-subtle">
-                    Estás en {market.countryName}: el cobro es en pesos colombianos (COP) y tu banco hace la conversión. El valor en dólares es aproximado.
+                    {usdCents != null
+                      ? `Estás en ${market.countryName}: pagas en dólares (US$) con tarjeta. Si tu tarjeta es de otra moneda, tu banco hace la conversión.`
+                      : market.usdCharge && payments.some((p) => p.currencies.includes("USD"))
+                        ? `Estás en ${market.countryName}: con este medio el cobro es en pesos colombianos (COP) y tu banco hace la conversión. Si prefieres pagar en dólares, elige ePayco.`
+                        : `Estás en ${market.countryName}: el cobro es en pesos colombianos (COP) y tu banco hace la conversión. El valor en dólares es aproximado.`}
                   </p>
                 )}
               </dl>
@@ -579,7 +591,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
             <Button type="button" size="lg" className="mt-4 h-12 w-full text-[15px]" onClick={submit} disabled={!ready} loading={submitting}>
               <Lock className="size-4" />
-              {ready && pkg ? `Comprar · ${formatMoney(total, pkg.currency)}` : (missing ?? "Comprar")}
+              {ready && pkg ? `Comprar · ${payText}` : (missing ?? "Comprar")}
             </Button>
             <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11.5px] text-fg-subtle">
               <ShieldCheck className="size-3.5" /> Pagas en la plataforma de la pasarela. No guardamos datos de tarjetas.
@@ -594,7 +606,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-[12px] text-fg-muted">{pkg.pass ? PASS_INFO[pkg.pass].title : `${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes`}</p>
-              <p className="text-lg font-bold tabular-nums">{formatMoney(total, pkg.currency)}</p>
+              <p className="text-lg font-bold tabular-nums">{payText}</p>
             </div>
             <Button
               type="button"

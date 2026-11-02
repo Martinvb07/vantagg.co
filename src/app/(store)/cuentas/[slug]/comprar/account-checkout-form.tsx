@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { createAccountOrderAction } from "@/app/actions/store";
 import { trackInitiateCheckout } from "@/lib/ads";
 import type { PublicPaymentOption } from "@/server/integrations/payments";
-import { formatMoney } from "@/lib/money";
+import { formatCharge, formatMoney } from "@/lib/money";
+import { useMarket, useUsdCharge } from "@/components/store/market";
 import { PaymentBadges } from "@/components/brand/payment-badges";
 import { paymentMethodsSentence, type PaymentMethodId } from "@/domain/payment-methods";
 import { PromoCodeField, type AppliedPromo } from "@/components/checkout/promo-code-field";
@@ -38,7 +39,8 @@ export function AccountCheckoutForm({
   const [name, setName] = useState(defaultName ?? "");
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [phone, setPhone] = useState(defaultPhone ?? "");
-  const [provider, setProvider] = useState(payments.length === 1 ? payments[0].id : "");
+  const market = useMarket();
+  const [provider, setProvider] = useState(payments.length === 1 ? payments[0].id : market?.usdCharge ? (payments.find((p) => p.currencies.includes("USD"))?.id ?? "") : "");
   const [accept, setAccept] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function AccountCheckoutForm({
   const onPromo = useCallback((p: AppliedPromo) => setPromo(p), []);
   const emailOk = /^[^s@]+@[^s@]+.[^s@]{2,}$/.test(email.trim());
   const total = price - (promo?.discount ?? 0);
+  const usdCents = useUsdCharge(total, payments.find((p) => p.id === provider)?.currencies);
   const idempotencyKey = useMemo(
     () => crypto.randomUUID(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,7 +111,10 @@ export function AccountCheckoutForm({
                 <span className="flex flex-wrap items-center gap-2 font-medium">
                   <GatewayTitle option={p} />
                 </span>
-                <span className="text-[13px] text-fg-muted">{methods.length ? paymentMethodsSentence(methods) : p.methods}</span>
+                <span className="text-[13px] text-fg-muted">
+                  {p.id === "bold" && methods.length ? paymentMethodsSentence(methods) : p.methods}
+                  {market && !market.home ? (market.usdCharge && p.currencies.includes("USD") ? " · en dólares (US$)" : " · en pesos (COP)") : ""}
+                </span>
               </span>
             </label>
           ))}
@@ -120,10 +126,16 @@ export function AccountCheckoutForm({
         <div className="flex items-baseline justify-between rounded-[10px] border border-white/[0.06] bg-ink-850 px-4 py-3">
           <span className="text-sm text-fg-muted">Total a pagar</span>
           <span className="font-display text-xl font-bold tabular-nums">
-            {promo && <span className="mr-2 text-[13px] font-normal text-fg-subtle line-through">{formatMoney(price, currency)}</span>}
-            {formatMoney(total, currency)}
+            {promo && usdCents == null && <span className="mr-2 text-[13px] font-normal text-fg-subtle line-through">{formatMoney(price, currency)}</span>}
+            {usdCents != null ? formatCharge(usdCents, "USD") : formatMoney(total, currency)}
+            {usdCents != null && <span className="block text-right text-[12px] font-normal text-fg-subtle">≈ {formatMoney(total, currency)}</span>}
           </span>
         </div>
+        {market && !market.home && (
+          <p className="text-[12px] leading-relaxed text-fg-subtle">
+            {usdCents != null ? `Estás en ${market.countryName}: pagas en dólares (US$) con tarjeta. Si tu tarjeta es de otra moneda, tu banco hace la conversión.` : `Estás en ${market.countryName}: el cobro es en pesos colombianos (COP) y tu banco hace la conversión.`}
+          </p>
+        )}
       </div>
 
       <label className="flex cursor-pointer items-start gap-3 text-sm text-fg-muted">

@@ -651,6 +651,8 @@ export async function saveSettingsAction(_: ActionResult, form: FormData): Promi
     else if (key === "mktWinbackDays") values[key] = ["0", "14", "21", "30", "45", "60"].includes(str(form, key)) ? str(form, key) : "21";
     else if (key === "orderLimitOpen") values[key] = ["0", "1", "2", "3", "5"].includes(str(form, key)) ? str(form, key) : "2";
     else if (key === "orderLimitUnpaid") values[key] = ["0", "3", "5", "10", "20"].includes(str(form, key)) ? str(form, key) : "5";
+    else if (key === "foreignPricing") values[key] = str(form, key) === "usd" ? "usd" : "reference";
+    else if (key === "foreignSurchargePct") values[key] = ["0", "3", "5", "7", "10", "15"].includes(str(form, key)) ? str(form, key) : "5";
     else if (key === "accountsMode") values[key] = ["auto", "on", "off"].includes(str(form, key)) ? str(form, key) : "auto";
     else if (key === "paymentMethods") values[key] = parsePaymentMethods(form.getAll("paymentMethods").map(String).join(",") || "none").join(",");
     else values[key] = str(form, key).slice(0, 400);

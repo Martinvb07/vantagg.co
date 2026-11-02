@@ -401,13 +401,16 @@ model Order {
   accountId String?
   account   AccountListing? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
-  itemSnapshot Json // copia inmutable del producto al momento de compra
-  subtotal     Int
-  discount     Int              @default(0)
-  total        Int
-  currency     String           @default("COP")
-  promoCode    String?          @db.VarChar(32)
-  redemption   PromoRedemption?
+  itemSnapshot   Json // copia inmutable del producto al momento de compra
+  subtotal       Int
+  discount       Int              @default(0)
+  total          Int
+  currency       String           @default("COP")
+  /// Cobro en otra moneda (clientes de otros países con ePayco): «USD» y el monto en centavos. Vacío = se cobra `total` en pesos.
+  chargeCurrency String?          @db.VarChar(3)
+  chargeAmount   Int?
+  promoCode      String?          @db.VarChar(32)
+  redemption     PromoRedemption?
 
   paymentProvider String
   expiresAt       DateTime

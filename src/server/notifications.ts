@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env, isProduction } from "@/lib/env";
-import { formatMoney } from "@/lib/money";
+import { formatCharge, formatMoney } from "@/lib/money";
 import {
   chatMessageEmail,
   claimReceivedEmail,
@@ -134,7 +134,8 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     number: order.number,
     type: order.type,
     item: (order.itemSnapshot as { name?: string }).name ?? "Producto digital",
-    total: formatMoney(order.total, order.currency),
+    // Clientes de otros países que pagan en dólares: lo que se les cobró (y su equivalente en pesos).
+    total: order.chargeCurrency && order.chargeAmount != null ? `${formatCharge(order.chargeAmount, order.chargeCurrency)} (≈ ${formatMoney(order.total, order.currency)})` : formatMoney(order.total, order.currency),
     playerId: order.playerId,
     link: orderLink(order),
     isTest: order.isTest,

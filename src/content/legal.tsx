@@ -8,10 +8,12 @@ import { CookieChoiceButton } from "@/components/legal/cookie-notice";
  * Textos legales base. Son una PLANTILLA redactada para este modelo de negocio:
  * deben revisarse con asesoría legal en Colombia antes de operar.
  */
-export type LegalDoc = { title: string; description: string; body: (s: StoreSettings) => ReactNode };
+/** Lo que depende de las integraciones activas (no de Ajustes): p. ej. si ePayco está conectado. */
+export type LegalContext = { epayco?: boolean };
+export type LegalDoc = { title: string; description: string; body: (s: StoreSettings, ctx?: LegalContext) => ReactNode };
 
 /** Fecha de vigencia de estos textos (Decreto 1377 de 2013, art. 13). Actualízala al cambiar cualquier documento. */
-export const LEGAL_UPDATED = "2026-11-01";
+export const LEGAL_UPDATED = "2026-11-02";
 
 const company = (s: StoreSettings) => s.legalName || s.storeName;
 /** Herramientas de medición de anuncios instaladas (Panel → Ajustes → Publicidad). */
@@ -46,7 +48,7 @@ export const LEGAL: Record<string, LegalDoc> = {
   terminos: {
     title: "Términos y condiciones",
     description: "Condiciones de uso de la tienda, compra de productos digitales, pagos y responsabilidades.",
-    body: (s) => (
+    body: (s, ctx) => (
       <>
         <p>
           Estos términos regulan el uso del sitio y la compra de productos digitales ofrecidos por <strong>{company(s)}</strong>
@@ -70,6 +72,13 @@ export const LEGAL: Record<string, LegalDoc> = {
           crear el pedido. Los pagos se procesan en la plataforma de la pasarela autorizada; no almacenamos datos de tarjetas. Un pedido se considera
           pagado únicamente cuando la pasarela nos confirma la transacción.
         </p>
+        {ctx?.epayco && s.foreignPricing === "usd" && (
+          <p>
+            Si estás fuera de Colombia y pagas con ePayco, el cobro se hace en dólares estadounidenses (US$): el valor se calcula con la tasa del día
+            más un recargo de {Number(s.foreignSurchargePct) >= 0 ? Number(s.foreignSurchargePct) : 5} % por la comisión de las tarjetas internacionales y la
+            variación del cambio, y lo ves antes de pagar. Tu banco puede aplicar su propia conversión y comisiones. Con Bold el cobro siempre es en pesos colombianos.
+          </p>
+        )}
         <h2>4. Responsabilidad del comprador</h2>
         <ul>
           <li>Verificar que el ID de jugador sea correcto. Las recargas acreditadas a un ID informado erróneamente por el comprador no son reversibles.</li>
@@ -116,7 +125,7 @@ export const LEGAL: Record<string, LegalDoc> = {
   privacidad: {
     title: "Política de privacidad",
     description: "Cómo tratamos tus datos personales conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013.",
-    body: (s) => (
+    body: (s, ctx) => (
       <>
         <p>
           <strong>{company(s)}</strong> es responsable del tratamiento de los datos personales recolectados en este sitio, de acuerdo con la Ley 1581
@@ -167,6 +176,7 @@ export const LEGAL: Record<string, LegalDoc> = {
         <p>Solo con proveedores que necesitamos para operar, que actúan como encargados del tratamiento y reciben únicamente lo indispensable:</p>
         <ul>
           <li><strong>Bold</strong> (pasarela de pagos, Colombia): monto, número de pedido y los datos que ingreses en su plataforma para pagar.</li>
+          {ctx?.epayco && <li><strong>ePayco</strong> (pasarela de pagos, Colombia): monto, número de pedido, tu correo, tu dirección IP (para su control de fraude) y los datos que ingreses en su plataforma para pagar.</li>}
           <li><strong>Proveedor de recargas</strong>: el ID de jugador y el paquete, para acreditar los diamantes.</li>
           <li><strong>Resend</strong> (envío de correos, Estados Unidos): tu correo y el contenido del mensaje.</li>
           <li><strong>Google</strong> (solo si eliges «Continuar con Google»): Google nos confirma tu correo y nombre; no recibimos tu contraseña.</li>

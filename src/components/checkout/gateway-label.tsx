@@ -13,7 +13,7 @@ export function GatewayMark({ id }: { id: string }) {
 
 /** Nombre visible de la pasarela y aviso si está en modo pruebas (sin cobros reales). */
 export function GatewayTitle({ option }: { option: Pick<PublicPaymentOption, "id" | "name" | "test"> }) {
-  const name = option.id === "bold" ? "Pago con Bold" : option.name;
+  const name = option.id === "bold" ? "Pago con Bold" : option.id === "epayco" ? "Pago con ePayco" : option.name;
   return (
     <>
       {name}

@@ -8,7 +8,7 @@ import { OrderStatusBadge } from "@/components/ui/status";
 import { MANUAL_TRANSITIONS, ORDER_STATUS_META } from "@/domain/order-status";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatDate, formatMoney } from "@/lib/money";
+import { formatCharge, formatDate, formatMoney } from "@/lib/money";
 import { whatsappLink } from "@/lib/utils";
 import { orderAction } from "@/app/actions/admin";
 import { OrderChat } from "@/components/orders/order-chat";
@@ -98,6 +98,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                 <Row k="Subtotal" v={formatMoney(order.subtotal, order.currency)} />
                 {order.discount > 0 && <Row k={order.promoCode ? `Código ${order.promoCode}` : "Descuento"} v={`−${formatMoney(order.discount, order.currency)}`} />}
                 <Row k="Total" v={<strong>{formatMoney(order.total, order.currency)}</strong>} />
+                {order.chargeCurrency && order.chargeAmount != null && <Row k="Cobrado al cliente" v={<strong>{formatCharge(order.chargeAmount, order.chargeCurrency)}</strong>} />}
               </dl>
             </Panel>
           </div>
@@ -111,7 +112,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <span className="font-mono text-[12px] text-fg-muted">{p.providerRef}</span>
                     <span>{p.method ?? "—"}</span>
-                    <span className="tabular-nums">{formatMoney(p.amount, p.currency)}</span>
+                    <span className="tabular-nums">{formatCharge(p.amount, p.currency)}</span>
                     <span className={p.status === "APPROVED" ? "text-ok-400" : p.status === "PENDING" ? "text-warn-400" : "text-bad-400"}>{PAY[p.status]}</span>
                     <span className="text-fg-subtle">{formatDate(p.updatedAt)}</span>
                   </li>

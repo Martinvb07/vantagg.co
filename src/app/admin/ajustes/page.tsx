@@ -9,13 +9,20 @@ import { MAINTENANCE_DEFAULT_MESSAGE } from "@/domain/maintenance";
 import { marketingStats } from "@/server/marketing";
 import { purgeCancelledOrders } from "@/server/retention";
 import { blockedAttempts } from "@/server/order-limits";
+import { getFx } from "@/server/fx";
+import { getPaymentProvider } from "@/server/integrations/payments";
+import { formatCharge } from "@/lib/money";
+import { usdPriceCents } from "@/domain/market";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustes de la tienda" };
 
 export default async function SettingsAdmin() {
   await requireAdmin();
-  const [s, publicAccounts, stats, purge, blocked] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats(), purgeCancelledOrders({ dryRun: true }), blockedAttempts()]);
+  const [s, publicAccounts, stats, purge, blocked, fx] = await Promise.all([getSettings(), db.accountListing.count({ where: { status: { in: ["PUBLISHED", "RESERVED"] } } }), marketingStats(), purgeCancelledOrders({ dryRun: true }), blockedAttempts(), getFx()]);
+  const epaycoReady = !!getPaymentProvider("epayco")?.isEnabled();
+  const copPerUsd = fx?.rates.COP ?? null;
+  const surcharge = s.foreignSurchargePct === "" || !Number.isFinite(Number(s.foreignSurchargePct)) ? 5 : Number(s.foreignSurchargePct);
   return (
     <>
       <PageHeader title="Ajustes de la tienda" description="Marca, datos de la empresa y canales de contacto. Los campos vacíos no se muestran en la tienda." />
@@ -187,6 +194,35 @@ export default async function SettingsAdmin() {
           </div>
           <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
             {blocked ? `En las últimas 24 horas se frenaron ${blocked} intento(s) de crear pedidos (quedan en Historial de cambios).` : "En las últimas 24 horas no se frenó ningún intento."}
+          </p>
+        </Panel>
+
+        <Panel title="Precios fuera de Colombia">
+          <p className="mb-3 text-[12.5px] text-fg-muted">
+            La tienda detecta el país de cada visitante. En Colombia todo sigue en pesos. A quien está en otro país se le muestra el precio en dólares (con el recargo) y en su moneda como referencia. Con «Cobrar en dólares», ePayco le cobra ese precio en US$; Bold siempre cobra en pesos.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Cobro a clientes de otros países" hint={epaycoReady ? "ePayco está conectado: puede cobrar en dólares." : "Para cobrar en dólares hace falta ePayco conectado (Integraciones). Mientras tanto se cobra en pesos."}>
+              <select name="foreignPricing" defaultValue={s.foreignPricing === "usd" ? "usd" : "reference"} className="field">
+                <option value="reference">En pesos (el precio en dólares solo como referencia)</option>
+                <option value="usd">Cobrar en dólares con ePayco</option>
+              </select>
+            </Field>
+            <Field label="Recargo para otros países (%)" hint="Cubre la comisión de tarjetas internacionales y la variación del dólar. Recomendado: 5 %.">
+              <select name="foreignSurchargePct" defaultValue={String(surcharge)} className="field">
+                {["0", "3", "5", "7", "10", "15"].map((v) => (
+                  <option key={v} value={v}>
+                    {v === "5" ? "5 % (recomendado)" : `${v} %`}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <p className="mt-3 rounded-lg bg-ink-900 px-3 py-2.5 text-[12.5px] text-fg-muted ring-1 ring-white/[0.06]">
+            {copPerUsd
+              ? `Dólar de hoy: ${new Intl.NumberFormat("es-CO").format(Math.round(copPerUsd))} pesos. Ejemplo: un paquete de $20.000 se muestra a ${formatCharge(usdPriceCents(20000, copPerUsd, surcharge), "USD")} fuera de Colombia.`
+              : "Todavía no hay tasa del dólar: se actualiza sola cada 12 horas."}
+            {s.foreignPricing === "usd" && !epaycoReady ? " Ahora se cobra en pesos porque ePayco no está conectado." : ""}
           </p>
         </Panel>
 

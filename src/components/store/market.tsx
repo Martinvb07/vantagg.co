@@ -28,6 +28,17 @@ export function useForeignPrice(cop: number): string | null {
   return `≈ ${usdText} · ≈ ${formatCurrency(localFromUsd(usd, m.localPerUsd), m.currency)}`;
 }
 
+/**
+ * Monto en dólares (centavos) que cobrará la pasarela elegida, o null si se cobra en pesos. Solo fuera de Colombia,
+ * con «Cobrar en dólares» activo en Ajustes y una pasarela que cobre en dólares (ePayco). Es el mismo cálculo del servidor.
+ */
+export function useUsdCharge(cop: number, currencies: readonly string[] | undefined): number | null {
+  const m = useMarket();
+  if (!m?.usdCharge || !m.copPerUsd || !currencies?.includes("USD") || !(cop > 0)) return null;
+  const cents = usdPriceCents(cop, m.copPerUsd, m.surchargePct);
+  return cents > 0 ? cents : null;
+}
+
 /** Referencia del precio en dólares y en la moneda local (solo fuera de Colombia). */
 export function PriceHint({ cop, className }: { cop: number; className?: string }) {
   const text = useForeignPrice(cop);

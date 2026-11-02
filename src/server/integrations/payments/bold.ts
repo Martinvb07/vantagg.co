@@ -100,6 +100,7 @@ export const boldProvider: PaymentProvider = {
   id: "bold",
   displayName: "Bold",
   methodsLabel: "Tarjeta, PSE, Nequi y Botón Bancolombia",
+  currencies: ["COP"],
 
   mode() {
     return env.bold.testMode ? "sandbox" : "production";

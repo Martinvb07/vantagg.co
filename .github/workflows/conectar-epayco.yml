@@ -1,0 +1,176 @@
+name: Conectar ePayco
+
+# Manual: activa ePayco AL LADO de Bold (Bold no se toca). Las llaves salen de los secretos del repositorio
+# (Settings → Secrets and variables → Actions): EPAYCO_PUBLIC_KEY, EPAYCO_PRIVATE_KEY, EPAYCO_P_CUST_ID_CLIENTE y
+# EPAYCO_P_KEY (panel de ePayco → Integraciones → Llaves API). Nunca se imprimen.
+#  - modo «pruebas»: ePayco en sandbox; sus pedidos son de prueba (no se cobra ni se compra en el proveedor).
+#  - modo «produccion»: cobros reales.
+#  - cobro_dolares «si»: clientes de otros países pagan en dólares con ePayco (+ el recargo de Ajustes).
+# Guarda una copia del .env antes de cambiarlo y la restaura si la tienda no vuelve a responder.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: Modo de ePayco
+        type: choice
+        options: [pruebas, produccion]
+        default: pruebas
+      cobro_dolares:
+        description: Cobrar en dólares a clientes de otros países
+        type: choice
+        options: [si, no]
+        default: si
+      desconectar:
+        description: Quitar ePayco (deja solo Bold)
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  epayco:
+    name: Conectar ePayco
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Revisar secretos (sin mostrarlos)
+        if: ${{ !inputs.desconectar }}
+        env:
+          EP_PUB: ${{ secrets.EPAYCO_PUBLIC_KEY }}
+          EP_PRIV: ${{ secrets.EPAYCO_PRIVATE_KEY }}
+          EP_CUST: ${{ secrets.EPAYCO_P_CUST_ID_CLIENTE }}
+          EP_PKEY: ${{ secrets.EPAYCO_P_KEY }}
+        run: |
+          set -euo pipefail
+          faltan=()
+          [ -n "$EP_PUB" ] || faltan+=(EPAYCO_PUBLIC_KEY)
+          [ -n "$EP_PRIV" ] || faltan+=(EPAYCO_PRIVATE_KEY)
+          [ -n "$EP_CUST" ] || faltan+=(EPAYCO_P_CUST_ID_CLIENTE)
+          [ -n "$EP_PKEY" ] || faltan+=(EPAYCO_P_KEY)
+          if [ ${#faltan[@]} -gt 0 ]; then echo "Faltan secretos: ${faltan[*]}"; exit 1; fi
+          for v in "$EP_PUB" "$EP_PRIV" "$EP_PKEY"; do [[ "$v" =~ ^[A-Za-z0-9._-]{8,200}$ ]] || { echo "Una de las llaves tiene un formato inesperado (¿espacios o comillas al copiarla?)"; exit 1; }; done
+          [[ "$EP_CUST" =~ ^[0-9]{1,20}$ ]] || { echo "EPAYCO_P_CUST_ID_CLIENTE debe ser solo números"; exit 1; }
+          echo "Los 4 secretos están cargados."
+
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Configurar en el servidor y verificar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          EP_PUB: ${{ secrets.EPAYCO_PUBLIC_KEY }}
+          EP_PRIV: ${{ secrets.EPAYCO_PRIVATE_KEY }}
+          EP_CUST: ${{ secrets.EPAYCO_P_CUST_ID_CLIENTE }}
+          EP_PKEY: ${{ secrets.EPAYCO_P_KEY }}
+          MODO: ${{ inputs.modo }}
+          DOLARES: ${{ inputs.cobro_dolares }}
+          QUITAR: ${{ inputs.desconectar }}
+        run: |
+          set -euo pipefail
+          # Las llaves viajan por la entrada estándar (no quedan en la línea de comandos ni en el registro).
+          {
+            printf 'VPS_PATH=%q\nEP_PUB=%q\nEP_PRIV=%q\nEP_CUST=%q\nEP_PKEY=%q\nMODO=%q\nDOLARES=%q\nQUITAR=%q\n' \
+              "$VPS_PATH" "$EP_PUB" "$EP_PRIV" "$EP_CUST" "$EP_PKEY" "$MODO" "$DOLARES" "$QUITAR"
+            cat <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          umask 077
+          cp .env .env.antes-epayco
+
+          setkv() { local tmp; tmp=$(mktemp); grep -v -E "^$1=" .env > "$tmp" || true; printf '%s=%s\n' "$1" "$2" >> "$tmp"; cat "$tmp" > .env; rm -f "$tmp"; }
+          delkv() { local tmp; tmp=$(mktemp); grep -v -E "^$1=" .env > "$tmp" || true; cat "$tmp" > .env; rm -f "$tmp"; }
+
+          cur=$(grep -E '^PAYMENT_PROVIDER=' .env | tail -1 | cut -d= -f2- | tr -d "\"' " || true)
+          if [ "$QUITAR" = "true" ]; then
+            nuevo=$(printf '%s' "$cur" | tr ',' '\n' | grep -v -x 'epayco' | paste -sd, -)
+            setkv PAYMENT_PROVIDER "${nuevo:-bold}"
+            for k in EPAYCO_PUBLIC_KEY EPAYCO_PRIVATE_KEY EPAYCO_P_CUST_ID_CLIENTE EPAYCO_P_KEY EPAYCO_TEST_MODE; do delkv "$k"; done
+            PRECIO=reference
+          else
+            case ",$cur," in *,epayco,*) nuevo="$cur" ;; *) nuevo="${cur:+$cur,}epayco" ;; esac
+            setkv PAYMENT_PROVIDER "$nuevo"
+            setkv EPAYCO_PUBLIC_KEY "$EP_PUB"
+            setkv EPAYCO_PRIVATE_KEY "$EP_PRIV"
+            setkv EPAYCO_P_CUST_ID_CLIENTE "$EP_CUST"
+            setkv EPAYCO_P_KEY "$EP_PKEY"
+            setkv EPAYCO_TEST_MODE "$([ "$MODO" = "pruebas" ] && echo true || echo false)"
+            PRECIO=$([ "$DOLARES" = "si" ] && echo usd || echo reference)
+          fi
+          chmod 600 .env
+          echo "Pasarelas activas: $(grep -E '^PAYMENT_PROVIDER=' .env | cut -d= -f2-)"
+
+          # Ajustes de precios fuera de Colombia (en la base de datos; también se cambian en Panel → Ajustes).
+          DATABASE_URL=$(grep -E '^DATABASE_URL=' .env | tail -1 | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/')
+          DATABASE_URL="$DATABASE_URL" PRECIO="$PRECIO" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const db = new PrismaClient();
+            (async () => {
+              const set = (key, value) => db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
+              await set("foreignPricing", process.env.PRECIO);
+              const s = await db.setting.findUnique({ where: { key: "foreignSurchargePct" } });
+              if (!s || !/^[0-9]{1,2}$/.test(s.value)) await set("foreignSurchargePct", "5");
+              const rows = await db.setting.findMany({ where: { key: { in: ["foreignPricing", "foreignSurchargePct"] } } });
+              console.log("Ajustes:", rows.map((r) => `${r.key}=${r.value}`).join(" · "));
+              await db.$disconnect();
+            })().catch((e) => { console.error("No se pudieron guardar los ajustes:", e.message); process.exit(1); });
+          '
+
+          pm2 restart vanta >/dev/null
+          ok=0
+          for i in $(seq 1 25); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3020/api/health || true)" = "200" ] && { ok=1; break; }
+            sleep 3
+          done
+          if [ "$ok" != 1 ]; then
+            echo "!! La tienda no respondió tras reiniciar: se restaura el .env anterior"
+            cat .env.antes-epayco > .env && rm -f .env.antes-epayco
+            pm2 restart vanta >/dev/null
+            exit 1
+          fi
+          rm -f .env.antes-epayco
+          echo "Tienda en línea."
+
+          # Bold sigue respondiendo (su webhook existe: 401 = firma requerida).
+          echo "Webhook de Bold: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST http://127.0.0.1:3020/api/webhooks/bold || true) (401 = activo)"
+          # ePayco: 401 = activo y exigiendo firma; 404 = no activo.
+          echo "Confirmación de ePayco: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST http://127.0.0.1:3020/api/webhooks/epayco || true) (401 = activo, 404 = no activo)"
+
+          if [ "$QUITAR" != "true" ]; then
+            # Solo verifica las llaves (inicio de sesión en la API de ePayco): no crea cobros ni mueve dinero.
+            auth=$(printf '%s:%s' "$EP_PUB" "$EP_PRIV" | base64 -w0)
+            r=$(curl -s --max-time 15 -w '\n%{http_code}' -X POST https://apify.epayco.co/login -H "Authorization: Basic $auth" -H 'Content-Type: application/json' -d '{}' || true)
+            code=$(printf '%s' "$r" | tail -1)
+            if printf '%s' "$r" | grep -q '"token"'; then echo "Llaves de ePayco: aceptadas (HTTP $code)"; else echo "!! Llaves de ePayco: rechazadas (HTTP $code). Revisa la llave pública y la privada."; exit 1; fi
+          fi
+          ENDSSH
+          } | ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" 'bash -s'
+
+      - name: Verificar desde internet
+        if: ${{ !inputs.desconectar }}
+        run: |
+          set -euo pipefail
+          # La página de pago de ePayco existe (404 para un pedido inventado = la ruta responde sin errores).
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://vantagg.co/pagar/epayco/VX-0000-0000?t=x" || true)
+          echo "Página de pago ePayco (pedido inventado): HTTP $code (404 esperado)"
+          csp=$(curl -s -D - -o /dev/null --max-time 15 "https://vantagg.co/pagar/epayco/VX-0000-0000?t=x" || true)
+          grep -qi 'form-action[^;]*epayco' <<< "$csp" && echo "Seguridad (CSP) de la página de pago: permite ePayco" || echo "!! La página de pago no permite ePayco en su CSP"
+          home=$(curl -s -D - -o /dev/null --max-time 15 "https://vantagg.co/recargas" || true)
+          grep -qi 'form-action[^;]*epayco' <<< "$home" && echo "!! La CSP de la tienda permite ePayco fuera de la página de pago" || echo "Resto de la tienda: sin permisos para ePayco (correcto)"

@@ -10,7 +10,7 @@ import { applyDeliveryResult, applyVerifiedPayment, confirmApprovedWebhook } fro
 export const dynamic = "force-dynamic";
 
 /**
- * Receptor único de webhooks: /api/webhooks/{bold|topup}
+ * Receptor único de webhooks: /api/webhooks/{bold|epayco|topup}
  * (topup = proveedor de recargas activo, p. ej. RechargeGame con firma Standard Webhooks)
  *  1. Verifica la firma con el secreto del proveedor (nunca confía en el cuerpo).
  *  2. Registra el evento con clave única (proveedor, id) → reintentos idempotentes.
@@ -90,7 +90,7 @@ async function recordEvent(provider: string, externalId: string, type: string, p
 
 /** Elimina campos potencialmente sensibles antes de guardar el payload. */
 function sanitize(payload: unknown): unknown {
-  const SENSITIVE = /(token|secret|password|card|cvc|cvv|pan|document|phone|email|name|address)/i;
+  const SENSITIVE = /(token|secret|password|card|cvc|cvv|pan|document|phone|movil|email|name|address|(^|_)ip$)/i;
   if (Array.isArray(payload)) return payload.map(sanitize);
   if (payload && typeof payload === "object") {
     return Object.fromEntries(

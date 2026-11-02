@@ -26,6 +26,17 @@ export const env = {
     secretKey: read("BOLD_SECRET_KEY"),
     testMode: read("BOLD_TEST_MODE") === "true",
   },
+  /**
+   * ePayco (Colombia; cobra también en dólares): llaves de la API (pública y privada, para crear el cobro) y las de la
+   * confirmación (P_CUST_ID_CLIENTE y P_KEY, para verificar su firma). En pruebas no hay cobros reales.
+   */
+  epayco: {
+    publicKey: read("EPAYCO_PUBLIC_KEY"),
+    privateKey: read("EPAYCO_PRIVATE_KEY"),
+    customerId: read("EPAYCO_P_CUST_ID_CLIENTE"),
+    pKey: read("EPAYCO_P_KEY"),
+    testMode: read("EPAYCO_TEST_MODE") === "true",
+  },
   topup: {
     provider: (read("TOPUP_PROVIDER") ?? "").toLowerCase(),
     baseUrl: read("TOPUP_API_BASE_URL"),

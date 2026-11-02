@@ -44,7 +44,15 @@ export async function getIntegrationOverview(): Promise<IntegrationCard[]> {
             { name: "BOLD_SECRET_KEY", value: mask(env.bold.secretKey) },
             { name: "BOLD_TEST_MODE", value: env.bold.testMode ? "true" : null },
           ]
-        : [];
+        : p.id === "epayco"
+          ? [
+              { name: "EPAYCO_PUBLIC_KEY", value: mask(env.epayco.publicKey) },
+              { name: "EPAYCO_PRIVATE_KEY", value: mask(env.epayco.privateKey) },
+              { name: "EPAYCO_P_CUST_ID_CLIENTE", value: mask(env.epayco.customerId) },
+              { name: "EPAYCO_P_KEY", value: mask(env.epayco.pKey) },
+              { name: "EPAYCO_TEST_MODE", value: env.epayco.testMode ? "true" : null },
+            ]
+          : [];
     cards.push({
       key: `payment:${p.id}`,
       group: "Pagos",
@@ -55,6 +63,7 @@ export async function getIntegrationOverview(): Promise<IntegrationCard[]> {
       missing: p.missingConfig(),
       values,
       webhookUrl: `${env.appUrl}/api/webhooks/${p.id}`,
+      ...(p.id === "epayco" ? { note: "En ePayco, la «URL de confirmación» es esta dirección de webhook. Cobra en pesos y, con «Cobrar en dólares» (Ajustes), en dólares a clientes de otros países." } : {}),
       ...st(`payment:${p.id}`),
     });
   }

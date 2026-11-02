@@ -46,6 +46,8 @@ export async function getOrderForCustomer(number: string, token: string | undefi
     promoCode: order.promoCode,
     total: order.total,
     currency: order.currency,
+    /** Cobrado en dólares (clientes de otros países): monto en centavos. null = se cobró el total en pesos. */
+    charge: order.chargeCurrency && order.chargeAmount != null ? { amount: order.chargeAmount, currency: order.chargeCurrency } : null,
     paymentProvider: order.paymentProvider,
     expiresAt: order.expiresAt,
     paidAt: order.paidAt,
