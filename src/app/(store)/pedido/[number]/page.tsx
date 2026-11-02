@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleAlert, CircleCheck, Clock, CreditCard, Loader, MessageCircle, RotateCcw, XCircle } from "lucide-react";
+import { CircleCheck, Clock, CreditCard, Loader, MessageCircle, RotateCcw, XCircle } from "lucide-react";
 import { PackCover } from "@/components/brand/covers";
 import { PASS_INFO, passKindOf } from "@/domain/packs";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
@@ -17,6 +17,7 @@ import { cn, whatsappLink } from "@/lib/utils";
 import { getOrderForCustomer } from "@/server/order-view";
 import { checkPendingPayment, refreshDeliveryIfStale } from "@/server/orders";
 import { getSettings } from "@/server/settings";
+import { DELIVERY_TIME } from "@/domain/delivery-time";
 import { googleTagConfig } from "@/domain/google-tag";
 import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { PurchaseTracker } from "@/components/analytics/purchase-tracker";
@@ -33,7 +34,7 @@ const HERO: Record<OrderStatusValue, { icon: typeof Clock; tone: string; title: 
   PAID: { icon: CreditCard, tone: "text-sky-300 bg-sky-400/12 ring-sky-400/25", title: "Pago confirmado" },
   PROCESSING: { icon: Loader, tone: "text-volt-300 bg-volt-400/12 ring-volt-400/25", title: "Entregando tu pedido" },
   DELIVERED: { icon: CircleCheck, tone: "text-ok-400 bg-ok-400/12 ring-ok-400/25", title: "¡Pedido entregado!" },
-  DELIVERY_FAILED: { icon: CircleAlert, tone: "text-bad-400 bg-bad-400/12 ring-bad-400/25", title: "Estamos revisando tu entrega" },
+  DELIVERY_FAILED: { icon: Clock, tone: "text-warn-400 bg-warn-400/12 ring-warn-400/25", title: "Tu entrega se está demorando" },
   REFUND_REQUESTED: { icon: RotateCcw, tone: "text-warn-400 bg-warn-400/12 ring-warn-400/25", title: "Reembolso en curso" },
   REFUNDED: { icon: RotateCcw, tone: "text-fg-muted bg-white/[0.06] ring-white/10", title: "Reembolso completado" },
   CANCELLED: { icon: XCircle, tone: "text-fg-muted bg-white/[0.06] ring-white/10", title: "Pedido cancelado" },
@@ -161,8 +162,13 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ? "No se hizo ningún cobro. Puedes intentarlo de nuevo con otro medio de pago."
                 : from === "pago" && order.status === "PENDING_PAYMENT"
                   ? "Si ya pagaste, la confirmación puede tardar unos minutos (PSE tarda un poco más). Esta página se actualiza sola."
-                  : ORDER_STATUS_META[order.status].customer}
+                  : order.status === "DELIVERY_FAILED" && order.type === "TOPUP"
+                    ? DELIVERY_TIME.delayed
+                    : ORDER_STATUS_META[order.status].customer}
             </p>
+            {order.type === "TOPUP" && (order.status === "PAID" || order.status === "PROCESSING") && (
+              <p className="mt-1.5 text-[13px] text-fg-muted">{DELIVERY_TIME.processing}</p>
+            )}
             {order.status === "DELIVERED" && order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-warn-400">Entrega simulada por el proveedor de prueba: no se enviaron diamantes reales.</p>}
             {order.status === "DELIVERED" && order.type === "TOPUP" && !order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-fg-muted">Abre Free Fire y revisa tu saldo de diamantes.</p>}
             {/* Recargar de nuevo: mismo paquete y mismo ID, listo para pagar */}

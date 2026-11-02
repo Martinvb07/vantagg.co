@@ -70,7 +70,7 @@ export const FAQ: FaqItem[] = [
     id: "cuanto-tarda",
     group: "pedidos",
     q: "¿Cuánto tarda la entrega?",
-    a: "La recarga empieza automáticamente cuando la pasarela confirma el pago. El tiempo final depende del proveedor; puedes ver cada paso en tiempo real en el seguimiento de tu pedido.",
+    a: "La recarga empieza sola apenas la pasarela confirma el pago y casi siempre llega en segundos. A veces, por alta demanda o mantenimiento de Free Fire, puede demorar hasta 24 horas: no tienes que hacer nada, te avisamos por correo cuando llegue y puedes ver cada paso en el seguimiento de tu pedido. Si no se puede entregar, te devolvemos el dinero.",
   },
   {
     id: "numero-de-pedido",

@@ -36,7 +36,7 @@ export const ORDER_STATUS_META: Record<OrderStatusValue, { label: string; tone: 
   DELIVERY_FAILED: {
     label: "Error de entrega",
     tone: "danger",
-    customer: "Hubo un problema con la entrega. Nuestro equipo lo está revisando; tu pago está registrado.",
+    customer: "La entrega se está demorando. Nuestro equipo ya la está revisando; tu pago está seguro.",
   },
   REFUND_REQUESTED: {
     label: "Reembolso solicitado",

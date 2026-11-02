@@ -78,8 +78,9 @@ export const LEGAL: Record<string, LegalDoc> = {
         </ul>
         <h2>5. Plazos</h2>
         <p>
-          La entrega inicia cuando se confirma el pago. Los tiempos dependen del proveedor de recargas o de la coordinación del traspaso en el caso de
-          cuentas. El estado actualizado está siempre disponible en la página de seguimiento.
+          La entrega inicia cuando se confirma el pago. Las recargas son automáticas y casi siempre llegan en segundos, pero por alta demanda,
+          mantenimiento del juego o fallas del proveedor pueden demorar hasta 24 horas; si no se pueden entregar, se reembolsa el pago. En las cuentas,
+          el tiempo depende de la coordinación del traspaso. El estado actualizado está siempre disponible en la página de seguimiento.
         </p>
         <h2 id="menores">6. Edad mínima y menores de edad</h2>
         <p>

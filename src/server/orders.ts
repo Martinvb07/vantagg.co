@@ -596,7 +596,7 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
     await db.delivery.update({ where: { id: deliveryId }, data: { status: "FAILED", lastError: r.message ?? "Error desconocido", lockedAt: null } });
     await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "DELIVERY_FAILED" } });
     await addEvent(order.id, "DELIVERY_FAILED", r.message ?? "El proveedor no pudo completar la entrega.", actor, { data: { providerRef: r.providerRef } });
-    await addEvent(order.id, "DELIVERY_ISSUE", "Hubo un inconveniente con la entrega. Nuestro equipo lo revisará y te contactará.", "SYSTEM", { public: true });
+    await addEvent(order.id, "DELIVERY_ISSUE", "La entrega se está demorando. Nuestro equipo ya la está revisando; tu pago está seguro.", "SYSTEM", { public: true });
     void notifyOrder(order.id, "delivery_failed").catch(() => {});
     void notifyStaffDeliveryIssue(order.id, r.message ?? "El proveedor no pudo completar la entrega.").catch(() => {});
     return;

@@ -1,4 +1,5 @@
 import "server-only";
+import { DELIVERY_TIME } from "@/domain/delivery-time";
 
 /**
  * Plantillas de correo transaccional: HTML con estilos en línea y tablas (compatible con
@@ -313,7 +314,7 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       subject: `Pago confirmado · ${o.number}`,
       block: account
         ? { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado! La cuenta ya es tuya", intro: "Te entregamos los datos de acceso por el chat de tu pedido. Te avisamos por correo cuando te escribamos.", preheader: "Abre el chat de entrega de tu cuenta", cta: chat, note: test }
-        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: o.isPass ? `Estamos activando tu ${o.item} en tu ID. Normalmente tarda pocos minutos.` : "Estamos enviando los diamantes a tu ID. Normalmente tarda pocos minutos.", preheader: o.isPass ? "Estamos activando tu compra" : "Estamos enviando tus diamantes", cta: view, note: test },
+        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: `${o.isPass ? `Estamos activando tu ${o.item} en tu ID.` : "Estamos enviando los diamantes a tu ID."} ${DELIVERY_TIME.processing}`, preheader: o.isPass ? "Estamos activando tu compra" : "Estamos enviando tus diamantes", cta: view, note: test },
     },
     delivered: {
       subject: account ? `Entrega completada · ${o.number}` : o.isPass ? `¡Tu compra llegó! · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
@@ -322,8 +323,10 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
         : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
     },
     delivery_failed: {
-      subject: `Estamos revisando tu entrega · ${o.number}`,
-      block: { badge: "En revisión", tone: "warning", steps: steps(2, true), title: "Estamos revisando tu entrega", intro: "Hubo un inconveniente con la entrega. Tu pago está seguro: lo resolvemos o te devolvemos el dinero.", preheader: "Tu pago está seguro", cta: view, note: test },
+      subject: account ? `Estamos revisando tu entrega · ${o.number}` : `Tu recarga se está demorando · ${o.number}`,
+      block: account
+        ? { badge: "En revisión", tone: "warning", steps: steps(2, true), title: "Estamos revisando tu entrega", intro: "Hubo un inconveniente con la entrega. Tu pago está seguro: lo resolvemos o te devolvemos el dinero.", preheader: "Tu pago está seguro", cta: view, note: test }
+        : { badge: "Demorada", tone: "warning", steps: steps(2, true), title: "Tu recarga se está demorando", intro: DELIVERY_TIME.delayed, preheader: "Tu pago está seguro", cta: view, note: test },
     },
     refunded: {
       subject: `Reembolso procesado · ${o.number}`,
