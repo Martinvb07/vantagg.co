@@ -68,6 +68,51 @@ jobs:
           cd "$VPS_PATH"
           echo "== versión: commit $(git rev-parse --short HEAD) · modo: $MODO"
 
+          if [ "$MODO" = "revisar" ] && [ "$TARJETAS" = "si" ]; then
+            # Diagnóstico de solo lectura: cómo responde Central One al verificar cuentas de Latinoamérica con las
+            # tarjetas de Global y de Latinoamérica (estado y motivo; sin IDs, precios ni costos).
+            cat > /tmp/diag-tarjetas.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const base = (process.env.TOPUP_API_BASE_URL || "https://portal.centraloneglobal.com/api/v1").replace(/\/+$/, "");
+          const H = { Authorization: `Bearer ${process.env.TOPUP_API_KEY || ""}`, Accept: "application/json" };
+          const call = async (path, init = {}) => {
+            try {
+              const r = await fetch(base + path, { ...init, headers: { ...H, ...(init.body ? { "Content-Type": "application/json" } : {}) }, signal: AbortSignal.timeout(20000) });
+              let j = null; try { j = await r.json(); } catch {}
+              return { s: r.status, j };
+            } catch (e) { return { s: 0, j: null }; }
+          };
+          const plain = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const kindOf = (n) => (/semanal\s+b.{0,3}sica/.test(plain(n)) ? "Semanal Básica" : /semanal/.test(plain(n)) ? "Semanal" : /mensual/.test(plain(n)) ? "Mensual" : null);
+          const reg = (raw) => { const s = plain(raw || "global"); return /latam|latin/.test(s) ? "latam" : /global|worldwide/.test(s) ? "global" : s; };
+          const schemaOf = (it) => (it.target_schema?.length ? it.target_schema : (it.target_fields || []).map((key) => ({ key, type: "text" })));
+          (async () => {
+            const c = await call("/catalog");
+            const items = (c.j?.items || []).filter((i) => String(i.product_id || "").startsWith("topup/free-fire/") && kindOf(i.name) && ["latam", "global"].includes(reg(i.region || i.market)));
+            const orders = await db.order.findMany({ where: { type: "TOPUP", status: "DELIVERED", isTest: false, playerId: { not: null } }, orderBy: { deliveredAt: "desc" }, take: 60, select: { playerId: true, itemSnapshot: true } });
+            const ids = [...new Set(orders.filter((o) => (o.itemSnapshot || {}).region === "latam").map((o) => o.playerId))].slice(0, 2);
+            console.log(`== Diagnóstico Central One (catálogo HTTP ${c.s}) · ${ids.length} cuenta(s) de Latinoamérica`);
+            for (const it of items.sort((a, b) => String(a.name).localeCompare(String(b.name)))) {
+              const schema = schemaOf(it);
+              const fields = schema.map((f) => (f.type === "select" ? `${f.key}[${(f.options || []).map((o) => o.label || o.value).join("/")}]` : f.key)).join(", ");
+              const extra = Object.keys(it).filter((k) => /region|market|countr|server|note|descr|warn|compat/i.test(k)).map((k) => `${k}=${JSON.stringify(it[k]).slice(0, 80)}`).join(" · ");
+              console.log(`-- ${reg(it.region || it.market)} · ${kindOf(it.name)} · «${it.name}» · ${it.in_stock === false ? "agotado" : "con existencias"} · pide: ${fields || "(nada)"}${extra ? " · " + extra : ""}`);
+              for (const [i, id] of ids.entries()) {
+                const target_payload = Object.fromEntries(schema.map((f) => [f.key, f.type === "select" ? (f.options || [])[0]?.value : id]));
+                const v = await call("/player/validate", { method: "POST", body: JSON.stringify({ product_id: it.product_id, target_payload }) });
+                const why = v.s === 200 ? [v.j?.status, v.j?.reason, v.j?.code].filter(Boolean).join(" / ") : `HTTP ${v.s} ${v.j?.error?.code ?? ""}`;
+                console.log(`     cuenta ${i + 1}: ${why || "(sin estado)"}`);
+                await new Promise((r) => setTimeout(r, 2500)); // límite de Central One: 30 por minuto
+              }
+            }
+            await db.$disconnect();
+          })();
+          JS
+            NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/diag-tarjetas.cjs | sed -E 's/[0-9]{6,12}/<id>/g' || true
+            rm -f /tmp/diag-tarjetas.cjs
+          fi
+
           if [ "$MODO" = "aplicar" ]; then
             # Respaldo de la base de datos antes de cambiar regiones y paquetes (si falla, no se cambia nada).
             dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
