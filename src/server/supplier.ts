@@ -157,14 +157,17 @@ export async function ensureFreshCatalog(): Promise<boolean> {
 export type SupplierRegion = { slug: string; name: string; label: string; packs: number; minCents: number | null; maxCents: number | null; outOfStock: number; storePackages: number; enabled: boolean };
 
 export async function listSupplierRegions(): Promise<SupplierRegion[]> {
-  const [products, packages, { regions }] = await Promise.all([
+  const [products, packages, { regions }, settings] = await Promise.all([
     db.supplierProduct.findMany({ where: { game: GAME }, orderBy: { priceCents: "asc" } }),
     db.diamondPackage.groupBy({ by: ["region"], where: { active: true }, _count: { _all: true } }),
     supplierRate(),
+    getSettings(),
   ]);
+  // Las regiones quitadas a mano (Europa, Indonesia…) no aparecen en el panel.
+  const removed = new Set(parseRegionList(settings.topupRegionsOff));
   const map = new Map<string, SupplierRegion>();
   for (const p of products) {
-    if (!isDiamondPack(p)) continue;
+    if (!isDiamondPack(p) || removed.has(p.regionSlug)) continue;
     const r = map.get(p.regionSlug) ?? { slug: p.regionSlug, name: p.regionName, label: regionLabel(p.regionSlug, p.regionName), packs: 0, minCents: null, maxCents: null, outOfStock: 0, storePackages: 0, enabled: regions.includes(p.regionSlug) };
     r.packs++;
     if (p.outOfStock) r.outOfStock++;
@@ -691,4 +694,29 @@ export async function globalDeliveredToLatam(): Promise<{ globalDelivered: numbe
   ]);
   const latamIds = new Set(l.map((o) => o.playerId));
   return { globalDelivered: g.length, latamAccounts: new Set(g.map((o) => o.playerId).filter((id) => latamIds.has(id))).size };
+}
+
+/**
+ * Borra de la base, de forma definitiva, los paquetes de las regiones quitadas (Europa, Indonesia…) y las tarjetas
+ * de Latinoamérica inactivas que ya fueron reemplazadas por una activa. Los pedidos NO se borran: conservan su copia
+ * del producto (nombre, región, diamantes) y solo pierden el vínculo con el paquete. `dryRun`: solo cuenta.
+ */
+export async function purgeRemovedPackages(opts: { dryRun?: boolean } = {}): Promise<{ regions: Record<string, number>; cards: string[]; orders: number }> {
+  const off = parseRegionList((await getSettings()).topupRegionsOff);
+  const regionPkgs = off.length ? await db.diamondPackage.findMany({ where: { region: { in: off } }, select: { id: true, region: true, _count: { select: { orders: true } } } }) : [];
+  const activeKinds = new Set(
+    (await db.diamondPackage.findMany({ where: { region: DEFAULT_TOPUP_REGION, active: true, diamonds: 0 }, select: { name: true } })).map((p) => passKindOf(p.name)).filter((k): k is PassKind => !!k && MEMBERSHIP_CARDS.includes(k)),
+  );
+  const oldCards = (await db.diamondPackage.findMany({ where: { region: DEFAULT_TOPUP_REGION, active: false, diamonds: 0 }, select: { id: true, name: true, _count: { select: { orders: true } } } })).filter((p) => {
+    const k = passKindOf(p.name);
+    return !!k && activeKinds.has(k);
+  });
+  const regions: Record<string, number> = {};
+  for (const p of regionPkgs) regions[p.region] = (regions[p.region] ?? 0) + 1;
+  const all = [...regionPkgs, ...oldCards];
+  const result = { regions, cards: oldCards.map((p) => p.name), orders: all.reduce((n, p) => n + p._count.orders, 0) };
+  if (opts.dryRun || !all.length) return result;
+  await db.diamondPackage.deleteMany({ where: { id: { in: all.map((p) => p.id) }, OR: [{ region: { in: off } }, { active: false }] } });
+  await audit({ actorId: null, action: "package.purge_removed", entity: "DiamondPackage", data: result });
+  return result;
 }

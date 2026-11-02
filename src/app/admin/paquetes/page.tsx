@@ -24,11 +24,13 @@ export const metadata = { title: "Diamantes y precios" };
 
 export default async function PackagesAdmin({ searchParams }: { searchParams: Promise<{ region?: string }> }) {
   await requireAdmin();
-  const { topupCoverUrl, usdtCop: rateStr, topupRegions } = await getSettings();
+  const { topupCoverUrl, usdtCop: rateStr, topupRegions, topupRegionsOff } = await getSettings();
   const usdtCop = Number(rateStr) > 0 ? Number(rateStr) : 3400;
   const enabled = parseRegionList(topupRegions);
   const groups = await db.diamondPackage.groupBy({ by: ["region"], _count: { _all: true } });
-  const tabs = [...new Set(["latam", ...enabled, ...groups.map((g) => g.region)])].filter((r) => r === "latam" || groups.some((g) => g.region === r));
+  // Las regiones quitadas a mano (Europa, Indonesia…) no se muestran.
+  const removed = parseRegionList(topupRegionsOff);
+  const tabs = [...new Set(["latam", ...enabled, ...groups.map((g) => g.region)])].filter((r) => !removed.includes(r) && (r === "latam" || groups.some((g) => g.region === r)));
   const askedRegion = (await searchParams).region;
   const region = askedRegion && tabs.includes(askedRegion) ? askedRegion : "latam";
   const packages = await db.diamondPackage.findMany({ where: { region }, orderBy: [{ sortOrder: "asc" }, { diamonds: "asc" }], include: { _count: { select: { orders: true } } } });

@@ -34,7 +34,7 @@ vi.mock("@/server/integrations/topup", () => {
 import { db } from "@/lib/db";
 import { floorPrice, marginOf } from "@/domain/topup-regions";
 import { targetPayloadFor } from "@/server/integrations/topup/centralone-core";
-import { activateAllFreeFire, globalDeliveredToLatam, globalNameCoversLatam, moveGlobalCardsToLatam, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
+import { activateAllFreeFire, globalDeliveredToLatam, globalNameCoversLatam, listSupplierRegions, moveGlobalCardsToLatam, purgeRemovedPackages, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
 
 const RUN = Date.now().toString(36);
 const key = (s: string) => `topup/free-fire/${RUN}/${s}`;
@@ -189,6 +189,38 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     expect(await db.diamondPackage.count({ where: { slug: `gc-${RUN}-i110` } })).toBe(1);
     // «Activar todo» tampoco devolvió la Semanal de Latinoamérica a su producto anterior.
     expect((await db.diamondPackage.findUniqueOrThrow({ where: { id: weeklyId } })).providerSku).toBe(key("gsem"));
+  });
+
+  it("borrar del todo: se van los paquetes de la región quitada y la tarjeta vieja reemplazada; los pedidos se conservan", async () => {
+    // Tarjeta Semanal Básica vieja (inactiva) con un pedido, y un pedido de Indonesia.
+    const old = await db.diamondPackage.create({ data: { slug: `gc-${RUN}-lbas-vieja`, name: "Tarjeta Semanal Básica", region: "latam", diamonds: 0, bonusDiamonds: 0, price: 2499, active: false } });
+    const idPkg = await db.diamondPackage.findFirstOrThrow({ where: { slug: `gc-${RUN}-i110` } });
+    const mk = (suffix: string, packageId: string, region: string) =>
+      db.order.create({
+        data: {
+          id: `gc_${RUN}_${suffix}`, number: `GC-${RUN}-${suffix}`.toUpperCase(), type: "TOPUP", status: "DELIVERED", idempotencyKey: `gc-${RUN}-${suffix}`, trackingToken: `gc-token-${RUN}-${suffix}`,
+          customerEmail: "cliente@example.com", playerId: "644444444", packageId, itemSnapshot: { kind: "TOPUP", name: "Producto", diamonds: 0, region }, subtotal: 2499, total: 2499, currency: "COP",
+          paymentProvider: "bold", expiresAt: new Date(), paidAt: new Date(), deliveredAt: new Date(),
+        },
+      });
+    await mk("old", old.id, "latam");
+    await mk("idn", idPkg.id, "id");
+
+    const preview = await purgeRemovedPackages({ dryRun: true });
+    expect(preview.regions.id).toBeGreaterThanOrEqual(1);
+    expect(preview.cards).toContain("Tarjeta Semanal Básica");
+    expect(await db.diamondPackage.count({ where: { id: { in: [old.id, idPkg.id] } } })).toBe(2); // revisar no borra
+
+    const r = await purgeRemovedPackages();
+    expect(r.orders).toBeGreaterThanOrEqual(2);
+    expect(await db.diamondPackage.count({ where: { id: { in: [old.id, idPkg.id] } } })).toBe(0);
+    expect(await db.diamondPackage.count({ where: { region: "id" } })).toBe(0);
+    // La tarjeta activa (la de Global) sigue; los pedidos siguen con su copia del producto.
+    expect(await db.diamondPackage.count({ where: { region: "latam", name: "Tarjeta Semanal Básica", active: true } })).toBe(1);
+    const orders = await db.order.findMany({ where: { id: { in: [`gc_${RUN}_old`, `gc_${RUN}_idn`] } } });
+    expect(orders.map((o) => [o.packageId, o.status])).toEqual([[null, "DELIVERED"], [null, "DELIVERED"]]);
+    // El panel ya no muestra la región quitada.
+    expect((await listSupplierRegions()).map((x) => x.slug)).not.toContain("id");
   });
 
   it("nunca deja la tienda sin regiones", async () => {
