@@ -557,6 +557,15 @@ async function checkPerProduct(provider: TopUpProvider, playerId: string, region
 // Tarjetas de Global en Latinoamérica
 // ---------------------------------------------------------------------
 
+/**
+ * La ficha del producto de Global dice que sirve en todas las regiones salvo algunas y Latinoamérica no está entre
+ * ellas: «Free Fire · Tarjeta Semanal (excepto VN/TH/ID/Medio Oriente)».
+ */
+export function globalNameCoversLatam(name: string): boolean {
+  const m = /\((?:excepto|except|excluding|salvo|sin)\s+([^)]*)\)/i.exec(name);
+  return !!m && !/lat(?:am|in)|am[eé]rica|sudam|sur\s*am|centroam|brasil|brazil/i.test(m[1]);
+}
+
 /** Tarjetas de membresía (no pases): las que se pasan de Global a Latinoamérica si allá son más baratas. */
 export const MEMBERSHIP_CARDS: PassKind[] = ["weekly-lite", "weekly", "monthly"];
 
@@ -627,26 +636,33 @@ export async function moveGlobalCardsToLatam(opts: { dryRun?: boolean } = {}): P
       else checks.unverified++;
       if (checks.valid >= 2) break;
     }
-    if (!ids.length) { moves.push(move("skipped", "No hay cuentas de Latinoamérica con entregas para comprobarla.", checks)); continue; }
-    if (!checks.valid) { moves.push(move("skipped", "Central One no confirmó que la tarjeta de Global sirva para cuentas de Latinoamérica.", checks)); continue; }
+    // Vale si Central One acepta cuentas de Latinoamérica, o si no tiene verificación para esta tarjeta y su ficha dice
+    // que sirve fuera de las regiones excluidas (Latinoamérica no está entre ellas). Si rechaza alguna cuenta, no se mueve.
+    const declared = globalNameCoversLatam(g.name);
+    if (checks.invalid > 0 && !checks.valid) { moves.push(move("skipped", "Central One rechazó cuentas de Latinoamérica con la tarjeta de Global.", checks)); continue; }
+    if (!checks.valid && !(declared && ids.length)) {
+      moves.push(move("skipped", ids.length ? "Central One no confirmó que la tarjeta de Global sirva para cuentas de Latinoamérica." : "No hay cuentas de Latinoamérica con entregas para comprobarla.", checks));
+      continue;
+    }
+    const basis = checks.valid ? "Central One aceptó cuentas de Latinoamérica" : `Central One no verifica IDs para esta tarjeta; su ficha dice «${g.name.replace(/^.*?\(/, "(")}»`;
 
     // Precio: el de esa tarjeta en Global en la tienda (o el sugerido), nunca más caro que el actual ni bajo la ganancia mínima.
     const globalListing = pkgs.find((p) => p.active && p.providerSku === g.productKey);
     const target = globalListing?.price ?? suggestedPrice(g.priceCents, usdtCop, margin);
     const price = withFloor(pkg ? Math.min(pkg.price, target) : target, g.priceCents, usdtCop, minMargin.general);
-    if (opts.dryRun) { moves.push(move(pkg ? "moved" : "created", "Se haría (modo revisar).", checks, price)); continue; }
+    if (opts.dryRun) { moves.push(move(pkg ? "moved" : "created", `Se haría (modo revisar). ${basis}.`, checks, price)); continue; }
     if (pkg) {
       await db.diamondPackage.update({
         where: { id: pkg.id },
         // Si el precio cambia, se quita el «precio anterior» tachado (no se inventan descuentos).
         data: { providerSku: g.productKey, costCents: g.priceCents, supplierOutOfStock: false, available: true, price, ...(pkg.compareAtPrice != null && (price !== pkg.price || pkg.compareAtPrice <= price) ? { compareAtPrice: null } : {}) },
       });
-      moves.push(move("moved", pkg.supplierOutOfStock ? "La de Latinoamérica estaba agotada; ahora usa la de Global." : "Ahora usa la tarjeta de Global (más barata).", checks, price));
+      moves.push(move("moved", `${pkg.supplierOutOfStock ? "La de Latinoamérica estaba agotada; ahora usa la de Global." : "Ahora usa la tarjeta de Global (más barata)."} ${basis}.`, checks, price));
     } else {
       await db.diamondPackage.create({
         data: { slug: await freeSlug(passSlug(kind, DEFAULT_TOPUP_REGION)), name: card, diamonds: 0, bonusDiamonds: 0, price, region: DEFAULT_TOPUP_REGION, providerSku: g.productKey, costCents: g.priceCents, supplierOutOfStock: false, sortOrder: 100 + PASS_INFO[kind].sort, active: true, available: true },
       });
-      moves.push(move("created", "Latinoamérica no la tenía: se agregó con la de Global.", checks, price));
+      moves.push(move("created", `Latinoamérica no la tenía: se agregó con la de Global. ${basis}.`, checks, price));
     }
   }
   if (!opts.dryRun && moves.some((m) => m.action === "moved" || m.action === "created")) {

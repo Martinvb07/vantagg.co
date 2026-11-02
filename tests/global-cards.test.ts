@@ -15,8 +15,9 @@ const cfg = vi.hoisted(() => {
 const state = vi.hoisted(() => ({
   settings: { usdtCop: "4000", topupMargin: "30", topupRegions: "latam,id,global", topupRegionsOff: "", supplierSyncedAt: "", minMarginPct: "30", minMarginSmallPct: "40" } as Record<string, string>,
   groups: [] as Array<{ key: string; slug: string; products: Array<Record<string, unknown>> }>,
-  /** Productos que Central One acepta para las cuentas de Latinoamérica. */
+  /** Productos que Central One acepta para las cuentas de Latinoamérica, y los que no tienen verificación de IDs. */
   accepts: new Set<string>(),
+  unsupported: new Set<string>(),
   validate: vi.fn(),
 }));
 
@@ -33,12 +34,22 @@ vi.mock("@/server/integrations/topup", () => {
 import { db } from "@/lib/db";
 import { floorPrice, marginOf } from "@/domain/topup-regions";
 import { targetPayloadFor } from "@/server/integrations/topup/centralone-core";
-import { activateAllFreeFire, globalDeliveredToLatam, moveGlobalCardsToLatam, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
+import { activateAllFreeFire, globalDeliveredToLatam, globalNameCoversLatam, moveGlobalCardsToLatam, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
 
 const RUN = Date.now().toString(36);
 const key = (s: string) => `topup/free-fire/${RUN}/${s}`;
 const item = (k: string, name: string, usd: number, extra: Record<string, unknown> = {}) => ({ product_key: key(k), name, price: usd, delivery: "player_id", out_of_stock: false, ...extra });
 const PLAYERS = ["611111111", "622222222", "633333333"];
+
+describe("ficha de Central One: ¿la tarjeta de Global sirve en Latinoamérica?", () => {
+  it("sí cuando dice «excepto …» y Latinoamérica no está entre las excluidas", () => {
+    expect(globalNameCoversLatam("Free Fire · Tarjeta Semanal (excepto VN/TH/ID/Medio Oriente)")).toBe(true);
+    expect(globalNameCoversLatam("Free Fire · Weekly Membership (except VN/TH/ID/Middle East)")).toBe(true);
+    expect(globalNameCoversLatam("Free Fire · Tarjeta Semanal")).toBe(false);
+    expect(globalNameCoversLatam("Free Fire · Tarjeta Semanal (excepto LATAM/BR)")).toBe(false);
+    expect(globalNameCoversLatam("Free Fire · Tarjeta Semanal (excepto Latinoamérica)")).toBe(false);
+  });
+});
 
 describe("tarjeta de otra región que pide servidor", () => {
   const schema = [
@@ -62,7 +73,7 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     state.groups = [
       { key: "LATAM", slug: "latam", products: [item("l110", "Free Fire 110 Diamantes", 0.76, { amount: 110, unit: "Diamonds" }), item("lsem", "Tarjeta Semanal", 2.0), item("lmes", "Tarjeta Mensual", 2.4)] },
       { key: "ID", slug: "id", products: [item("i110", "Free Fire 110 Diamantes", 0.7, { amount: 110, unit: "Diamonds" })] },
-      { key: "GLOBAL", slug: "global", products: [item("g110", "Free Fire 110 Diamantes", 0.9, { amount: 110, unit: "Diamonds" }), item("gsem", "Tarjeta Semanal", 1.5), item("gmes", "Tarjeta Mensual", 2.6), item("gbas", "Tarjeta Semanal Básica", 0.8)] },
+      { key: "GLOBAL", slug: "global", products: [item("g110", "Free Fire 110 Diamantes", 0.9, { amount: 110, unit: "Diamonds" }), item("gsem", "Free Fire · Tarjeta Semanal (excepto VN/TH/ID/Medio Oriente)", 1.5), item("gmes", "Free Fire · Tarjeta Mensual (excepto VN/TH/ID/Medio Oriente)", 2.6), item("gbas", "Free Fire · Tarjeta Semanal Básica", 0.8)] },
     ];
     await syncSupplierCatalog();
     const pkg = (slug: string, data: Record<string, unknown>) => db.diamondPackage.create({ data: { slug: `gc-${RUN}-${slug}`, region: "latam", diamonds: 0, bonusDiamonds: 0, price: 1000, active: true, ...data } as never });
@@ -88,7 +99,9 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
         paymentProvider: "bold", expiresAt: new Date(), paidAt: new Date(), deliveredAt: new Date(),
       },
     });
-    state.validate.mockImplementation(async (_id: string, o: { productKey: string }) => (state.accepts.has(o.productKey) ? { valid: true, verifiable: true } : { valid: false, verifiable: true }));
+    state.validate.mockImplementation(async (_id: string, o: { productKey: string }) =>
+      state.accepts.has(o.productKey) ? { valid: true, verifiable: true } : state.unsupported.has(o.productKey) ? { valid: true, verifiable: false } : { valid: false, verifiable: true },
+    );
   });
 
   afterAll(async () => {
@@ -106,16 +119,26 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     expect(r.latamAccounts).toBeGreaterThanOrEqual(1);
   });
 
-  it("modo revisar: informa y no cambia nada", async () => {
-    state.accepts = new Set([key("gsem")]);
+  it("si Central One RECHAZA cuentas de Latinoamérica, no se mueve aunque la ficha diga que sirve", async () => {
+    const { moves } = await moveGlobalCardsToLatam({ dryRun: true });
+    const weekly = moves.find((m) => m.card === "Tarjeta Semanal")!;
+    expect(weekly.action).toBe("skipped");
+    expect(weekly.checks).toEqual({ valid: 0, invalid: 3, unverified: 0 });
+  });
+
+  it("modo revisar: sin verificación de IDs, vale lo que dice la ficha; informa y no cambia nada", async () => {
+    // Como en Central One: las tarjetas de Global no tienen verificación de IDs («not_supported»).
+    state.unsupported = new Set([key("gsem"), key("gbas")]);
     const before = await db.diamondPackage.findUniqueOrThrow({ where: { id: weeklyId } });
     const { moves, accounts } = await moveGlobalCardsToLatam({ dryRun: true });
     expect(accounts).toBe(3);
     const by = Object.fromEntries(moves.map((m) => [m.card, m]));
     expect(by["Tarjeta Semanal"]).toMatchObject({ action: "moved", priceFrom: 13999, priceTo: 9999 });
+    expect(by["Tarjeta Semanal"].reason).toContain("excepto VN/TH/ID/Medio Oriente");
     expect(by["Tarjeta Mensual"]).toMatchObject({ action: "kept" }); // la de Latinoamérica es más barata
-    expect(by["Tarjeta Semanal Básica"]).toMatchObject({ action: "skipped" }); // Central One no la aceptó
-    expect(by["Tarjeta Semanal Básica"].checks).toEqual({ valid: 0, invalid: 3, unverified: 0 });
+    // Sin verificación y su ficha no dice dónde sirve: no se mueve.
+    expect(by["Tarjeta Semanal Básica"]).toMatchObject({ action: "skipped" });
+    expect(by["Tarjeta Semanal Básica"].checks).toEqual({ valid: 0, invalid: 0, unverified: 3 });
     expect(await db.diamondPackage.findUniqueOrThrow({ where: { id: weeklyId } })).toEqual(before);
   });
 
