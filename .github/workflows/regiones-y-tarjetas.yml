@@ -21,12 +21,12 @@ on:
       tarjetas_global:
         description: Pasar las tarjetas de Global a Latinoamérica
         type: choice
-        options: [si, no]
+        options: ["si", "no"]
         default: si
       borrar_paquetes:
         description: Borrar del todo los paquetes de las regiones quitadas y las tarjetas viejas ya reemplazadas (los pedidos se conservan)
         type: choice
-        options: [no, si]
+        options: ["no", "si"]
         default: "no"
 
 concurrency:
