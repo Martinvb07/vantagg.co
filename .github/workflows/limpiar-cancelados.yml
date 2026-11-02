@@ -56,7 +56,13 @@ jobs:
               --data "$1" http://127.0.0.1:3020/api/cron/cancelados
           }
           antes=$(llamar '{"dryRun": true}')
-          echo "== Antes: $(printf '%s' "$antes" | sed -E 's/.*"due":([0-9]+).*"kept":([0-9]+).*/\1 pedido(s) listos para borrar · \2 cancelado(s) que se conservan (cobro, entrega, chat, notas o soporte)/')"
+          printf '%s' "$antes" | node -e '
+            let t = ""; process.stdin.on("data", (c) => (t += c)).on("end", () => {
+              let j; try { j = JSON.parse(t); } catch { console.log("✖ Respuesta inesperada:", t.slice(0, 200)); process.exit(1); }
+              console.log(`== Cancelados guardados ahora: ${j.cancelled} · listos para borrar: ${j.due} · esperan su correo de recordatorio: ${j.waiting ?? 0} · se conservan (cobro, entrega, chat, notas o soporte): ${j.kept}`);
+              if (j.last24h) console.log(`== Últimas 24 h: ${j.last24h.deleted} pedido(s) cancelado(s) borrados · ${j.last24h.customers} cliente(s) guardados al borrarlos`);
+              if (j.savedCustomers != null) console.log(`== Clientes guardados con pedidos sin pagar: ${j.savedCustomers} (${j.withoutPurchase} sin permiso de ofertas: no reciben ofertas)`);
+            });
           if [ "$MODO" = "activar" ]; then
             # Respaldo de la base antes de borrar (si falla, no se borra nada).
             dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
