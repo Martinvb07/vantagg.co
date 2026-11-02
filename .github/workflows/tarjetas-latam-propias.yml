@@ -1,0 +1,122 @@
+name: Tarjetas de Latam con su producto de Latam
+
+# Manual. Las tarjetas de Global NO sirven para cuentas de Latinoamérica: vuelve las tarjetas de Latinoamérica
+# (Semanal Básica, Semanal, Mensual) a su propio producto de Latinoamérica en Central One y sube su precio, si hace
+# falta, para ganar al menos el porcentaje indicado (nunca lo baja). Los pedidos con la entrega fallida por la
+# tarjeta de Global quedan apuntando a la de Latinoamérica para que «Reintentar entrega» funcione (no se compra nada).
+# Respalda la base de datos antes. Repositorio público: muestra precios de venta y % de ganancia, nunca costos.
+on:
+  workflow_dispatch:
+    inputs:
+      ganancia:
+        description: Ganancia mínima (%) de las tarjetas
+        type: string
+        default: "30"
+      regiones:
+        description: "Regiones a corregir, separadas por coma (latam, brazil)"
+        type: string
+        default: latam
+
+jobs:
+  corregir:
+    name: Tarjetas con su producto de la región
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Corregir
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          GANANCIA: ${{ inputs.ganancia }}
+          REGIONES: ${{ inputs.regiones }}
+        run: |
+          set -euo pipefail
+          [[ "$GANANCIA" =~ ^[0-9]{1,2}$ ]] || { echo "✖ La ganancia debe ser un número entre 0 y 89 (ej. 30)."; exit 1; }
+          [[ "$REGIONES" =~ ^[a-z,\ -]{2,60}$ ]] || { echo "✖ Regiones inválidas (ej. latam o latam,brazil)."; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' GANANCIA='$GANANCIA' REGIONES='$REGIONES' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD)"
+          dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
+          archivo="$dest/db-antes-tarjetas-latam-$(date +%Y%m%d-%H%M).sql.gz"
+          mysqldump --defaults-extra-file="$HOME/.my-vanta.cnf" --single-transaction --routines --no-tablespaces vanta_store | gzip > "$archivo"
+          [ "$(gzip -cd "$archivo" | head -c 100000 | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "✖ El respaldo salió vacío: no se cambió nada."; exit 1; }
+          echo "✔ respaldo: $(basename "$archivo") ($(du -h "$archivo" | cut -f1))"
+          cat > /tmp/tarjetas-latam.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const PCT = Math.min(Math.max(Number(process.env.GANANCIA) || 30, 0), 89);
+          const REGIONS = String(process.env.REGIONES || "latam").split(",").map((s) => s.trim()).filter(Boolean);
+          const plain = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          const kindOf = (n) => { const t = plain(n); if (/\bpin\b/.test(t)) return null; return /semanal\s+b.{0,3}sica/.test(t) ? "weekly-lite" : /semanal/.test(t) ? "weekly" : /mensual/.test(t) ? "monthly" : null; };
+          const TITLE = { "weekly-lite": "Tarjeta Semanal Básica", weekly: "Tarjeta Semanal", monthly: "Tarjeta Mensual" };
+          // Mismas fórmulas que la tienda (src/domain/topup-regions.ts).
+          const charm = (p) => (p >= 1000 && p % 500 === 0 ? p - 1 : p);
+          const floorPrice = (costCents, usdtCop, pct) => { const raw = ((costCents / 100) * usdtCop) / (1 - pct / 100); return charm(Math.max(1000, Math.ceil((raw + 1) / 500) * 500)); };
+          const marginOf = (price, costCents, usdtCop) => Math.round(((price - Math.round((costCents / 100) * usdtCop)) / price) * 1000) / 10;
+          const cop = (n) => "$" + Number(n).toLocaleString("es-CO");
+          (async () => {
+            const settings = Object.fromEntries((await db.setting.findMany()).map((s) => [s.key, s.value]));
+            const usdtCop = Number(settings.usdtCop) > 0 ? Number(settings.usdtCop) : 3400;
+            for (const region of REGIONS) {
+              console.log("");
+              console.log(`== ${region} · ganancia mínima de las tarjetas: ${PCT} %`);
+              const products = (await db.supplierProduct.findMany({ where: { regionSlug: region, delivery: "player_id" } })).filter((p) => !p.amount && kindOf(p.name));
+              const globalKeys = new Set((await db.supplierProduct.findMany({ where: { regionSlug: "global" }, select: { productKey: true } })).map((p) => p.productKey));
+              for (const kind of ["weekly-lite", "weekly", "monthly"]) {
+                const own = products.filter((p) => kindOf(p.name) === kind).sort((a, b) => Number(a.outOfStock) - Number(b.outOfStock) || a.priceCents - b.priceCents)[0];
+                const pkg = await db.diamondPackage.findFirst({ where: { region, diamonds: 0, active: true, name: TITLE[kind] }, orderBy: { updatedAt: "desc" } });
+                if (!pkg) { console.log(`   • ${TITLE[kind]}: no está activa en la tienda en esta región.`); continue; }
+                if (!own) { console.log(`   ✖ ${TITLE[kind]}: Central One no vende esta tarjeta en ${region}; NO se cambió (sigue con su producto actual).`); continue; }
+                const floor = floorPrice(own.priceCents, usdtCop, PCT);
+                const price = Math.max(pkg.price, floor);
+                const before = { sku: pkg.providerSku, price: pkg.price };
+                await db.diamondPackage.update({
+                  where: { id: pkg.id },
+                  data: { providerSku: own.productKey, costCents: own.priceCents, supplierOutOfStock: own.outOfStock, available: true, price, ...(pkg.compareAtPrice != null && pkg.compareAtPrice <= price ? { compareAtPrice: null } : {}) },
+                });
+                const wasGlobal = before.sku && globalKeys.has(before.sku);
+                console.log(`   ✔ ${TITLE[kind]}: ${wasGlobal ? "de Global → producto de " + region : before.sku === own.productKey ? "ya usaba el de " + region : "→ producto de " + region} · ${before.price === price ? cop(price) : cop(before.price) + " → " + cop(price)} · ganancia ${marginOf(price, own.priceCents, usdtCop)} %${own.outOfStock ? " · ⚠ agotada en Central One" : ""}`);
+                // Pedidos de esta tarjeta con la entrega fallida o detenida que usaron la de Global: apuntan a la de la región
+                // para que «Reintentar entrega» use el producto correcto (aquí no se compra nada).
+                if (wasGlobal) {
+                  const stuck = await db.order.findMany({ where: { packageId: pkg.id, status: { in: ["DELIVERY_FAILED", "PAID"] } }, select: { id: true, itemSnapshot: true } });
+                  let fixed = 0;
+                  for (const o of stuck) {
+                    const snap = o.itemSnapshot || {};
+                    if (snap.sku && globalKeys.has(snap.sku)) { await db.order.update({ where: { id: o.id }, data: { itemSnapshot: { ...snap, sku: own.productKey } } }); fixed++; }
+                  }
+                  if (fixed) console.log(`     ↳ ${fixed} pedido(s) con la entrega fallida o pendiente ahora usan la de ${region}: entra a cada uno y toca «Reintentar entrega».`);
+                }
+              }
+            }
+            await db.auditLog.create({ data: { action: "supplier.cards_own_region", entity: "DiamondPackage", data: { regions: REGIONS, pct: PCT } } });
+            await db.$disconnect();
+          })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); process.exit(1); });
+          JS
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/tarjetas-latam.cjs
+          rm -f /tmp/tarjetas-latam.cjs
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

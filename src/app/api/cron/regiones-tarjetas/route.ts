@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { parseRegionList } from "@/domain/topup-regions";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
-import { copyLatamCardsTo, globalDeliveredToLatam, moveGlobalCardsToLatam, purgeRemovedPackages, turnOffRegions } from "@/server/supplier";
+import { copyLatamCardsTo, globalDeliveredToLatam, purgeRemovedPackages, turnOffRegions } from "@/server/supplier";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,9 @@ export async function POST(req: Request) {
         ? await turnOffRegions(off)
         : { before, after: before, off: parseRegionList((await getSettings()).topupRegionsOff), deactivated: 0 };
     const evidence = await globalDeliveredToLatam();
-    const cards = body.cards === true ? await moveGlobalCardsToLatam({ dryRun }) : null;
+    // Desactivado: las tarjetas de Global NO sirven para cuentas de Latinoamérica (confirmado en ventas reales).
+    // Para corregirlas se usa el flujo «Tarjetas de Latam con su producto de Latam».
+    const cards = body.cards === true ? { accounts: 0, moves: [{ card: "Tarjetas", action: "skipped" as const, reason: "Desactivado: las tarjetas de Global no sirven para cuentas de Latinoamérica.", priceFrom: null, priceTo: null, checks: { valid: 0, invalid: 0, unverified: 0 } }] } : null;
     // Borrado definitivo de los paquetes de las regiones quitadas y de las tarjetas viejas ya reemplazadas.
     const purged = body.purge === true ? await purgeRemovedPackages({ dryRun }) : null;
     // Copiar a otras regiones (p. ej. Brasil) las tarjetas de Latinoamérica: mismo producto de Global y mismo precio.

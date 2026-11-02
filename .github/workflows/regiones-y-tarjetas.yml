@@ -19,10 +19,10 @@ on:
         type: string
         default: id
       tarjetas_global:
-        description: Pasar las tarjetas de Global a Latinoamérica
+        description: "DESACTIVADO: las tarjetas de Global no sirven para cuentas de Latinoamérica"
         type: choice
-        options: ["si", "no"]
-        default: si
+        options: ["no", "si"]
+        default: "no"
       copiar_tarjetas_a:
         description: "Copiar las tarjetas de Latinoamérica (producto de Global y mismo precio) a estas regiones, ej. brazil. Vacío = ninguna"
         type: string
