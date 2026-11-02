@@ -25,7 +25,8 @@ export type Market = {
 export const getMarket = cache(async (): Promise<Market> => {
   const [{ country, source }, fx, s] = await Promise.all([visitorCountry(), getFx(), getSettings()]);
   const currency = currencyForCountry(country);
-  const surcharge = Number(s.foreignSurchargePct);
+  // Vacío (p. ej. guardado sin el campo) = recargo por defecto, nunca 0 %.
+  const surcharge = s.foreignSurchargePct?.trim() ? Number(s.foreignSurchargePct) : NaN;
   const copPerUsd = fx?.rates.COP ?? null;
   const home = !country || country === HOME_COUNTRY || !copPerUsd;
   return {

@@ -63,7 +63,7 @@ jobs:
               await db.setting.upsert({ where: { key: "metaPixelId" }, create: { key: "metaPixelId", value: pixel }, update: { value: pixel } });
               console.log(`✔ Meta Pixel guardado: ${pixel}`);
             }
-            const s = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["metaPixelId", "googleTagId", "autoRecovery", "mktFirstPurchase", "mktWinbackDays", "marketingPromoCode", "emailAutomationsAt"] } } })).map((r) => [r.key, r.value]));
+            const s = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["metaPixelId", "googleTagId", "autoRecovery", "mktFirstPurchase", "mktWinbackDays", "marketingPromoCode", "emailAutomationsAt", "foreignPricing", "foreignSurchargePct"] } } })).map((r) => [r.key, r.value]));
             console.log(`PIXEL=${s.metaPixelId || ""}`);
             console.log(`== Publicidad: Meta Pixel ${s.metaPixelId || "(sin configurar)"} · etiqueta de Google ${s.googleTagId ? s.googleTagId : "(sin configurar)"}`);
             console.log(`== Correos automáticos: comprar de nuevo ${s.autoRecovery === "false" ? "APAGADO" : "activo"} · primera recarga ${s.mktFirstPurchase === "false" ? "APAGADO" : "activo"} · te extrañamos ${s.mktWinbackDays === "0" ? "APAGADO" : `a los ${s.mktWinbackDays || 21} días`} · código ${s.marketingPromoCode || "(ninguno)"}`);
@@ -80,6 +80,8 @@ jobs:
             // Precios por país: tasas del día y base de países por IP.
             let fx = null; try { fx = JSON.parse(s.fxRates || (await db.setting.findUnique({ where: { key: "fxRates" } }))?.value || ""); } catch {}
             console.log(fx && fx.rates ? `== Tasas del día: hace ${Math.round((Date.now() - new Date(fx.at).getTime()) / 3600000)} h · 1 USD = ${Math.round(fx.rates.COP)} COP · ${fx.rates.MXN ?? "?"} MXN` : "== Tasas del día: todavía no se han descargado");
+            const pct = s.foreignSurchargePct;
+            console.log(`== Fuera de Colombia: ${s.foreignPricing === "usd" ? "se cobra en dólares con ePayco" : "se cobra en pesos (dólares solo como referencia)"} · recargo ${pct == null ? "5 % (por defecto)" : pct === "" ? "⚠ VACÍO (equivale a 0 %; se corrige guardando Ajustes o con «Conectar ePayco»)" : `${pct} %`}`);
             console.log(require("fs").existsSync(".geo/dbip-country-lite.mmdb") ? "✔ Base de países por IP instalada" : "✖ Falta la base de países por IP (se descarga al desplegar)");
             const [customers, opted] = await Promise.all([db.user.count({ where: { role: "CUSTOMER", disabled: false } }), db.user.count({ where: { role: "CUSTOMER", disabled: false, marketingOptIn: true } })]);
             console.log(`== Clientes registrados que aceptan ofertas: ${opted} de ${customers}`);
@@ -89,6 +91,7 @@ jobs:
           PIXEL="$PIXEL" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/pixel-correos.cjs
           rm -f /tmp/pixel-correos.cjs
 
+          echo "== Pasarelas de pago activas: $(grep -E '^PAYMENT_PROVIDER=' .env | tail -n1 | cut -d= -f2- | tr -d '"' || true)"
           # Configuración del correo (sin mostrar llaves).
           prov=$(grep -E '^NOTIFY_PROVIDER=' .env | tail -n1 | cut -d= -f2- | tr -d '"' || true)
           echo "== Servicio de correo: ${prov:-log}$(grep -qE '^RESEND_API_KEY=.+' .env && echo ' · llave de Resend configurada' || true)$(grep -qE '^NOTIFY_ONLY_TO=.+' .env && echo ' · ⚠ MODO PRUEBA (NOTIFY_ONLY_TO): solo llega a algunos correos' || echo ' · envía a todos los clientes')"
