@@ -678,7 +678,7 @@ async function fulfillAccount(order: Order) {
 // Operaciones del panel (seguras)
 // ---------------------------------------------------------------------
 
-export async function retryDelivery(orderId: string, actor: string): Promise<{ ok: boolean; message: string }> {
+export async function retryDelivery(orderId: string, actor: string, opts: { cooldownFrom?: Date } = {}): Promise<{ ok: boolean; message: string }> {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { delivery: true } });
   if (!order || order.type !== "TOPUP") return { ok: false, message: "Solo aplica a recargas." };
   if (order.status === "PAID" && !order.delivery) {
@@ -701,7 +701,7 @@ export async function retryDelivery(orderId: string, actor: string): Promise<{ o
   const providerForDelivery = getTopUpProvider(d.provider) ?? provider;
   // Con una transacción anterior, se espera a que el proveedor la dé por cerrada antes de comprar otra vez.
   const cooldown = d.providerRef ? (providerForDelivery.retryCooldownMs ?? 0) : 0;
-  const waitMs = d.updatedAt.getTime() + cooldown - Date.now();
+  const waitMs = (opts.cooldownFrom ?? d.updatedAt).getTime() + cooldown - Date.now();
   if (waitMs > 0) {
     return { ok: false, message: `Espera ${Math.ceil(waitMs / 60_000)} min antes de reintentar: el proveedor todavía puede completar la entrega anterior.` };
   }
@@ -942,8 +942,11 @@ export async function verifyDeliveryWithProvider(orderId: string, actor: string)
     return { ok: true, message: `${provider.displayName} confirma la entrega (${r.message ?? ref}). El pedido quedó Entregado y el cliente recibió el correo.` };
   }
   if (r.status === "FAILED") {
-    await db.delivery.update({ where: { id: delivery.id }, data: { providerRef: ref } });
-    return { ok: false, message: `${provider.displayName} dice que la orden no se completó: ${r.message ?? "sin detalle"}. Reintenta la entrega o reembolsa.` };
+    // Falló en el proveedor: el pedido pasa a «Entrega fallida» para que aparezca «Reintentar entrega» (antes se
+    // quedaba «En procesamiento» y no había cómo reintentar). No se avisa de nuevo al cliente.
+    await db.delivery.update({ where: { id: delivery.id }, data: { providerRef: ref, status: "FAILED", lastError: (r.message ?? "El proveedor no completó la orden").slice(0, 500), lockedAt: null } });
+    await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "DELIVERY_FAILED" } });
+    return { ok: false, message: `${provider.displayName} dice que la orden no se completó: ${r.message ?? "sin detalle"}. El pedido quedó en «Entrega fallida»: reintenta la entrega o reembolsa.` };
   }
   await db.delivery.update({ where: { id: delivery.id }, data: { providerRef: ref, status: "PROCESSING", lastError: null } });
   await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "DELIVERY_FAILED"] } }, data: { status: "PROCESSING" } });
