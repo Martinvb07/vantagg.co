@@ -130,6 +130,11 @@ export const LEGAL: Record<string, LegalDoc> = {
           <li><strong>Si creas una cuenta:</strong> nombre y correo; opcionalmente teléfono, foto de perfil e ID de jugador guardado para recargar más rápido.</li>
           <li><strong>Si escribes a soporte o abres un reclamo:</strong> tu correo y lo que nos cuentes.</li>
           <li><strong>Datos técnicos mínimos:</strong> una huella anonimizada de la dirección IP y el tipo de navegador de tus sesiones, para prevenir abusos y proteger tu cuenta.</li>
+          <li>
+            <strong>Tu país aproximado:</strong> lo calculamos en nuestro servidor a partir de tu dirección IP (con la base pública de DB-IP) solo para
+            mostrarte precios de referencia en tu moneda y la región de Free Fire que te corresponde. No guardamos la IP para esto y puedes elegir otro
+            país al final de la página.
+          </li>
         </ul>
         <p>
           <strong>No</strong> pedimos tu contraseña de Free Fire ni de redes sociales, ni datos de tarjetas: el pago se hace en la plataforma de la

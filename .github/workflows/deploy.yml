@@ -176,6 +176,22 @@ jobs:
             exit 1
           fi
 
+          # Base de países por IP (DB-IP «IP to Country Lite», gratis, se publica cada mes): se descarga si falta o tiene
+          # más de 30 días. Si no se puede, la tienda sigue igual (sin detección de país: todo en pesos).
+          geo=".geo/dbip-country-lite.mmdb"
+          if [ ! -s "$geo" ] || [ -n "$(find "$geo" -mtime +30 2>/dev/null)" ]; then
+            mkdir -p .geo
+            for mes in "$(date +%Y-%m)" "$(date -d '-1 month' +%Y-%m)"; do
+              if curl -fsSL --max-time 120 "https://download.db-ip.com/free/dbip-country-lite-$mes.mmdb.gz" -o .geo/nuevo.mmdb.gz && gunzip -f .geo/nuevo.mmdb.gz && [ -s .geo/nuevo.mmdb ]; then
+                mv -f .geo/nuevo.mmdb "$geo"
+                echo "Base de países por IP actualizada ($mes)"
+                break
+              fi
+            done
+            rm -f .geo/nuevo.mmdb.gz .geo/nuevo.mmdb
+            [ -s "$geo" ] || echo "Aviso: no se pudo descargar la base de países por IP (los precios siguen en pesos)."
+          fi
+
           echo "OK — desplegado $(git rev-parse --short HEAD)"
           ENDSSH
 

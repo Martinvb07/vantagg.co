@@ -38,6 +38,10 @@ export const SETTING_DEFAULTS = {
   purgeCancelled: "false", // "true": borra los pedidos cancelados sin pago 24 h después del correo «comprar de nuevo»
   orderLimitOpen: "2", // pedidos esperando pago a la vez por correo / ID de jugador (0 = sin límite)
   orderLimitUnpaid: "5", // pedidos sin pagar en 24 h por correo / ID de jugador (0 = sin límite)
+  // Precios por país (fuera de Colombia: dólares con recargo y la moneda local como referencia)
+  foreignPricing: "reference", // "reference": se cobra en pesos y se muestra el precio en dólares como referencia; "usd": se cobra en dólares (con ePayco)
+  foreignSurchargePct: "5", // recargo (%) sobre el precio de Colombia para clientes de otros países
+  fxRates: "", // tasas del día (JSON), las actualiza el mantenimiento
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
@@ -49,7 +53,7 @@ export const SETTING_DEFAULTS = {
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

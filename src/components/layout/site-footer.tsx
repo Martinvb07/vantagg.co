@@ -9,6 +9,7 @@ import { whatsappLink } from "@/lib/utils";
 import type { PublicPaymentOption } from "@/server/integrations/payments";
 import type { StoreSettings } from "@/server/settings";
 import { BoldLogo } from "@/components/brand/bold-logo";
+import { CountrySelect } from "@/components/store/market";
 
 function InstagramGlyph({ className }: { className?: string }) {
   return (
@@ -207,6 +208,13 @@ export function SiteFooter({ settings, payments, showAccounts = true }: { settin
               </span>
             ))}
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.05] py-4">
+          <CountrySelect />
+          <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer" className="text-[11px] text-fg-subtle hover:text-fg-muted">
+            País aproximado por IP: DB-IP
+          </a>
         </div>
 
         {settings.showGarenaDisclaimer === "true" && (

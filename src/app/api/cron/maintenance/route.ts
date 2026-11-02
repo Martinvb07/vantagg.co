@@ -6,6 +6,7 @@ import { activeTopUpProvider } from "@/server/integrations/topup";
 import { ensureFreshCatalog } from "@/server/supplier";
 import { runEmailAutomations } from "@/server/marketing";
 import { purgeCancelledOrders } from "@/server/retention";
+import { ensureFxRates } from "@/server/fx";
 import { getSettings } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,8 @@ export async function GET(req: Request) {
     console.error("[correos] fallaron los correos automáticos:", (e as Error).message);
     return null;
   });
+  // Tasas de cambio del día para los precios en otros países (cada 12 h).
+  await ensureFxRates().catch(() => false);
   // Pedidos cancelados sin pago: se borran 24 h después del correo «comprar de nuevo» (si está activado en Ajustes).
   const purged = (await getSettings()).purgeCancelled === "true" ? await purgeCancelledOrders().then((r) => r.deleted).catch((e) => {
     console.error("[pedidos] no se pudieron borrar los cancelados:", (e as Error).message);

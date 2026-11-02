@@ -4,6 +4,7 @@ import { DemoBadge } from "@/components/ui/primitives";
 import { PRODUCT_LABELS, type ProductLabelValue } from "@/domain/labels";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { PriceHint } from "@/components/store/market";
 
 const BADGE: Record<string, string> = {
   BEST_SELLER: "bg-[#ff5a3c] text-white",
@@ -64,6 +65,7 @@ export function ProductTile({
           <span className="text-[15px] font-bold tabular-nums text-fg">{formatMoney(price, currency)}</span>
           {original != null && original > price && <span className="text-[11.5px] tabular-nums text-fg-subtle line-through">{formatMoney(original, currency)}</span>}
         </p>
+        {currency === "COP" && <PriceHint cop={price} className="mt-0.5" />}
         {isDemo && <DemoBadge className="mt-1.5" />}
       </div>
     </>

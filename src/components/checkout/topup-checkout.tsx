@@ -7,6 +7,7 @@ import { DELIVERY_TIME } from "@/domain/delivery-time";
 import { PackCover } from "@/components/brand/covers";
 import { PASS_INFO, packDetail } from "@/domain/packs";
 import { trackInitiateCheckout } from "@/lib/ads";
+import { PriceHint, useMarket } from "@/components/store/market";
 import { Button } from "@/components/ui/button";
 import { Alert, DemoBadge } from "@/components/ui/primitives";
 import { PRODUCT_LABELS } from "@/domain/labels";
@@ -102,6 +103,7 @@ function PackageOption({ p, selected, onSelect }: { p: PackageView; selected: bo
       <div className="text-right">
         {p.quote.original != null && <p className="text-[11px] tabular-nums text-fg-subtle line-through">{formatMoney(p.quote.original, p.currency)}</p>}
         <p className="text-[15px] font-bold tabular-nums">{formatMoney(p.quote.price, p.currency)}</p>
+        <PriceHint cop={p.quote.price} />
       </div>
       {tag && p.available && (
         <span className="absolute -top-2 left-[68px] rounded-full bg-volt-400 sm:left-[76px] px-2 py-px text-[10px] font-bold uppercase tracking-wide text-volt-ink">{tag}</span>
@@ -132,6 +134,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [accept, setAccept] = useState(false);
   const [marketing, setMarketing] = useState(false);
+  const market = useMarket();
   const [promo, setPromo] = useState<AppliedPromo>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, startCheck] = useTransition();
@@ -525,8 +528,16 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
                 )}
                 <div className="flex items-baseline justify-between border-t border-white/[0.06] pt-2.5">
                   <dt className="font-semibold">Total</dt>
-                  <dd className="text-2xl font-bold tabular-nums">{formatMoney(total, pkg.currency)}</dd>
+                  <dd className="text-right text-2xl font-bold tabular-nums">
+                    {formatMoney(total, pkg.currency)}
+                    <PriceHint cop={total} className="text-[12px]" />
+                  </dd>
                 </div>
+                {market && !market.home && (
+                  <p className="pt-1 text-[11.5px] leading-relaxed text-fg-subtle">
+                    Estás en {market.countryName}: el cobro es en pesos colombianos (COP) y tu banco hace la conversión. El valor en dólares es aproximado.
+                  </p>
+                )}
               </dl>
             )}
 

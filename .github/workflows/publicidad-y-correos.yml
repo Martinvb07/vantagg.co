@@ -77,6 +77,10 @@ jobs:
               const c = (st) => rows.find((r) => r.template === t && r.status === st)?._count._all ?? 0;
               console.log(`   ${label}: ${c("SENT")} / ${c("FAILED")} / ${c("SKIPPED")}`);
             }
+            // Precios por país: tasas del día y base de países por IP.
+            let fx = null; try { fx = JSON.parse(s.fxRates || (await db.setting.findUnique({ where: { key: "fxRates" } }))?.value || ""); } catch {}
+            console.log(fx && fx.rates ? `== Tasas del día: hace ${Math.round((Date.now() - new Date(fx.at).getTime()) / 3600000)} h · 1 USD = ${Math.round(fx.rates.COP)} COP · ${fx.rates.MXN ?? "?"} MXN` : "== Tasas del día: todavía no se han descargado");
+            console.log(require("fs").existsSync(".geo/dbip-country-lite.mmdb") ? "✔ Base de países por IP instalada" : "✖ Falta la base de países por IP (se descarga al desplegar)");
             const [customers, opted] = await Promise.all([db.user.count({ where: { role: "CUSTOMER", disabled: false } }), db.user.count({ where: { role: "CUSTOMER", disabled: false, marketingOptIn: true } })]);
             console.log(`== Clientes registrados que aceptan ofertas: ${opted} de ${customers}`);
             await db.$disconnect();

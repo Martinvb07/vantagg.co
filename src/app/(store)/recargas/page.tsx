@@ -16,6 +16,8 @@ import { getSettings } from "@/server/settings";
 import { BannerSlot } from "@/components/store/banner-slot";
 import { parsePaymentMethods } from "@/domain/payment-methods";
 import { maintenanceNotice } from "@/domain/maintenance";
+import { regionForCountry } from "@/domain/market";
+import { visitorCountry } from "@/server/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,10 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
   const [regions, mainRegion, user, settings] = await Promise.all([getTopupRegions(), mainTopupRegion(), getCurrentUser(), getSettings()]);
   // Todas las regiones activas (el cliente elige); si no hay ninguna configurada, la principal.
   const packages = await getPackages({ regions: regions.length ? regions.map((r) => r.slug) : [mainRegion] });
-  const initialRegion = regions.find((r) => r.slug === region)?.slug ?? (regions.some((r) => r.slug === mainRegion) ? mainRegion : (regions[0]?.slug ?? mainRegion));
+  // Región: la del enlace; si no, la que corresponde al país del visitante (Brasil → Brasil, España → Europa…); si no, la principal.
+  const { country } = await visitorCountry();
+  const byCountry = regionForCountry(country, regions.map((r) => r.slug));
+  const initialRegion = regions.find((r) => r.slug === region)?.slug ?? byCountry ?? (regions.some((r) => r.slug === mainRegion) ? mainRegion : (regions[0]?.slug ?? mainRegion));
   // Con sesión, se usa el ID de Free Fire guardado en el perfil si el enlace no trae uno.
   const profile = user ? await db.user.findUnique({ where: { id: user.id }, select: { ffPlayerId: true, marketingOptIn: true } }) : null;
   const savedId = !id ? profile?.ffPlayerId : null;

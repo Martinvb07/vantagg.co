@@ -30,3 +30,6 @@ exportacion/
 
 # Registros de PM2 en el VPS
 logs/
+
+# Base de países por IP (se descarga en el servidor al desplegar)
+.geo/
