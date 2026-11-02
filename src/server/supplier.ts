@@ -720,3 +720,50 @@ export async function purgeRemovedPackages(opts: { dryRun?: boolean } = {}): Pro
   await audit({ actorId: null, action: "package.purge_removed", entity: "DiamondPackage", data: result });
   return result;
 }
+
+export type CardCopy = { card: string; action: "updated" | "created" | "kept" | "skipped"; reason: string; priceFrom: number | null; priceTo: number | null };
+
+/**
+ * Copia a otra región (p. ej. Brasil) las tarjetas de membresía de Latinoamérica que usan el producto de Global:
+ * mismo producto (el más barato), mismo costo y mismo precio que en Latinoamérica. Si la región ya tiene esa
+ * tarjeta, se actualiza; si no, se crea. Solo con tarjetas de Global cuya ficha incluye a esa región
+ * («excepto VN/TH/ID/Medio Oriente»). `dryRun`: solo informa.
+ */
+export async function copyLatamCardsTo(region: string, opts: { dryRun?: boolean } = {}): Promise<CardCopy[]> {
+  if (region === DEFAULT_TOPUP_REGION || !/^[a-z0-9-]{2,60}$/.test(region)) throw new SupplierError("bad_region", 400, "Región inválida.");
+  const { usdtCop, minMargin } = await supplierRate();
+  const pkgs = await db.diamondPackage.findMany({ where: { diamonds: 0, region: { in: [DEFAULT_TOPUP_REGION, region] } }, orderBy: { updatedAt: "desc" } });
+  const globalNames = new Map((await db.supplierProduct.findMany({ where: { game: GAME, regionSlug: GLOBAL_REGION }, select: { productKey: true, name: true } })).map((p) => [p.productKey, p.name]));
+  const out: CardCopy[] = [];
+  for (const kind of MEMBERSHIP_CARDS) {
+    const card = PASS_INFO[kind].title;
+    const src = pkgs.find((p) => p.region === DEFAULT_TOPUP_REGION && p.active && passKindOf(p.name) === kind);
+    const dst = pkgs.find((p) => p.region === region && p.active && passKindOf(p.name) === kind) ?? pkgs.find((p) => p.region === region && passKindOf(p.name) === kind) ?? null;
+    const item = (action: CardCopy["action"], reason: string, priceTo: number | null = dst?.price ?? null): CardCopy => ({ card, action, reason, priceFrom: dst?.price ?? null, priceTo });
+    const globalName = src?.providerSku ? globalNames.get(src.providerSku) : undefined;
+    if (!src || !src.providerSku || src.costCents == null) { out.push(item("skipped", "Latinoamérica no la tiene activa.")); continue; }
+    if (!globalName) { out.push(item("skipped", "En Latinoamérica no usa el producto de Global.")); continue; }
+    const excluded = /\((?:excepto|except|excluding|salvo|sin)\s+([^)]*)\)/i.exec(globalName)?.[1] ?? "";
+    const label = regionLabel(region);
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (!excluded || new RegExp(`\\b(${esc(region)}|${esc(label)}${region === "brazil" ? "|br|brasil" : ""})\\b`, "i").test(excluded)) {
+      out.push(item("skipped", `La ficha de Central One no dice que sirva en ${label}.`));
+      continue;
+    }
+    const price = withFloor(src.price, src.costCents, usdtCop, minMargin.general);
+    if (dst && dst.active && dst.providerSku === src.providerSku && dst.price === price) { out.push(item("kept", "Ya tiene el mismo producto y precio que Latinoamérica.")); continue; }
+    if (opts.dryRun) { out.push(item(dst ? "updated" : "created", "Se haría (modo revisar).", price)); continue; }
+    const data = { providerSku: src.providerSku, costCents: src.costCents, supplierOutOfStock: src.supplierOutOfStock, price, active: true, available: true };
+    if (dst) {
+      await db.diamondPackage.update({ where: { id: dst.id }, data: { ...data, ...(dst.compareAtPrice != null && (price !== dst.price || dst.compareAtPrice <= price) ? { compareAtPrice: null } : {}) } });
+      out.push(item("updated", "Ahora usa el mismo producto de Global y el precio de Latinoamérica.", price));
+    } else {
+      await db.diamondPackage.create({ data: { ...data, slug: await freeSlug(passSlug(kind, region)), name: card, diamonds: 0, bonusDiamonds: 0, region, sortOrder: 100 + PASS_INFO[kind].sort } });
+      out.push(item("created", "No la tenía: se agregó con el producto de Global y el precio de Latinoamérica.", price));
+    }
+  }
+  if (!opts.dryRun && out.some((c) => c.action === "updated" || c.action === "created")) {
+    await audit({ actorId: null, action: "supplier.cards_copied", entity: "DiamondPackage", data: { region, cards: out.map(({ card, action, priceFrom, priceTo }) => ({ card, action, priceFrom, priceTo })) } });
+  }
+  return out;
+}

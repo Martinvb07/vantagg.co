@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { parseRegionList } from "@/domain/topup-regions";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
-import { globalDeliveredToLatam, moveGlobalCardsToLatam, purgeRemovedPackages, turnOffRegions } from "@/server/supplier";
+import { copyLatamCardsTo, globalDeliveredToLatam, moveGlobalCardsToLatam, purgeRemovedPackages, turnOffRegions } from "@/server/supplier";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
  *  - cards: pasar las tarjetas de membresía de Global a Latinoamérica si allá son más baratas (comprobado con Central One).
  *  - purge: borra de la base los paquetes de las regiones quitadas y las tarjetas viejas ya reemplazadas
  *    (los pedidos se conservan con su copia del producto).
+ *  - copyTo: regiones a las que se copian las tarjetas de Latinoamérica (mismo producto de Global y mismo precio).
  *  - dryRun: solo informa, no cambia nada.
  * Requiere: Authorization: Bearer <CRON_SECRET>. La respuesta no incluye costos, saldo ni IDs de jugadores.
  */
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   if (!activeTopUpProvider()?.wholesale) return NextResponse.json({ error: "No hay un proveedor mayorista configurado." }, { status: 409 });
-  const body = (await req.json().catch(() => ({}))) as { off?: unknown; cards?: unknown; purge?: unknown; dryRun?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { off?: unknown; cards?: unknown; purge?: unknown; copyTo?: unknown; dryRun?: unknown };
   const off = Array.isArray(body.off) ? parseRegionList(body.off.map(String).join(",")) : [];
   const dryRun = body.dryRun !== false;
   try {
@@ -37,7 +38,11 @@ export async function POST(req: Request) {
     const cards = body.cards === true ? await moveGlobalCardsToLatam({ dryRun }) : null;
     // Borrado definitivo de los paquetes de las regiones quitadas y de las tarjetas viejas ya reemplazadas.
     const purged = body.purge === true ? await purgeRemovedPackages({ dryRun }) : null;
-    return NextResponse.json({ ok: true, dryRun, regions, evidence, cards, purged });
+    // Copiar a otras regiones (p. ej. Brasil) las tarjetas de Latinoamérica: mismo producto de Global y mismo precio.
+    const copyTo = Array.isArray(body.copyTo) ? parseRegionList(body.copyTo.map(String).join(",")).filter((r) => r !== "latam") : [];
+    const copies: Record<string, Awaited<ReturnType<typeof copyLatamCardsTo>>> = {};
+    for (const r of copyTo) copies[r] = await copyLatamCardsTo(r, { dryRun });
+    return NextResponse.json({ ok: true, dryRun, regions, evidence, cards, purged, copies });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 502 });
   }

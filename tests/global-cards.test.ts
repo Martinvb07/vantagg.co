@@ -34,7 +34,7 @@ vi.mock("@/server/integrations/topup", () => {
 import { db } from "@/lib/db";
 import { floorPrice, marginOf } from "@/domain/topup-regions";
 import { targetPayloadFor } from "@/server/integrations/topup/centralone-core";
-import { activateAllFreeFire, globalDeliveredToLatam, globalNameCoversLatam, listSupplierRegions, moveGlobalCardsToLatam, purgeRemovedPackages, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
+import { activateAllFreeFire, copyLatamCardsTo, globalDeliveredToLatam, globalNameCoversLatam, listSupplierRegions, moveGlobalCardsToLatam, purgeRemovedPackages, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
 
 const RUN = Date.now().toString(36);
 const key = (s: string) => `topup/free-fire/${RUN}/${s}`;
@@ -171,6 +171,30 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
 
     const again = await moveGlobalCardsToLatam();
     expect(again.moves.map((m) => m.action).sort()).toEqual(["kept", "kept", "kept"]);
+  });
+
+  it("Brasil: las tarjetas de Latinoamérica con el producto de Global, mismo costo y mismo precio", async () => {
+    const pkg = (slug: string, data: Record<string, unknown>) => db.diamondPackage.create({ data: { slug: `gc-${RUN}-${slug}`, region: "brazil", diamonds: 0, bonusDiamonds: 0, active: true, ...data } as never });
+    const brWeekly = await pkg("bsem", { name: "Tarjeta Semanal", price: 12999, compareAtPrice: 13999, providerSku: key("bsem"), costCents: 180 });
+    const brMonthly = await pkg("bmes", { name: "Tarjeta Mensual", price: 19999, providerSku: key("bmes"), costCents: 260 });
+    const latamWeekly = await db.diamondPackage.findUniqueOrThrow({ where: { id: weeklyId } });
+
+    const dry = await copyLatamCardsTo("brazil", { dryRun: true });
+    const by = Object.fromEntries(dry.map((c) => [c.card, c]));
+    expect(by["Tarjeta Semanal"]).toMatchObject({ action: "updated", priceFrom: 12999, priceTo: latamWeekly.price });
+    expect(by["Tarjeta Mensual"].action).toBe("skipped"); // en Latinoamérica la Mensual no usa la de Global
+    expect(by["Tarjeta Semanal Básica"].action).toBe("skipped"); // su ficha no dice dónde sirve
+    expect((await db.diamondPackage.findUniqueOrThrow({ where: { id: brWeekly.id } })).providerSku).toBe(key("bsem")); // revisar no cambia nada
+
+    await copyLatamCardsTo("brazil");
+    expect(await db.diamondPackage.findUniqueOrThrow({ where: { id: brWeekly.id } })).toMatchObject({
+      region: "brazil", providerSku: latamWeekly.providerSku, costCents: latamWeekly.costCents, price: latamWeekly.price, compareAtPrice: null, active: true,
+    });
+    expect(await db.diamondPackage.findUniqueOrThrow({ where: { id: brMonthly.id } })).toMatchObject({ providerSku: key("bmes"), price: 19999 });
+    expect((await copyLatamCardsTo("brazil")).map((c) => c.action)).toEqual(["skipped", "kept", "skipped"]);
+
+    // Indonesia está excluida en la ficha («excepto VN/TH/ID/…»): no se copia.
+    expect((await copyLatamCardsTo("id", { dryRun: true })).find((c) => c.card === "Tarjeta Semanal")!.action).toBe("skipped");
   });
 
   it("Indonesia apagada: sale de la tienda y «Activar todo» no la vuelve a mostrar", async () => {

@@ -23,6 +23,10 @@ on:
         type: choice
         options: ["si", "no"]
         default: si
+      copiar_tarjetas_a:
+        description: "Copiar las tarjetas de Latinoamérica (producto de Global y mismo precio) a estas regiones, ej. brazil. Vacío = ninguna"
+        type: string
+        default: ""
       borrar_paquetes:
         description: Borrar del todo los paquetes de las regiones quitadas y las tarjetas viejas ya reemplazadas (los pedidos se conservan)
         type: choice
@@ -64,11 +68,12 @@ jobs:
           APAGAR: ${{ inputs.apagar_regiones }}
           TARJETAS: ${{ inputs.tarjetas_global }}
           BORRAR: ${{ inputs.borrar_paquetes }}
+          COPIAR: ${{ inputs.copiar_tarjetas_a }}
         run: |
           set -euo pipefail
-          [[ "$APAGAR" =~ ^[a-z0-9,\ -]{0,120}$ ]] || { echo "✖ Regiones inválidas (usa slugs como id, eu, brazil)."; exit 1; }
+          [[ "$APAGAR" =~ ^[a-z0-9,\ -]{0,120}$ && "$COPIAR" =~ ^[a-z0-9,\ -]{0,120}$ ]] || { echo "✖ Regiones inválidas (usa slugs como id, eu, brazil)."; exit 1; }
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
-            "VPS_PATH='$VPS_PATH' MODO='$MODO' APAGAR='$APAGAR' TARJETAS='$TARJETAS' BORRAR='$BORRAR' bash -s" <<'ENDSSH'
+            "VPS_PATH='$VPS_PATH' MODO='$MODO' APAGAR='$APAGAR' TARJETAS='$TARJETAS' BORRAR='$BORRAR' COPIAR='$COPIAR' bash -s" <<'ENDSSH'
           set -euo pipefail
           export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           cd "$VPS_PATH"
@@ -134,7 +139,7 @@ jobs:
 
           s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
           [ -n "$s" ] || { echo "✖ Falta CRON_SECRET en .env"; exit 1; }
-          body=$(node -e 'const off = (process.env.APAGAR || "").split(",").map((x) => x.trim()).filter(Boolean); console.log(JSON.stringify({ off, cards: process.env.TARJETAS === "si", purge: process.env.BORRAR === "si", dryRun: process.env.MODO !== "aplicar" }))')
+          body=$(node -e 'const off = (process.env.APAGAR || "").split(",").map((x) => x.trim()).filter(Boolean); console.log(JSON.stringify({ off, cards: process.env.TARJETAS === "si", purge: process.env.BORRAR === "si", copyTo: (process.env.COPIAR || "").split(",").map((x) => x.trim()).filter(Boolean), dryRun: process.env.MODO !== "aplicar" }))')
           r=$(curl -sS --max-time 300 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" \
             --data "$body" http://127.0.0.1:3020/api/cron/regiones-tarjetas || true)
           printf '%s' "$r" | node -e '
@@ -164,6 +169,15 @@ jobs:
                 console.log("");
                 console.log(`== ${j.dryRun ? "Se borrarían" : "Borrados"} de la base: ${regs.length ? regs.map(([r, n]) => `${n} paquete(s) de ${r}`).join(", ") : "ningún paquete de regiones quitadas"}${P.cards.length ? ` · tarjetas viejas: ${P.cards.join(", ")}` : ""}`);
                 if (P.orders) console.log(`   ${P.orders} pedido(s) los usaban: se conservan con su copia del producto (solo pierden el vínculo).`);
+              }
+              for (const [region, list] of Object.entries(j.copies || {})) {
+                console.log("");
+                console.log(`== Tarjetas de Latinoamérica copiadas a ${region}:`);
+                const icon = { updated: "✔", created: "✔", kept: "•", skipped: "⚠" };
+                for (const c of list) {
+                  const price = c.priceFrom != null && c.priceTo != null && c.priceFrom !== c.priceTo ? ` · ${cop(c.priceFrom)} → ${cop(c.priceTo)}` : c.priceTo != null ? ` · ${cop(c.priceTo)}` : "";
+                  console.log(`   ${icon[c.action] || "•"} ${c.card}: ${c.reason}${price}`);
+                }
               }
               if (j.dryRun) { console.log(""); console.log("ℹ Modo revisar: no se cambió nada. Corre de nuevo con modo «aplicar» para hacerlo."); }
             });'
