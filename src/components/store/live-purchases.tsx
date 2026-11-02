@@ -44,10 +44,15 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
           {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : p.title ? <Ticket className="size-5 text-volt-300" /> : <Users className="size-5 text-violet-300" />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-baseline gap-1.5">
-            <span className={cn("font-display font-extrabold tabular-nums leading-none", p.title ? "truncate text-[15px]" : "text-[17px]")}>{amount ?? p.title ?? "Cuenta"}</span>
-            <span className="shrink-0 text-[12.5px] text-fg-muted">{amount ? "diamantes" : "Free Fire"}</span>
-          </span>
+          {p.title && !amount ? (
+            // Tarjetas y pases: nombre completo, en varias líneas si hace falta (nunca ensancha la fila).
+            <span className="line-clamp-3 break-words font-display text-[14px] font-extrabold leading-tight min-[400px]:text-[15px]">{p.title}</span>
+          ) : (
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <span className="min-w-0 truncate font-display text-[17px] font-extrabold tabular-nums leading-none">{amount ?? "Cuenta"}</span>
+              <span className="shrink-0 text-[12.5px] text-fg-muted">{amount ? "diamantes" : "Free Fire"}</span>
+            </span>
+          )}
           <span className="mt-1.5 block truncate font-mono text-[12px] text-sky-100/70">{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
         </span>
         <span className="shrink-0 text-right">
@@ -79,8 +84,8 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
               {amount}
             </span>
           ) : p.title ? (
-            <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">
-              <Ticket className="size-4 text-volt-300" /> {p.title}
+            <span className="flex min-w-0 items-center gap-1 font-display font-extrabold" title={p.title}>
+              <Ticket className="size-4 shrink-0 text-volt-300" /> <span className="truncate">{p.title}</span>
             </span>
           ) : (
             <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">
@@ -88,7 +93,7 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
             </span>
           )}
           <ChevronsRight className="size-3.5 shrink-0 text-white/35" />
-          <span className={cn("truncate font-mono font-semibold", latest ? "text-white" : "text-sky-100/85")}>{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
+          <span className={cn("shrink-0 font-mono font-semibold", latest ? "text-white" : "text-sky-100/85")}>{p.player ? `ID ${p.player}` : "Jugador verificado"}</span>
           <span className="shrink-0 text-[11px] text-white/60" suppressHydrationWarning>
             {when}
           </span>
@@ -285,8 +290,8 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent max-lg:bg-gradient-to-b max-lg:from-ink-950/80 max-lg:via-ink-950/50 max-lg:to-ink-950/70" />
       <HudCorners />
 
-      <div className="relative grid gap-7 px-5 pb-7 pt-8 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
-        <div>
+      <div className="relative grid grid-cols-[minmax(0,1fr)] gap-7 px-5 pb-7 pt-8 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
+        <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-bad-400 opacity-75" />
@@ -302,15 +307,16 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
           <p className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-fg-muted sm:mt-3 sm:text-[13.5px]">Recargas reales que ya llegaron al ID del jugador.</p>
 
           {hud.length > 0 && (
-            <dl className={cn("mt-5 grid gap-2.5 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
-              {hud.map(({ icon: Icon, value, label }) => (
+            // Celulares muy angostos (< 360 px): dos contadores arriba y el tercero a lo ancho, para que nada se corte.
+            <dl className={cn("mt-5 grid gap-2.5 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-2 min-[360px]:grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+              {hud.map(({ icon: Icon, value, label }, i) => (
                 // Un solo div por par dt/dd (lo que permite <dl>): el sesgo de la tarjeta se compensa en cada texto.
-                <div key={label} className="flex -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3">
+                <div key={label} className={cn("flex min-w-0 -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3", hud.length === 3 && i === 2 && "max-[359px]:col-span-2")}>
                   <dt className="mt-1.5 flex skew-x-[10deg] items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
                     <Icon className="mt-px size-3 shrink-0 text-volt-300" />
                     {label}
                   </dt>
-                  <dd className="skew-x-[10deg] whitespace-nowrap font-display text-[15px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px]">{value}</dd>
+                  <dd className="skew-x-[10deg] whitespace-nowrap font-display text-[14px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px] lg:text-[18px] xl:text-[22px]">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -318,7 +324,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
         </div>
 
         {/* Registro de entregas: la más reciente arriba; las anteriores se van apagando como en partida */}
-        <div>
+        <div className="min-w-0">
           <p className="mb-3.5 flex items-center gap-2 font-mono lg:mb-2.5 lg:justify-end text-[10.5px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
             Registro de entregas <span className="h-px w-8 bg-white/15" />
           </p>

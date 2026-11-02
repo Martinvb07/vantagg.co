@@ -291,7 +291,8 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
   const items = rows.map((r): LivePurchase => {
     const snap = (r.itemSnapshot ?? {}) as Snap;
     const topup = r.type === "TOPUP" && typeof snap.diamonds === "number" && snap.diamonds > 0;
-    const pass = r.type === "TOPUP" && snap.diamonds === 0 ? (snap.name ?? "Tarjeta Free Fire") : null;
+    // «Tarjeta Semanal Free Fire» → «Tarjeta Semanal» (el registro ya es de Free Fire; así no se repite ni se alarga).
+    const pass = r.type === "TOPUP" && snap.diamonds === 0 ? (snap.name ?? "Tarjeta").replace(/\s+Free\s*Fire\s*$/i, "").trim() || "Tarjeta" : null;
     return {
       // Clave estable para la lista sin exponer el número de pedido (con llave: no se puede adivinar el número).
       key: hmacSha256Hex(getAuthSecret(), `entrega:${r.number}`).slice(0, 16),
