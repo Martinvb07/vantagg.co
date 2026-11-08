@@ -290,7 +290,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent max-lg:bg-gradient-to-b max-lg:from-ink-950/80 max-lg:via-ink-950/50 max-lg:to-ink-950/70" />
       <HudCorners />
 
-      <div className="relative grid grid-cols-[minmax(0,1fr)] gap-7 px-5 pb-7 pt-8 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
+      <div className="relative grid grid-cols-[minmax(0,1fr)] gap-7 px-6 pb-8 pt-8 sm:gap-7 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-10">
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
             <span className="relative flex size-2">
@@ -307,18 +307,28 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
           <p className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-fg-muted sm:mt-3 sm:text-[13.5px]">Recargas reales que ya llegaron al ID del jugador.</p>
 
           {hud.length > 0 && (
-            // Celulares muy angostos (< 360 px): dos contadores arriba y el tercero a lo ancho, para que nada se corte.
-            <dl className={cn("mt-5 grid gap-2.5 sm:mt-6 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-2 min-[360px]:grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
-              {hud.map(({ icon: Icon, value, label }, i) => (
-                // Un solo div por par dt/dd (lo que permite <dl>): el sesgo de la tarjeta se compensa en cada texto.
-                <div key={label} className={cn("flex min-w-0 -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-3.5 py-3 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3", hud.length === 3 && i === 2 && "max-[359px]:col-span-2")}>
-                  <dt className="mt-1.5 flex skew-x-[10deg] items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle sm:text-[10.5px]">
-                    <Icon className="mt-px size-3 shrink-0 text-volt-300" />
-                    {label}
-                  </dt>
-                  <dd className="skew-x-[10deg] whitespace-nowrap font-display text-[14px] font-black italic tabular-nums leading-none min-[400px]:text-[17px] sm:text-[22px] lg:text-[18px] xl:text-[22px]">{value}</dd>
-                </div>
-              ))}
+            // Celulares: dos contadores lado a lado con buen espacio y el tercero («Al instante») a lo ancho, en una
+            // sola línea. Desde 640 px, los tres en fila como siempre.
+            <dl className={cn("mt-6 grid gap-3 sm:mt-6 sm:gap-2.5 lg:max-w-[440px]", hud.length === 3 ? "grid-cols-2 sm:grid-cols-3" : hud.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+              {hud.map(({ icon: Icon, value, label }, i) => {
+                const wide = hud.length === 3 && i === 2;
+                return (
+                  // Un solo div por par dt/dd (lo que permite <dl>): el sesgo de la tarjeta se compensa en cada texto.
+                  <div
+                    key={label}
+                    className={cn(
+                      "flex min-w-0 -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-4 py-3.5 ring-1 ring-white/[0.1] backdrop-blur-sm sm:px-3 sm:py-3",
+                      wide && "max-sm:col-span-2 max-sm:flex-row-reverse max-sm:items-center max-sm:justify-end max-sm:gap-3",
+                    )}
+                  >
+                    <dt className={cn("mt-1.5 flex skew-x-[10deg] items-start gap-1 text-[10.5px] font-medium uppercase leading-tight tracking-[0.05em] text-fg-subtle", wide && "max-sm:mt-0 max-sm:items-center")}>
+                      <Icon className="mt-px size-3 shrink-0 text-volt-300" />
+                      {label}
+                    </dt>
+                    <dd className="skew-x-[10deg] whitespace-nowrap font-display text-[19px] font-black italic tabular-nums leading-none sm:text-[22px] lg:text-[18px] xl:text-[22px]">{value}</dd>
+                  </div>
+                );
+              })}
             </dl>
           )}
         </div>
