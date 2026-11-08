@@ -151,7 +151,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
         scrolled || open ? "bg-ink-950/75 shadow-[0_1px_0_0_rgb(255_255_255/0.06),0_16px_40px_-24px_rgb(0_0_0/0.9)] backdrop-blur-xl backdrop-saturate-150" : "bg-transparent",
       )}
     >
-      <div className="mx-auto flex h-[60px] max-w-[1240px] items-center gap-3 px-4 sm:h-[72px] sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[60px] max-w-[1240px] items-center gap-2 px-4 min-[360px]:gap-3 sm:h-[72px] sm:px-6 lg:px-8 short:h-[56px] 2xl:max-w-[1400px]">
         <Link href="/" className="-ml-1 shrink-0 rounded-lg transition-opacity hover:opacity-90" aria-label={`${storeName} — inicio`}>
           <Logo name={storeName} logoUrl={logoUrl} />
         </Link>
@@ -181,7 +181,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1 min-[360px]:gap-2">
           {/* Búsqueda escritorio */}
           <SearchBox variant="desktop" inputRef={searchRef} showAccounts={showAccounts} />
 
@@ -221,9 +221,10 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           )}
 
           {user ? (
-            <Link href="/cuenta" className="ml-1 hidden h-10 items-center gap-2 rounded-full pl-1 pr-3 text-[13px] font-medium ring-1 ring-white/[0.08] transition-colors hover:bg-white/[0.06] sm:inline-flex">
+            <Link href="/cuenta" className="ml-1 hidden h-10 items-center gap-2 rounded-full pl-1 pr-3 text-[13px] lg:max-xl:pr-1 font-medium ring-1 ring-white/[0.08] transition-colors hover:bg-white/[0.06] sm:inline-flex">
               <UserAvatar user={user} size={32} ring={false} />
-              <span className="max-w-28 truncate">{user.name && user.name !== "No Name" ? user.name.split(" ")[0] : "Mi cuenta"}</span>
+              {/* Entre 1024 y 1279 px no cabe el nombre junto al menú: solo la foto (el nombre vuelve en pantallas grandes). */}
+              <span className="max-w-28 truncate lg:max-xl:sr-only">{user.name && user.name !== "No Name" ? user.name.split(" ")[0] : "Mi cuenta"}</span>
             </Link>
           ) : (
             <Link
@@ -252,7 +253,8 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
       </div>
 
       {/* Secciones en celular y tablet: fila fija bajo el logo, se desliza de lado; la actual queda marcada. */}
-      <nav className="lg:hidden" aria-label="Secciones">
+      {/* En celulares en horizontal (poca altura) no se muestra: las secciones siguen en el menú ☰. */}
+      <nav className="lg:hidden short:hidden" aria-label="Secciones">
         <div className="mx-auto flex max-w-[1240px] gap-1.5 overflow-x-auto px-4 pb-2.5 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
           {[{ href: "/", label: "Inicio", icon: Home }, ...nav].map(({ href, label, icon: Icon }) => {
             const active = isActive(href);

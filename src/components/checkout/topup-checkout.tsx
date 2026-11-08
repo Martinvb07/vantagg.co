@@ -602,7 +602,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
       {/* Barra móvil */}
       {pkg && !closed && (
-        <div data-paybar className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-ink-900/95 px-4 pt-3 backdrop-blur lg:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div data-paybar className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-ink-900/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden short:pb-[max(0.5rem,env(safe-area-inset-bottom))] short:pt-2">
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-[12px] text-fg-muted">{pkg.pass ? PASS_INFO[pkg.pass].title : `${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes`}</p>

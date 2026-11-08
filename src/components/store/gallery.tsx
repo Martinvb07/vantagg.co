@@ -191,15 +191,12 @@ export function Gallery({ images, title }: { images: Img[]; title: string }) {
               {i + 1} / {n}
             </span>
             {/* Puntos */}
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+            <div className="absolute inset-x-0 bottom-1.5 flex justify-center">
               {images.map((im, idx) => (
-                <button
-                  key={im.url}
-                  type="button"
-                  onClick={() => goTo(idx)}
-                  aria-label={`Ir a la imagen ${idx + 1}`}
-                  className={cn("h-1.5 rounded-full transition-all", idx === i ? "w-5 bg-volt-400" : "w-1.5 bg-white/45 hover:bg-white/70")}
-                />
+                // El punto se ve igual; el área para tocarlo es más grande (24 px de alto) para el dedo.
+                <button key={im.url} type="button" onClick={() => goTo(idx)} aria-label={`Ir a la imagen ${idx + 1}`} className="group flex items-center px-[5px] py-[9px]">
+                  <span className={cn("block h-1.5 rounded-full transition-all", idx === i ? "w-5 bg-volt-400" : "w-1.5 bg-white/45 group-hover:bg-white/70")} />
+                </button>
               ))}
             </div>
           </>

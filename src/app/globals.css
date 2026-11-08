@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Pantallas bajitas: celulares en horizontal (hasta 520 px de alto). Se usa como «short:…» para ahorrar alto. */
+@custom-variant short {
+  @media (max-height: 520px) and (orientation: landscape) {
+    @slot;
+  }
+}
+
 /* ------------------------------------------------------------------
    VANTA — sistema visual
    Grafito profundo + acento "volt" (lima eléctrico) usado con medida.
@@ -109,6 +116,10 @@
   }
   /* Red de seguridad: nada provoca scroll horizontal en celular. «clip» (no «hidden») mantiene el header sticky. */
   html, body { overflow-x: clip; }
+  /* Una cuadrícula sin columnas propias nunca queda más ancha que la pantalla: sin esto, un texto largo que no se
+     corta (un nombre, un correo) la ensanchaba y el resto quedaba recortado en celulares chicos. Las clases grid-cols-*
+     (capa de utilidades) siempre ganan sobre esta regla de base. */
+  .grid:not([class^="grid-cols-"]):not([class*=" grid-cols-"]) { grid-template-columns: minmax(0, 1fr); }
   body {
     overflow-wrap: break-word;
     background-color: var(--color-ink-900);
@@ -262,6 +273,9 @@
   body:has([data-paybar]) .wa-float { bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
   /* Con la barra de pago abajo, el aviso de cookies sube para no taparla. */
   body:has([data-paybar]) .cookie-notice { bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
+  @media (max-height: 520px) and (orientation: landscape) {
+    body:has([data-paybar]) .cookie-notice { bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
+  }
   body:has([aria-label="Chat de entrega"]) .wa-float { display: none; }
 }
 

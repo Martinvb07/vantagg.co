@@ -48,8 +48,8 @@ export function CookieNotice({ ads = [] }: { ads?: string[] }) {
   };
 
   return (
-    <div role="region" aria-label="Aviso de cookies" className="cookie-notice fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mr-16 animate-fade-up sm:inset-x-auto sm:left-5 sm:mr-0 sm:max-w-[380px]">
-      <div className="flex items-start gap-3 rounded-[14px] bg-ink-800/95 p-3.5 text-[12.5px] leading-relaxed text-fg-muted shadow-[var(--shadow-lift)] ring-1 ring-white/10 backdrop-blur">
+    <div role="region" aria-label="Aviso de cookies" className="cookie-notice fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mr-16 animate-fade-up sm:inset-x-auto sm:left-5 sm:mr-0 sm:max-w-[380px] short:bottom-[calc(0.5rem+env(safe-area-inset-bottom))] short:sm:max-w-[600px]">
+      <div className="flex items-start gap-3 rounded-[14px] bg-ink-800/95 p-3.5 text-[12.5px] leading-relaxed text-fg-muted shadow-[var(--shadow-lift)] ring-1 ring-white/10 backdrop-blur short:p-2.5">
         <Cookie className="mt-0.5 size-4 shrink-0 text-volt-300" />
         {consent ? (
           <div className="min-w-0 flex-1">

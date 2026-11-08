@@ -151,7 +151,7 @@ export function SearchBox({ variant, inputRef, onNavigate, showAccounts = true }
         className={cn(
           "text-fg placeholder:text-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden",
           desktop
-            ? "h-10 w-48 rounded-full border border-transparent bg-white/[0.05] pl-10 pr-10 text-[13px] transition-[width,border-color,background] duration-300 hover:bg-white/[0.07] focus:w-72 focus:border-volt-400/50 focus:bg-ink-850 xl:w-60"
+            ? "h-10 w-48 rounded-full border border-transparent bg-white/[0.05] pl-10 pr-10 text-[13px] transition-[width,border-color,background] duration-300 hover:bg-white/[0.07] focus:w-72 focus:border-volt-400/50 focus:bg-ink-850 lg:w-40 lg:focus:w-48 xl:w-60 xl:focus:w-72"
             : "h-11 w-full rounded-full border border-white/10 bg-ink-850 pl-10 pr-10 text-[14px] focus:border-volt-400/50",
         )}
       />

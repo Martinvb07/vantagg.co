@@ -77,16 +77,12 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
       </div>
 
       {n > 1 && (
-        <div className="mt-3 flex justify-center gap-1.5">
+        <div className="mt-1.5 flex justify-center">
           {banners.map((b, idx) => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => setI(idx)}
-              aria-label={`Ir al banner ${idx + 1}`}
-              aria-current={idx === i}
-              className={cn("h-1.5 rounded-full transition-all duration-300", idx === i ? "w-6 bg-white" : "w-1.5 bg-white/25 hover:bg-white/50")}
-            />
+            // El punto se ve igual; el área para tocarlo es más grande (24 px de alto) para el dedo.
+            <button key={b.id} type="button" onClick={() => setI(idx)} aria-label={`Ir al banner ${idx + 1}`} aria-current={idx === i} className="group flex items-center px-[5px] py-[9px]">
+              <span className={cn("block h-1.5 rounded-full transition-all duration-300", idx === i ? "w-6 bg-white" : "w-1.5 bg-white/25 group-hover:bg-white/50")} />
+            </button>
           ))}
         </div>
       )}

@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import type { StatusTone } from "@/domain/order-status";
 
 export function Container({ className, ...rest }: ComponentProps<"div">) {
-  return <div className={cn("mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8", className)} {...rest} />;
+  // Monitores grandes (≥ 1536 px): un poco más ancho para no dejar tanto espacio vacío a los lados.
+  return <div className={cn("mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8 2xl:max-w-[1400px]", className)} {...rest} />;
 }
 
 const toneClass: Record<StatusTone, string> = {
