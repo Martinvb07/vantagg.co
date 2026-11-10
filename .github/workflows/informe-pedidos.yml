@@ -59,7 +59,7 @@ jobs:
           echo "== Avisos de pago que llegaron al servidor (nginx), por día y respuesta:"
           if ls /var/log/nginx/access.log* >/dev/null 2>&1 && [ -r /var/log/nginx/access.log ]; then
             { cat /var/log/nginx/access.log /var/log/nginx/access.log.1 2>/dev/null; zcat /var/log/nginx/access.log.*.gz 2>/dev/null; } \
-              | grep "/api/webhooks/" | awk '{d=substr($4,2,11); print d, $7, $9}' | sed -E 's/\?[^ ]*//' | sort | uniq -c | tail -n 30 | sed 's/^/   /'
+              | grep "/api/webhooks/" | awk '{split(substr($4,2,11),f,"/"); m=index("JanFebMarAprMayJunJulAugSepOctNovDec",f[2]); printf "%s-%02d-%s %s %s\n", f[3], (m+2)/3, f[1], $7, $9}' | sed -E 's/\?[^ ]*//' | sort | uniq -c | sort -k2,2 | tail -n 40 | sed 's/^/   /'
             echo "   (si no aparece ninguna línea de /api/webhooks/bold, Bold no está enviando los avisos)"
           else
             echo "   (sin permiso para leer el registro de nginx)"
@@ -74,7 +74,7 @@ jobs:
           # Panel: cómo respondió el servidor hoy a las páginas del panel (solo secciones conocidas; nunca la dirección secreta).
           echo "== Panel: respuestas de hoy (nginx, hora del servidor), por página y código:"
           if [ -r /var/log/nginx/access.log ]; then
-            grep -h "$(date +%d/%b/%Y)" /var/log/nginx/access.log | awk '{split($7,a,"?"); p=a[1]; rsc=(a[2] ~ /_rsc=/) ? " (navegación)" : ""; if (p ~ /^\/(admin(\/(pedidos|clientes|cuentas|chats|ajustes|paquetes|integraciones|proveedor|soporte|reclamos|usuarios|codigos|banners|correos|seguridad|auditoria)(\/[A-Za-z0-9_-]+)?)?|api\/admin\/pulse)$/) { gsub(/\/[a-z0-9]{20,}$/, "/:id", p); print p rsc, $9 } }' \
+            grep -h "$(date +%d/%b/%Y)" /var/log/nginx/access.log | awk '{split($7,a,"?"); p=a[1]; rsc=(a[2] ~ /_rsc=/) ? " (navegación)" : ""; if (p ~ /^\/(admin(\/(pedidos|clientes|cuentas|chats|ajustes|paquetes|integraciones|proveedor|soporte|reclamos|usuarios|codigos|banners|correos|seguridad|auditoria)(\/[A-Za-z0-9_-]+)?)?|api\/admin\/pulse)$/) { gsub(/\/[A-Za-z0-9_-]{8,}$/, "/:id", p); print p rsc, $9 } }' \
               | sort | uniq -c | sort -rn | head -n 15 | sed 's/^/   /'
           fi
           [ -r /var/log/nginx/error.log ] && echo "   avisos de nginx hoy (tiempo agotado / sin respuesta de la tienda): $(grep -c "$(date +%Y/%m/%d).*\(timed out\|upstream prematurely\|connect() failed\)" /var/log/nginx/error.log)"
