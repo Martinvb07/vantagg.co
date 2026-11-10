@@ -1,0 +1,153 @@
+name: Informe cifrado de pedidos y cobros
+
+# Manual y de SOLO LECTURA. Revisa los pedidos recientes, sus cobros, lo que Bold dice de cada link de pago (consulta
+# de estado, sin cobrar nada), los avisos de pago (webhooks) recibidos y los errores recientes de la tienda.
+# Repositorio público: el detalle sale CIFRADO con la llave pública que se pasa al lanzarlo (solo quien tiene la llave
+# privada puede leerlo). En claro solo se muestran conteos.
+on:
+  workflow_dispatch:
+    inputs:
+      llave:
+        description: Llave pública (RSA, SPKI DER en base64) para cifrar el informe
+        type: string
+        required: true
+      horas:
+        description: Horas hacia atrás a revisar
+        type: string
+        default: "72"
+
+jobs:
+  informe:
+    name: Pedidos y cobros
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5 6 7 8; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 6
+          done
+          echo "ssh-keyscan falló tras 8 intentos"; exit 1
+
+      - name: Revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          LLAVE: ${{ inputs.llave }}
+          HORAS: ${{ inputs.horas }}
+        run: |
+          set -euo pipefail
+          [[ "$LLAVE" =~ ^[A-Za-z0-9+/=]{300,2000}$ ]] || { echo "✖ Llave pública inválida."; exit 1; }
+          [[ "$HORAS" =~ ^[0-9]{1,3}$ ]] || { echo "✖ Horas inválidas."; exit 1; }
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' LLAVE='$LLAVE' HORAS='$HORAS' bash -s" <<'ENDSSH'
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD) · hora del servidor: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          tmp=$(mktemp -d); chmod 700 "$tmp"
+          # Registros (van dentro del informe cifrado).
+          log=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const a=JSON.parse(t);const p=a.find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_err_log_path||"")}catch{console.log("")}})' || true)
+          [ -n "$log" ] && [ -f "$log" ] && tail -n 400 "$log" | cut -c1-400 > "$tmp/err.txt"
+          out=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const a=JSON.parse(t);const p=a.find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_out_log_path||"")}catch{console.log("")}})' || true)
+          [ -n "$out" ] && [ -f "$out" ] && grep -iE "webhook|bold|pago|pedido|orders|error" "$out" | tail -n 200 | cut -c1-400 > "$tmp/out.txt"
+          for f in /var/log/nginx/access.log /var/log/nginx/access.log.1; do
+            [ -r "$f" ] && grep -h "/api/webhooks/" "$f" | awk '{print $4, $6, $7, $9}' | cut -c1-200 >> "$tmp/nginx.txt"
+          done
+          [ -r /var/log/nginx/access.log ] || echo "(sin permiso para leer el registro de nginx)" > "$tmp/nginx.txt"
+          pm2 describe vanta 2>/dev/null | grep -E "status|restarts|uptime|created at" | head -6 > "$tmp/pm2.txt" || true
+          for ruta in /api/health / /recargas; do
+            echo "$ruta $(curl -s -o /dev/null -w '%{http_code} %{time_total}s' --max-time 20 -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3020$ruta)" >> "$tmp/http.txt"
+          done
+          cat > "$tmp/informe.cjs" <<'JS'
+          const fs = require("fs"), zlib = require("zlib"), crypto = require("crypto"), path = require("path");
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const H = 3600_000, HORAS = Math.min(Number(process.env.HORAS) || 72, 720);
+          const TMP = process.env.TMPDIR_INFORME;
+          const read = (f) => { try { return fs.readFileSync(path.join(TMP, f), "utf8"); } catch { return ""; } };
+          const mask = (s) => String(s || "").replace(/([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1***@$2");
+          const cot = (d) => (d ? new Date(new Date(d).getTime() - 5 * H).toISOString().slice(0, 16).replace("T", " ") : null);
+          async function boldLink(id) {
+            const key = process.env.BOLD_API_KEY;
+            if (!key) return { error: "sin BOLD_API_KEY" };
+            try {
+              const r = await fetch(`https://integrations.api.bold.co/online/link/v1/${encodeURIComponent(id)}`, { headers: { Authorization: `x-api-key ${key}` }, signal: AbortSignal.timeout(10_000) });
+              const t = await r.text();
+              if (!r.ok) return { http: r.status, body: t.slice(0, 160) };
+              const l = JSON.parse(t);
+              return { status: l.status, total: l.total, reference: l.reference, transaction_id: l.transaction_id, payment_method: l.payment_method, creation_date: l.creation_date, expiration_date: l.expiration_date };
+            } catch (e) { return { error: String(e.message).slice(0, 120) }; }
+          }
+          (async () => {
+            const now = Date.now(), since = new Date(now - HORAS * H);
+            const orders = await db.order.findMany({
+              where: { OR: [{ createdAt: { gte: since } }, { updatedAt: { gte: new Date(now - 36 * H) } }, { paidAt: { gte: since } }] },
+              orderBy: { createdAt: "desc" }, take: 250,
+              include: { payments: true, delivery: true, events: { orderBy: { createdAt: "asc" } } },
+            });
+            const rows = [];
+            let linkCalls = 0;
+            for (const o of orders) {
+              const links = [];
+              for (const e of o.events) {
+                const d = e.data || {};
+                if (e.type === "CHECKOUT_STARTED" && d.provider === "bold" && d.checkoutRef && linkCalls < 120) { linkCalls++; links.push({ ref: d.checkoutRef, at: cot(e.createdAt), bold: await boldLink(d.checkoutRef) }); }
+              }
+              rows.push({
+                number: o.number, type: o.type, status: o.status, isTest: o.isTest, item: o.itemSnapshot?.name, region: o.itemSnapshot?.region,
+                email: mask(o.customerEmail), playerId: o.playerId, total: o.total, currency: o.currency, charge: o.chargeCurrency ? `${o.chargeAmount} ${o.chargeCurrency}` : null,
+                provider: o.paymentProvider, createdAt: cot(o.createdAt), expiresAt: cot(o.expiresAt), paidAt: cot(o.paidAt), deliveredAt: cot(o.deliveredAt), cancelledAt: cot(o.cancelledAt), updatedAt: cot(o.updatedAt),
+                payments: o.payments.map((p) => ({ status: p.status, amount: p.amount, currency: p.currency, method: p.method, ref: p.providerRef, at: cot(p.createdAt), upd: cot(p.updatedAt) })),
+                delivery: o.delivery && { status: o.delivery.status, provider: o.delivery.provider, ref: o.delivery.providerRef, attempts: o.delivery.attempts, simulated: o.delivery.simulated, lastError: o.delivery.lastError?.slice(0, 200), at: cot(o.delivery.updatedAt) },
+                events: o.events.map((e) => `${cot(e.createdAt)} ${e.type} [${mask(e.actor)}] ${mask(e.message).slice(0, 140)}`),
+                links,
+              });
+            }
+            const hooks = await db.webhookEvent.findMany({ where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, orderBy: { createdAt: "desc" }, take: 300 });
+            const byDay = await db.$queryRawUnsafe("SELECT DATE(DATE_SUB(createdAt, INTERVAL 5 HOUR)) d, status, COUNT(*) n, SUM(total) t FROM `Order` WHERE createdAt >= NOW() - INTERVAL 15 DAY AND isTest = 0 GROUP BY d, status ORDER BY d");
+            const settings = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["paymentProvider", "paymentProviders", "maintenanceMode", "purgeCancelled", "autoRecovery", "storeClosed"] } } })).map((s) => [s.key, s.value]));
+            const audits = await db.auditLog.findMany({ where: { createdAt: { gte: new Date(now - 48 * H) } }, orderBy: { createdAt: "desc" }, take: 60, select: { action: true, entity: true, createdAt: true, data: true } });
+            const report = {
+              at: cot(new Date()), horas: HORAS,
+              env: { PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER || null, BOLD_TEST_MODE: process.env.BOLD_TEST_MODE || null, boldKeys: !!process.env.BOLD_API_KEY && !!process.env.BOLD_SECRET_KEY, epayco: !!process.env.EPAYCO_PUBLIC_KEY },
+              settings, orders: rows,
+              hooks: hooks.map((h) => ({ at: cot(h.createdAt), provider: h.provider, type: h.type, ext: h.externalId, ok: h.signatureValid, processed: cot(h.processedAt), error: h.error?.slice(0, 160), ref: h.payload?.data?.metadata?.reference, amount: h.payload?.data?.amount?.total })),
+              byDay: byDay.map((r) => ({ d: String(r.d).slice(0, 15), status: r.status, n: Number(r.n), t: Number(r.t) })),
+              audits: audits.map((a) => ({ at: cot(a.createdAt), action: a.action, entity: a.entity, data: mask(JSON.stringify(a.data || {})).slice(0, 300) })),
+              logs: { err: mask(read("err.txt")), out: mask(read("out.txt")), nginx: read("nginx.txt").split("\n").slice(-300).join("\n"), pm2: read("pm2.txt"), http: read("http.txt") },
+            };
+            // En claro: solo conteos.
+            const st = {}; for (const r of rows) st[r.status] = (st[r.status] || 0) + 1;
+            console.log(`== Pedidos revisados (últimas ${HORAS} h o con cambios recientes): ${rows.length} · ${Object.entries(st).map(([k, v]) => `${k}: ${v}`).join(" · ")}`);
+            console.log(`== Links de Bold consultados: ${linkCalls} · avisos de pago (webhooks) en 10 días: ${hooks.length}`);
+            const pub = crypto.createPublicKey({ key: Buffer.from(process.env.LLAVE, "base64"), format: "der", type: "spki" });
+            const k = crypto.randomBytes(32), iv = crypto.randomBytes(12);
+            const c = crypto.createCipheriv("aes-256-gcm", k, iv);
+            const ct = Buffer.concat([c.update(zlib.gzipSync(JSON.stringify(report))), c.final()]);
+            const ek = crypto.publicEncrypt({ key: pub, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, k);
+            const len = Buffer.alloc(2); len.writeUInt16BE(ek.length);
+            const blob = Buffer.concat([len, ek, iv, c.getAuthTag(), ct]).toString("base64");
+            console.log("=== INFORME CIFRADO: INICIO ===");
+            for (let i = 0; i < blob.length; i += 3000) console.log(blob.slice(i, i + 3000));
+            console.log("=== INFORME CIFRADO: FIN ===");
+            await db.$disconnect();
+          })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); process.exit(1); });
+          JS
+          TMPDIR_INFORME="$tmp" LLAVE="$LLAVE" HORAS="$HORAS" NODE_PATH="$PWD/node_modules" node --env-file=.env "$tmp/informe.cjs"
+          rm -rf "$tmp"
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
