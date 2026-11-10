@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { ORDER_STATUSES, type OrderStatusValue } from "@/domain/order-status";
 
-export type OrderFilterParams = { q?: string; estado?: string; tipo?: string; prueba?: string; desde?: string; hasta?: string };
+export type OrderFilterParams = { q?: string; estado?: string; tipo?: string; prueba?: string; desde?: string; hasta?: string; orden?: string };
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -11,6 +11,14 @@ export function bogotaDay(ymd: string, endOfDay = false): Date | null {
   if (!YMD.test(ymd)) return null;
   const d = new Date(`${ymd}T${endOfDay ? "23:59:59.999" : "00:00:00"}-05:00`);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Orden del listado: «actividad» (predeterminado) pone arriba lo último que pasó (pedido nuevo, pagado, entregado,
+ * cancelado), igual que «Booyah en tiempo real» en la tienda; «creacion», por fecha de creación.
+ */
+export function orderSort(sp: OrderFilterParams): Prisma.OrderOrderByWithRelationInput[] {
+  return sp.orden === "creacion" ? [{ createdAt: "desc" }] : [{ updatedAt: "desc" }, { createdAt: "desc" }];
 }
 
 /** Filtros de pedidos compartidos por el listado y la exportación. */

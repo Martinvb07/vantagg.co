@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DemoBadge } from "@/components/ui/primitives";
 import { OrderStatusBadge } from "@/components/ui/status";
 import { ORDER_STATUSES, ORDER_STATUS_META, REVENUE_STATUSES } from "@/domain/order-status";
-import { orderWhere, type OrderFilterParams } from "@/server/admin-filters";
+import { orderSort, orderWhere, type OrderFilterParams } from "@/server/admin-filters";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney } from "@/lib/money";
@@ -23,7 +23,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const page = Math.max(1, Number(sp.p) || 1);
   const where = orderWhere(sp);
   const [orders, total, sum] = await Promise.all([
-    db.order.findMany({ where, orderBy: { createdAt: "desc" }, take: PAGE, skip: (page - 1) * PAGE, include: { delivery: { select: { simulated: true } } } }),
+    db.order.findMany({ where, orderBy: orderSort(sp), take: PAGE, skip: (page - 1) * PAGE, include: { delivery: { select: { simulated: true } } } }),
     db.order.count({ where }),
     db.order.aggregate({ where: { ...where, status: { in: [...REVENUE_STATUSES] } }, _sum: { total: true } }),
   ]);
@@ -66,6 +66,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <option value="">Todos los tipos</option>
           <option value="TOPUP">Recargas</option>
           <option value="ACCOUNT">Cuentas</option>
+        </select>
+        <select name="orden" defaultValue={sp.orden === "creacion" ? "creacion" : ""} className="field sm:w-[205px]" aria-label="Ordenar">
+          <option value="">Lo último primero</option>
+          <option value="creacion">Por fecha de creación</option>
         </select>
         <input type="date" name="desde" defaultValue={sp.desde} className="field sm:w-[150px]" aria-label="Desde" title="Desde" />
         <input type="date" name="hasta" defaultValue={sp.hasta} className="field sm:w-[150px]" aria-label="Hasta" title="Hasta" />
@@ -121,10 +125,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               </td>
               <td className="whitespace-nowrap text-fg-muted">
                 {formatDate(o.createdAt)}
-                {/* Pagado otro día (p. ej. la pasarela confirmó tarde): se ve aquí aunque el pedido quede más abajo. */}
-                {o.paidAt && formatDate(o.paidAt, false) !== formatDate(o.createdAt, false) && (
-                  <span className="block text-[11.5px] text-volt-300">Pagado {formatDate(o.paidAt)}</span>
-                )}
+                {/* Lo último que pasó, si fue más de una hora después de crearse (p. ej. un pago que la pasarela confirmó tarde). */}
+                {(() => {
+                  const last = o.deliveredAt ? (["Entregado", o.deliveredAt] as const) : o.paidAt ? (["Pagado", o.paidAt] as const) : o.cancelledAt ? (["Cancelado", o.cancelledAt] as const) : null;
+                  return last && last[1].getTime() - o.createdAt.getTime() > 3600_000 ? (
+                    <span className={`block text-[11.5px] ${last[0] === "Cancelado" ? "text-fg-subtle" : "text-volt-300"}`}>
+                      {last[0]} {formatDate(last[1])}
+                    </span>
+                  ) : null;
+                })()}
               </td>
             </tr>
           ))}

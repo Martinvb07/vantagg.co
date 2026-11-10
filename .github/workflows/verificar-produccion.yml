@@ -49,8 +49,11 @@ jobs:
           npm run -s verificar:produccion 2>&1 || true
           echo "== tarea programada (mantenimiento y respaldos)"
           c=$(crontab -l 2>/dev/null || true)
-          printf '%s\n' "$c" | grep -q "api/cron/maintenance" && echo "  ✔ mantenimiento programado: $(printf '%s\n' "$c" | grep 'api/cron/maintenance' | awk '{print $1,$2,$3,$4,$5}')" || echo "  ✖ NO hay tarea de mantenimiento (pedidos sin pago no vencen, pagos y entregas no se reconsultan)"
-          printf '%s\n' "$c" | grep -q "respaldo" && echo "  ✔ respaldo programado: $(printf '%s\n' "$c" | grep respaldo | awk '{print $1,$2,$3,$4,$5}')" || echo "  ✖ NO hay respaldo programado"
+          # Solo cuenta la tarea de ESTA tienda (puerto 3020 / vantagg.co): en el servidor hay otras tiendas con la suya.
+          m=$(printf '%s\n' "$c" | grep -v '^[[:space:]]*#' | grep -E 'deploy/cron-mantenimiento\.sh|127\.0\.0\.1:3020/api/cron/maintenance|vantagg\.co/api/cron/maintenance' | head -1 || true)
+          [ -n "$m" ] && echo "  ✔ mantenimiento de vantagg.co programado: $(printf '%s' "$m" | awk '{print $1,$2,$3,$4,$5}')" || echo "  ✖ NO hay tarea de mantenimiento de vantagg.co (pedidos sin pago no vencen, pagos y entregas no se reconsultan; el próximo deploy la agrega)"
+          [ -f logs/mantenimiento-ultimo.json ] && echo "  última corrida del mantenimiento: hace $(( ($(date +%s) - $(stat -c %Y logs/mantenimiento-ultimo.json)) / 60 )) min"
+          printf '%s\n' "$c" | grep -v '^[[:space:]]*#' | grep -q "respaldo-vps" && echo "  ✔ respaldo programado: $(printf '%s\n' "$c" | grep respaldo-vps | awk '{print $1,$2,$3,$4,$5}' | head -1)" || echo "  ✖ NO hay respaldo programado"
           d="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"
           if [ -d "$d" ]; then echo "  último respaldo: $(ls -t "$d" 2>/dev/null | head -n1 | sed 's/[^0-9-]//g' || echo ninguno) · copias: $(ls "$d" | wc -l)"; else echo "  ✖ no existe la carpeta de respaldos"; fi
           if grep -qE '^CRON_SECRET=.{24,}' .env; then
