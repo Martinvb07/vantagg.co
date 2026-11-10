@@ -147,6 +147,16 @@ jobs:
                 }
               }
             }
+            // Booyah en tiempo real (lo que ve el cliente) = últimas compras pagadas y entregadas, en el mismo orden que la base.
+            {
+              const api = await fetch("http://127.0.0.1:3020/api/compras-recientes", { headers: { Host: "vantagg.co", "X-Forwarded-Proto": "https" }, signal: AbortSignal.timeout(10_000) }).then((r) => r.json()).catch(() => null);
+              const exp = await db.order.findMany({ where: { status: "DELIVERED", isTest: false, deliveredAt: { not: null }, paidAt: { not: null } }, orderBy: { paidAt: "desc" }, take: 10, select: { paidAt: true } });
+              const got = (api?.items || []).map((i) => i.at);
+              const want = exp.map((o) => o.paidAt.toISOString());
+              const same = got.length === want.length && got.every((a, i) => a === want[i]);
+              const sorted = got.every((a, i) => i === 0 || got[i - 1] >= a);
+              console.log(`== Booyah en tiempo real: ${got.length} compras · ${same ? "✔ las mismas y en el mismo orden que la base (por fecha de pago)" : "✖ no coincide con la base (puede ser la memoria de 10 s; vuelve a correr)"} · ${sorted ? "ordenadas de la más nueva a la más vieja ✔" : "✖ desordenadas"} · la más reciente: ${got[0] ? fmt(got[0]) : "—"} · hoy: ${api?.stats?.today ?? "—"}`);
+            }
             const hooks = await db.webhookEvent.groupBy({ by: ["provider"], where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, _count: true });
             console.log(`== Avisos de pago registrados por la tienda en 10 días: ${hooks.length ? hooks.map((h) => `${h.provider}: ${h._count}`).join(" · ") : "NINGUNO ✖"}`);
             const orders = await db.order.findMany({
