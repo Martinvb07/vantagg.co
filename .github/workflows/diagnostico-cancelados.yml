@@ -96,6 +96,15 @@ jobs:
             }
             console.log(`== Cancelados: ${b.total} · hace menos de 12 h: ${b.menos12} · 12 a 48 h: ${b.entre12y48} · más de 48 h: ${b.mas48} · SIN fecha de cancelación: ${b.sinFecha}${b.sinFecha ? " ✖ (la regla de borrado no los ve)" : ""}`);
             console.log(`   De los de 12 h o más: ${b.conHistorial} se conservan (cobro, entrega, chat, notas o soporte) · ${b.conCorreo} ya recibieron el correo · ${b.sinCorreo} sin correo (${b.porEquipo} cancelados por el equipo)`);
+            // Qué hizo el mantenimiento en las últimas 3 h: pedidos vencidos y pagos confirmados al consultar la pasarela.
+            const since = new Date(Date.now() - 3 * H);
+            const expiredNow = await db.orderEvent.count({ where: { type: "EXPIRED", createdAt: { gte: since } } });
+            const polled = await db.orderEvent.findMany({ where: { actor: { startsWith: "POLL:" }, createdAt: { gte: since } }, select: { orderId: true, type: true } });
+            const polledIds = [...new Set(polled.map((e) => e.orderId))];
+            const polledStatus = polledIds.length ? (await db.order.groupBy({ by: ["status"], where: { id: { in: polledIds } }, _count: true })).map((g) => `${g.status}: ${g._count}`).join(", ") : "";
+            console.log(`== Últimas 3 h: ${expiredNow} pedido(s) vencido(s) por falta de pago · ${polledIds.length} pedido(s) con pago confirmado al consultar la pasarela${polledStatus ? ` (estado ahora: ${polledStatus}; avisos: ${[...new Set(polled.map((e) => e.type))].join(", ")})` : ""}`);
+            const byStatus = (await db.order.groupBy({ by: ["status"], where: { createdAt: { gte: new Date(Date.now() - 96 * H) } }, _count: true })).map((g) => `${g.status}: ${g._count}`).join(" · ");
+            console.log(`== Pedidos creados en los últimos 4 días por estado: ${byStatus}`);
             const logs = await db.auditLog.findMany({ where: { action: "orders.purge_cancelled" }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, data: true } });
             const day = logs.filter((l) => Date.now() - l.createdAt.getTime() < 24 * H).reduce((n, l) => n + (Number(l.data?.deleted) || 0), 0);
             console.log(`== Último borrado automático: hace ${ago(logs[0]?.createdAt)} · borrados en las últimas 24 h: ${day}`);
