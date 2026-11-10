@@ -71,6 +71,13 @@ jobs:
           echo "== Errores recientes de la tienda (sin datos de clientes):"
           [ -n "$errlog" ] && [ -f "$errlog" ] && tail -n 300 "$errlog" | grep -aE "Error|error|✖|falló|fallaron" | sed -E 's/[0-9]{6,}/…/g' | cut -c1-200 | tail -n 12 | sed 's/^/   /'
           [ -f logs/mantenimiento-ultimo.json ] && echo "== Mantenimiento automático: última corrida hace $(( ($(date +%s) - $(stat -c %Y logs/mantenimiento-ultimo.json)) / 60 )) min"
+          # Panel: cómo respondió el servidor hoy a las páginas del panel (solo secciones conocidas; nunca la dirección secreta).
+          echo "== Panel: respuestas de hoy (nginx, hora del servidor), por página y código:"
+          if [ -r /var/log/nginx/access.log ]; then
+            grep -h "$(date +%d/%b/%Y)" /var/log/nginx/access.log | awk '{split($7,a,"?"); p=a[1]; rsc=(a[2] ~ /_rsc=/) ? " (navegación)" : ""; if (p ~ /^\/(admin(\/(pedidos|clientes|cuentas|chats|ajustes|paquetes|integraciones|proveedor|soporte|reclamos|usuarios|codigos|banners|correos|seguridad|auditoria)(\/[A-Za-z0-9_-]+)?)?|api\/admin\/pulse)$/) { gsub(/\/[a-z0-9]{20,}$/, "/:id", p); print p rsc, $9 } }' \
+              | sort | uniq -c | sort -rn | head -n 15 | sed 's/^/   /'
+          fi
+          [ -r /var/log/nginx/error.log ] && echo "   avisos de nginx hoy (tiempo agotado / sin respuesta de la tienda): $(grep -c "$(date +%Y/%m/%d).*\(timed out\|upstream prematurely\|connect() failed\)" /var/log/nginx/error.log)"
 
           cat > /tmp/revision-pedidos.cjs <<'JS'
           const { PrismaClient } = require("@prisma/client");
@@ -91,6 +98,16 @@ jobs:
           }
           (async () => {
             const now = Date.now(), since = new Date(now - HORAS * H), today = ymd(now);
+            // Lo que consulta la página Pedidos del panel al abrirse (para ver si tarda).
+            const t0 = Date.now();
+            await Promise.all([
+              db.order.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { delivery: { select: { simulated: true } } } }),
+              db.order.count(),
+              db.order.aggregate({ where: { status: { in: ["PAID", "PROCESSING", "DELIVERED"] } }, _sum: { total: true } }),
+            ]);
+            const t1 = Date.now();
+            await db.order.findMany({ where: { status: "CANCELLED", isTest: false, cancelledAt: { gte: new Date(now - 30 * 24 * H) } }, include: { notifications: true, events: true, payments: true }, take: 2000 });
+            console.log(`== Página Pedidos del panel: listado ${t1 - t0} ms · recordatorios ${Date.now() - t1} ms · pedidos en total: ${await db.order.count()}`);
             const hooks = await db.webhookEvent.groupBy({ by: ["provider"], where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, _count: true });
             console.log(`== Avisos de pago registrados por la tienda en 10 días: ${hooks.length ? hooks.map((h) => `${h.provider}: ${h._count}`).join(" · ") : "NINGUNO ✖"}`);
             const orders = await db.order.findMany({

@@ -3,7 +3,16 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-type Counts = { orders: number; claims: number; tickets: number; chats: number };
+type Counts = { orders: number; claims: number; tickets: number; chats: number; ordersVersion?: string };
+
+/** Inicio y el listado de pedidos se actualizan solos cuando entra un pedido o cambia el estado de alguno. */
+const showsOrders = (p: string) => p === "/admin" || p === "/admin/pedidos";
+
+/** Hay un campo con el cursor (buscador, filtros, notas): no se recarga para no borrar lo que se escribe. */
+const typing = () => {
+  const a = document.activeElement as HTMLElement | null;
+  return !!a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable);
+};
 
 const total = (c: Counts) => c.orders + c.claims + c.tickets + c.chats;
 
@@ -32,12 +41,15 @@ function chime() {
 
 /**
  * Vigila los pendientes del panel: actualiza el título de la pestaña, refresca
- * el panel cuando algo cambia y suena cuando llega un chat o una cuenta por entregar.
+ * el panel cuando algo cambia (en Inicio y Pedidos, también con cada pedido nuevo o
+ * actualizado) y suena cuando llega un chat o una cuenta por entregar.
  */
 export function AdminPulse({ initial }: { initial: Counts }) {
   const router = useRouter();
   const pathname = usePathname();
   const last = useRef<Counts>(initial);
+  const path = useRef(pathname);
+  path.current = pathname;
 
   const setTitle = (c: Counts) => {
     const n = total(c);
@@ -57,22 +69,38 @@ export function AdminPulse({ initial }: { initial: Counts }) {
       try {
         const res = await fetch("/api/admin/pulse", { cache: "no-store" });
         if (res.ok) {
-          const c = (await res.json()) as Counts;
+          let c = (await res.json()) as Counts;
           const prev = last.current;
           if (c.chats > prev.chats) chime();
-          if (total(c) !== total(prev) || c.chats !== prev.chats) router.refresh();
+          if (c.ordersVersion !== prev.ordersVersion && showsOrders(path.current)) {
+            // Inicio y Pedidos se recargan enteros: el refresco interno de Next a veces recibe los datos nuevos y no
+            // los muestra, y el listado se quedaba sin los pedidos nuevos. Si estás escribiendo, espera al siguiente turno.
+            if (!typing()) {
+              window.location.reload();
+              return;
+            }
+            c = { ...c, ordersVersion: prev.ordersVersion };
+          } else if (total(c) !== total(prev) || c.chats !== prev.chats) router.refresh();
           last.current = c;
           setTitle(c);
         }
       } catch {
         /* sin conexión */
       }
-      if (!stop) timer = setTimeout(tick, document.visibilityState === "visible" ? 20_000 : 60_000);
+      if (!stop) timer = setTimeout(tick, document.visibilityState === "visible" ? 15_000 : 60_000);
     };
-    timer = setTimeout(tick, 20_000);
+    timer = setTimeout(tick, 15_000);
+    // Al volver a la pestaña se revisa enseguida (no espera el siguiente turno).
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      clearTimeout(timer);
+      void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stop = true;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [router]);
 

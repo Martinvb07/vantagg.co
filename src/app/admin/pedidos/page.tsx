@@ -75,9 +75,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <Button type="submit" variant="secondary">
           Filtrar
         </Button>
-        <Link href={`?desde=${today}&hasta=${today}`} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-medium ring-1 ring-white/10 hover:bg-white/10">
+        {/* Enlaces normales (carga completa) en esta página: así el listado siempre trae los datos al día. */}
+        <a href={`?desde=${today}&hasta=${today}`} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-medium ring-1 ring-white/10 hover:bg-white/10">
           Hoy
-        </Link>
+        </a>
       </form>
 
       <Table>
@@ -137,14 +138,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </span>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={`?${qs(page - 1)}`} className="rounded-md border border-white/10 px-3 py-1.5 hover:border-white/20">
+              <a href={`?${qs(page - 1)}`} className="rounded-md border border-white/10 px-3 py-1.5 hover:border-white/20">
                 Anterior
-              </Link>
+              </a>
             )}
             {page < pages && (
-              <Link href={`?${qs(page + 1)}`} className="rounded-md border border-white/10 px-3 py-1.5 hover:border-white/20">
+              <a href={`?${qs(page + 1)}`} className="rounded-md border border-white/10 px-3 py-1.5 hover:border-white/20">
                 Siguiente
-              </Link>
+              </a>
             )}
           </div>
         </nav>
