@@ -1,23 +1,19 @@
-name: Informe cifrado de pedidos y cobros
+name: Revisión de pedidos y cobros
 
-# Manual y de SOLO LECTURA. Revisa los pedidos recientes, sus cobros, lo que Bold dice de cada link de pago (consulta
-# de estado, sin cobrar nada), los avisos de pago (webhooks) recibidos y los errores recientes de la tienda.
-# Repositorio público: el detalle sale CIFRADO con la llave pública que se pasa al lanzarlo (solo quien tiene la llave
-# privada puede leerlo). En claro solo se muestran conteos.
+# Manual y de SOLO LECTURA. Revisa los pedidos recientes, sus cobros y lo que Bold dice de cada link de pago (consulta
+# de estado, sin cobrar nada), si llegan los avisos de pago (webhooks) y los errores recientes de la tienda.
+# Repositorio público: NO muestra montos, correos, IDs de jugador ni referencias completas; de cada pedido solo los
+# últimos 5 caracteres del número (para buscarlo en el panel), horas, estados y si el monto de Bold coincide (✔/✖).
 on:
   workflow_dispatch:
     inputs:
-      llave:
-        description: Llave pública (RSA, SPKI DER en base64) para cifrar el informe
-        type: string
-        required: true
       horas:
         description: Horas hacia atrás a revisar
         type: string
         default: "72"
 
 jobs:
-  informe:
+  revisar:
     name: Pedidos y cobros
     runs-on: ubuntu-latest
     environment:
@@ -43,109 +39,116 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
-          LLAVE: ${{ inputs.llave }}
           HORAS: ${{ inputs.horas }}
         run: |
           set -euo pipefail
-          [[ "$LLAVE" =~ ^[A-Za-z0-9+/=]{300,2000}$ ]] || { echo "✖ Llave pública inválida."; exit 1; }
           [[ "$HORAS" =~ ^[0-9]{1,3}$ ]] || { echo "✖ Horas inválidas."; exit 1; }
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
-            "VPS_PATH='$VPS_PATH' LLAVE='$LLAVE' HORAS='$HORAS' bash -s" <<'ENDSSH'
+            "VPS_PATH='$VPS_PATH' HORAS='$HORAS' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/Bearer [A-Za-z0-9._~+\/=-]+/Bearer <oculto>/g'
           set -uo pipefail
           export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
           cd "$VPS_PATH"
-          echo "== versión: commit $(git rev-parse --short HEAD) · hora del servidor: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          tmp=$(mktemp -d); chmod 700 "$tmp"
-          # Registros (van dentro del informe cifrado).
-          log=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const a=JSON.parse(t);const p=a.find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_err_log_path||"")}catch{console.log("")}})' || true)
-          [ -n "$log" ] && [ -f "$log" ] && tail -n 400 "$log" | cut -c1-400 > "$tmp/err.txt"
-          out=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const a=JSON.parse(t);const p=a.find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_out_log_path||"")}catch{console.log("")}})' || true)
-          [ -n "$out" ] && [ -f "$out" ] && grep -iE "webhook|bold|pago|pedido|orders|error" "$out" | tail -n 200 | cut -c1-400 > "$tmp/out.txt"
-          for f in /var/log/nginx/access.log /var/log/nginx/access.log.1; do
-            [ -r "$f" ] && grep -h "/api/webhooks/" "$f" | awk '{print $4, $6, $7, $9}' | cut -c1-200 >> "$tmp/nginx.txt"
+          echo "== versión: commit $(git rev-parse --short HEAD) · hora del servidor: $(date -u '+%Y-%m-%d %H:%M UTC') ($(TZ=America/Bogota date '+%d %b %H:%M') en Colombia)"
+          for ruta in / /recargas /api/health; do
+            echo "   $ruta → HTTP $(curl -s -o /dev/null -w '%{http_code} en %{time_total}s' --max-time 20 -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3020$ruta)"
           done
-          [ -r /var/log/nginx/access.log ] || echo "(sin permiso para leer el registro de nginx)" > "$tmp/nginx.txt"
-          pm2 describe vanta 2>/dev/null | grep -E "status|restarts|uptime|created at" | head -6 > "$tmp/pm2.txt" || true
-          for ruta in /api/health / /recargas; do
-            echo "$ruta $(curl -s -o /dev/null -w '%{http_code} %{time_total}s' --max-time 20 -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3020$ruta)" >> "$tmp/http.txt"
-          done
-          cat > "$tmp/informe.cjs" <<'JS'
-          const fs = require("fs"), zlib = require("zlib"), crypto = require("crypto"), path = require("path");
+
+          # Avisos de pago (webhooks): ¿llegan al servidor? (registro de nginx: solo fecha, ruta y código de respuesta)
+          echo "== Avisos de pago que llegaron al servidor (nginx), por día y respuesta:"
+          if ls /var/log/nginx/access.log* >/dev/null 2>&1 && [ -r /var/log/nginx/access.log ]; then
+            { cat /var/log/nginx/access.log /var/log/nginx/access.log.1 2>/dev/null; zcat /var/log/nginx/access.log.*.gz 2>/dev/null; } \
+              | grep "/api/webhooks/" | awk '{d=substr($4,2,11); print d, $7, $9}' | sed -E 's/\?[^ ]*//' | sort | uniq -c | tail -n 30 | sed 's/^/   /'
+            echo "   (si no aparece ninguna línea de /api/webhooks/bold, Bold no está enviando los avisos)"
+          else
+            echo "   (sin permiso para leer el registro de nginx)"
+          fi
+          errlog=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const p=JSON.parse(t).find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_err_log_path||"")}catch{console.log("")}})' || true)
+          outlog=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const p=JSON.parse(t).find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_out_log_path||"")}catch{console.log("")}})' || true)
+          echo "== Mensajes de la tienda sobre avisos de pago (últimos):"
+          cat "$errlog" "$outlog" 2>/dev/null | grep -a "\[webhook:" | sed -E 's/\(([A-Z]{2,4}-)?[A-Z0-9-]{4,}\)/(…)/g; s/[0-9]{6,}/…/g' | cut -c1-200 | tail -n 8 | sed 's/^/   /' || true
+          echo "== Errores recientes de la tienda (sin datos de clientes):"
+          [ -n "$errlog" ] && [ -f "$errlog" ] && tail -n 300 "$errlog" | grep -aE "Error|error|✖|falló|fallaron" | sed -E 's/[0-9]{6,}/…/g' | cut -c1-200 | tail -n 12 | sed 's/^/   /'
+          [ -f logs/mantenimiento-ultimo.json ] && echo "== Mantenimiento automático: última corrida hace $(( ($(date +%s) - $(stat -c %Y logs/mantenimiento-ultimo.json)) / 60 )) min"
+
+          cat > /tmp/revision-pedidos.cjs <<'JS'
           const { PrismaClient } = require("@prisma/client");
           const db = new PrismaClient();
           const H = 3600_000, HORAS = Math.min(Number(process.env.HORAS) || 72, 720);
-          const TMP = process.env.TMPDIR_INFORME;
-          const read = (f) => { try { return fs.readFileSync(path.join(TMP, f), "utf8"); } catch { return ""; } };
-          const mask = (s) => String(s || "").replace(/([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1***@$2");
-          const cot = (d) => (d ? new Date(new Date(d).getTime() - 5 * H).toISOString().slice(0, 16).replace("T", " ") : null);
+          const fmt = (d) => (d ? new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Bogota" }).format(new Date(d)) : "—");
+          const ymd = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date(d));
+          const short = (n) => "…" + String(n).slice(-5);
           async function boldLink(id) {
             const key = process.env.BOLD_API_KEY;
-            if (!key) return { error: "sin BOLD_API_KEY" };
+            if (!key) return { error: "sin llave de Bold" };
             try {
               const r = await fetch(`https://integrations.api.bold.co/online/link/v1/${encodeURIComponent(id)}`, { headers: { Authorization: `x-api-key ${key}` }, signal: AbortSignal.timeout(10_000) });
-              const t = await r.text();
-              if (!r.ok) return { http: r.status, body: t.slice(0, 160) };
-              const l = JSON.parse(t);
-              return { status: l.status, total: l.total, reference: l.reference, transaction_id: l.transaction_id, payment_method: l.payment_method, creation_date: l.creation_date, expiration_date: l.expiration_date };
-            } catch (e) { return { error: String(e.message).slice(0, 120) }; }
+              if (!r.ok) return { error: `Bold HTTP ${r.status}` };
+              const l = await r.json();
+              return { status: l.status, total: Math.round(Number(l.total) || 0), method: l.payment_method, tx: !!l.transaction_id };
+            } catch (e) { return { error: String(e.message).slice(0, 60) }; }
           }
           (async () => {
-            const now = Date.now(), since = new Date(now - HORAS * H);
+            const now = Date.now(), since = new Date(now - HORAS * H), today = ymd(now);
+            const hooks = await db.webhookEvent.groupBy({ by: ["provider"], where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, _count: true });
+            console.log(`== Avisos de pago registrados por la tienda en 10 días: ${hooks.length ? hooks.map((h) => `${h.provider}: ${h._count}`).join(" · ") : "NINGUNO ✖"}`);
             const orders = await db.order.findMany({
-              where: { OR: [{ createdAt: { gte: since } }, { updatedAt: { gte: new Date(now - 36 * H) } }, { paidAt: { gte: since } }] },
-              orderBy: { createdAt: "desc" }, take: 250,
-              include: { payments: true, delivery: true, events: { orderBy: { createdAt: "asc" } } },
+              where: { isTest: false, OR: [{ createdAt: { gte: since } }, { paidAt: { gte: since } }, { updatedAt: { gte: new Date(now - 36 * H) } }] },
+              orderBy: { createdAt: "desc" }, take: 300,
+              include: { payments: true, delivery: { select: { status: true, attempts: true } }, events: { where: { type: { in: ["CHECKOUT_STARTED", "PAYMENT_CONFIRMED"] } }, orderBy: { createdAt: "asc" }, select: { type: true, actor: true, data: true, createdAt: true } } },
             });
-            const rows = [];
-            let linkCalls = 0;
+            const alerts = [];
+            const lines = [];
+            let calls = 0;
             for (const o of orders) {
               const links = [];
               for (const e of o.events) {
                 const d = e.data || {};
-                if (e.type === "CHECKOUT_STARTED" && d.provider === "bold" && d.checkoutRef && linkCalls < 120) { linkCalls++; links.push({ ref: d.checkoutRef, at: cot(e.createdAt), bold: await boldLink(d.checkoutRef) }); }
+                if (e.type === "CHECKOUT_STARTED" && d.provider === "bold" && d.checkoutRef && calls < 150) { calls++; links.push(await boldLink(d.checkoutRef)); }
               }
-              rows.push({
-                number: o.number, type: o.type, status: o.status, isTest: o.isTest, item: o.itemSnapshot?.name, region: o.itemSnapshot?.region,
-                email: mask(o.customerEmail), playerId: o.playerId, total: o.total, currency: o.currency, charge: o.chargeCurrency ? `${o.chargeAmount} ${o.chargeCurrency}` : null,
-                provider: o.paymentProvider, createdAt: cot(o.createdAt), expiresAt: cot(o.expiresAt), paidAt: cot(o.paidAt), deliveredAt: cot(o.deliveredAt), cancelledAt: cot(o.cancelledAt), updatedAt: cot(o.updatedAt),
-                payments: o.payments.map((p) => ({ status: p.status, amount: p.amount, currency: p.currency, method: p.method, ref: p.providerRef, at: cot(p.createdAt), upd: cot(p.updatedAt) })),
-                delivery: o.delivery && { status: o.delivery.status, provider: o.delivery.provider, ref: o.delivery.providerRef, attempts: o.delivery.attempts, simulated: o.delivery.simulated, lastError: o.delivery.lastError?.slice(0, 200), at: cot(o.delivery.updatedAt) },
-                events: o.events.map((e) => `${cot(e.createdAt)} ${e.type} [${mask(e.actor)}] ${mask(e.message).slice(0, 140)}`),
-                links,
-              });
+              const paidLinks = links.filter((l) => l.status === "PAID");
+              const approved = o.payments.filter((p) => p.status === "APPROVED");
+              const expected = o.chargeCurrency && o.chargeCurrency !== o.currency ? o.chargeAmount : o.total;
+              const amountOk = paidLinks.length ? paidLinks.every((l) => l.total === expected) : approved.every((p) => p.amount === expected);
+              const how = o.events.find((e) => e.type === "PAYMENT_CONFIRMED")?.actor || "";
+              const via = how.startsWith("WEBHOOK") ? "aviso de Bold" : how.startsWith("POLL") ? "consulta automática" : how.startsWith("RECONCILE") ? "conciliación" : how.startsWith("RETURN") ? "regreso del cliente" : how ? how.split(":")[0].toLowerCase() : "";
+              const linkTxt = links.length ? links.map((l) => l.error ? `error (${l.error})` : `${l.status}${l.method ? " " + l.method : ""}`).join(", ") : "sin link";
+              const flags = [];
+              if (["PAID", "PROCESSING", "DELIVERED", "DELIVERY_FAILED"].includes(o.status)) {
+                if (!approved.length) flags.push("✖ SIN COBRO APROBADO registrado");
+                const answered = links.filter((l) => !l.error);
+                if (answered.length && !paidLinks.length) flags.push("✖ Bold NO reporta este link pagado");
+                if (links.length && !answered.length) flags.push("⚠ no se pudo consultar a Bold");
+                if (!amountOk) flags.push("✖ MONTO DE BOLD DISTINTO al del pedido");
+              }
+              if ((o.status === "CANCELLED" || o.status === "PENDING_PAYMENT") && paidLinks.length) flags.push("✖ BOLD DICE PAGADO pero el pedido NO está pagado");
+              if (o.status === "DELIVERY_FAILED") flags.push("⚠ entrega fallida");
+              if (flags.some((f) => f.startsWith("✖"))) alerts.push(short(o.number));
+              lines.push({ day: ymd(o.createdAt), txt: `${short(o.number)} · creado ${fmt(o.createdAt)} · ${o.type === "TOPUP" ? "recarga" : "cuenta"} · ${o.status}${o.paidAt ? ` · pagado ${fmt(o.paidAt)}${via ? ` (${via})` : ""}` : ""}${o.deliveredAt ? ` · entregado ${fmt(o.deliveredAt)}` : ""} · cobro en tienda: ${o.payments.map((p) => `${p.status}${p.method ? " " + p.method : ""}`).join(", ") || "ninguno"} · Bold: ${linkTxt}${paidLinks.length ? (amountOk ? " · monto igual ✔" : "") : ""}${flags.length ? " · " + flags.join(" · ") : ""}` });
             }
-            const hooks = await db.webhookEvent.findMany({ where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, orderBy: { createdAt: "desc" }, take: 300 });
-            const byDay = await db.$queryRawUnsafe("SELECT DATE(DATE_SUB(createdAt, INTERVAL 5 HOUR)) d, status, COUNT(*) n, SUM(total) t FROM `Order` WHERE createdAt >= NOW() - INTERVAL 15 DAY AND isTest = 0 GROUP BY d, status ORDER BY d");
-            const settings = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["paymentProvider", "paymentProviders", "maintenanceMode", "purgeCancelled", "autoRecovery", "storeClosed"] } } })).map((s) => [s.key, s.value]));
-            const audits = await db.auditLog.findMany({ where: { createdAt: { gte: new Date(now - 48 * H) } }, orderBy: { createdAt: "desc" }, take: 60, select: { action: true, entity: true, createdAt: true, data: true } });
-            const report = {
-              at: cot(new Date()), horas: HORAS,
-              env: { PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER || null, BOLD_TEST_MODE: process.env.BOLD_TEST_MODE || null, boldKeys: !!process.env.BOLD_API_KEY && !!process.env.BOLD_SECRET_KEY, epayco: !!process.env.EPAYCO_PUBLIC_KEY },
-              settings, orders: rows,
-              hooks: hooks.map((h) => ({ at: cot(h.createdAt), provider: h.provider, type: h.type, ext: h.externalId, ok: h.signatureValid, processed: cot(h.processedAt), error: h.error?.slice(0, 160), ref: h.payload?.data?.metadata?.reference, amount: h.payload?.data?.amount?.total })),
-              byDay: byDay.map((r) => ({ d: String(r.d).slice(0, 15), status: r.status, n: Number(r.n), t: Number(r.t) })),
-              audits: audits.map((a) => ({ at: cot(a.createdAt), action: a.action, entity: a.entity, data: mask(JSON.stringify(a.data || {})).slice(0, 300) })),
-              logs: { err: mask(read("err.txt")), out: mask(read("out.txt")), nginx: read("nginx.txt").split("\n").slice(-300).join("\n"), pm2: read("pm2.txt"), http: read("http.txt") },
-            };
-            // En claro: solo conteos.
-            const st = {}; for (const r of rows) st[r.status] = (st[r.status] || 0) + 1;
-            console.log(`== Pedidos revisados (últimas ${HORAS} h o con cambios recientes): ${rows.length} · ${Object.entries(st).map(([k, v]) => `${k}: ${v}`).join(" · ")}`);
-            console.log(`== Links de Bold consultados: ${linkCalls} · avisos de pago (webhooks) en 10 días: ${hooks.length}`);
-            const pub = crypto.createPublicKey({ key: Buffer.from(process.env.LLAVE, "base64"), format: "der", type: "spki" });
-            const k = crypto.randomBytes(32), iv = crypto.randomBytes(12);
-            const c = crypto.createCipheriv("aes-256-gcm", k, iv);
-            const ct = Buffer.concat([c.update(zlib.gzipSync(JSON.stringify(report))), c.final()]);
-            const ek = crypto.publicEncrypt({ key: pub, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, k);
-            const len = Buffer.alloc(2); len.writeUInt16BE(ek.length);
-            const blob = Buffer.concat([len, ek, iv, c.getAuthTag(), ct]).toString("base64");
-            console.log("=== INFORME CIFRADO: INICIO ===");
-            for (let i = 0; i < blob.length; i += 3000) console.log(blob.slice(i, i + 3000));
-            console.log("=== INFORME CIFRADO: FIN ===");
+            const hoy = lines.filter((l) => l.day === today);
+            console.log("");
+            console.log(`== PEDIDOS DE HOY (${today}, hora Colombia): ${hoy.length}`);
+            for (const l of hoy) console.log("   " + l.txt);
+            console.log("");
+            console.log(`== Pedidos anteriores (últimas ${HORAS} h o con cambios recientes): ${lines.length - hoy.length}`);
+            for (const l of lines.filter((x) => x.day !== today)) console.log("   " + l.txt);
+            console.log("");
+            const days = await db.$queryRawUnsafe("SELECT DATE(DATE_SUB(createdAt, INTERVAL 5 HOUR)) d, status, COUNT(*) n FROM `Order` WHERE createdAt >= NOW() - INTERVAL 10 DAY AND isTest = 0 GROUP BY d, status ORDER BY d");
+            const byDay = {};
+            for (const r of days) { const k = new Date(r.d).toISOString().slice(0, 10); (byDay[k] ||= []).push(`${r.status} ${Number(r.n)}`); }
+            console.log("== Pedidos por día (hora Colombia), últimos 10 días:");
+            for (const [d, v] of Object.entries(byDay)) console.log(`   ${d}: ${v.join(" · ")}`);
+            const s = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["maintenanceMode", "purgeCancelled"] } } })).map((r) => [r.key, r.value]));
+            const pk = await db.diamondPackage.count({ where: { active: true, available: true } });
+            console.log(`== Tienda: modo mantenimiento ${s.maintenanceMode === "true" ? "✖ ACTIVADO (no vende)" : "apagado"} · paquetes a la venta: ${pk} · links de Bold consultados: ${calls}`);
+            console.log(alerts.length ? `✖ REVISAR ${alerts.length} pedido(s): ${alerts.join(", ")}` : "✔ Ningún pedido con cobro dudoso: todo lo pagado en Bold está en la tienda con el mismo monto y nada se entregó sin pago.");
             await db.$disconnect();
           })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); process.exit(1); });
           JS
-          TMPDIR_INFORME="$tmp" LLAVE="$LLAVE" HORAS="$HORAS" NODE_PATH="$PWD/node_modules" node --env-file=.env "$tmp/informe.cjs"
-          rm -rf "$tmp"
+          HORAS="$HORAS" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/revision-pedidos.cjs
+          rm -f /tmp/revision-pedidos.cjs
           ENDSSH
 
       - name: Limpiar credenciales
