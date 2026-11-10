@@ -14,11 +14,12 @@ export function bogotaDay(ymd: string, endOfDay = false): Date | null {
 }
 
 /**
- * Orden del listado: «actividad» (predeterminado) pone arriba lo último que pasó (pedido nuevo, pagado, entregado,
- * cancelado), igual que «Booyah en tiempo real» en la tienda; «creacion», por fecha de creación.
+ * Orden del listado: por fecha de compra (predeterminado), igual que Bold y «Booyah en tiempo real» (el link de pago
+ * vence una hora después de crearse el pedido, así que la compra siempre queda junto a su fecha de creación);
+ * «actividad» pone arriba lo último que cambió (pagado, entregado, cancelado…).
  */
 export function orderSort(sp: OrderFilterParams): Prisma.OrderOrderByWithRelationInput[] {
-  return sp.orden === "creacion" ? [{ createdAt: "desc" }] : [{ updatedAt: "desc" }, { createdAt: "desc" }];
+  return sp.orden === "actividad" ? [{ updatedAt: "desc" }, { createdAt: "desc" }] : [{ createdAt: "desc" }];
 }
 
 /** Filtros de pedidos compartidos por el listado y la exportación. */

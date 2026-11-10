@@ -67,9 +67,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <option value="TOPUP">Recargas</option>
           <option value="ACCOUNT">Cuentas</option>
         </select>
-        <select name="orden" defaultValue={sp.orden === "creacion" ? "creacion" : ""} className="field sm:w-[205px]" aria-label="Ordenar">
-          <option value="">Lo último primero</option>
-          <option value="creacion">Por fecha de creación</option>
+        <select name="orden" defaultValue={sp.orden === "actividad" ? "actividad" : ""} className="field sm:w-[205px]" aria-label="Ordenar">
+          <option value="">Por fecha de compra</option>
+          <option value="actividad">Última actividad</option>
         </select>
         <input type="date" name="desde" defaultValue={sp.desde} className="field sm:w-[150px]" aria-label="Desde" title="Desde" />
         <input type="date" name="hasta" defaultValue={sp.hasta} className="field sm:w-[150px]" aria-label="Hasta" title="Hasta" />

@@ -131,7 +131,7 @@ describe("Bold: conector (API simulada)", () => {
         : { notifications: [{ id: "n", type: "SALE_APPROVED", time: 2, data: { payment_id: "TX5", amount: { currency: "COP", total: 15999 }, metadata: { reference: "VX-7K2M-9QHT_lq3x" }, payment_method: "NEQUI" } }] },
     );
     const v = await bold.getCheckout!("LNK_ABC");
-    expect(v).toEqual({ providerRef: "TX5", reference: "VX-7K2M-9QHT", status: "APPROVED", amount: 15999, currency: "COP", method: "NEQUI" });
+    expect(v).toEqual({ providerRef: "TX5", reference: "VX-7K2M-9QHT", status: "APPROVED", amount: 15999, currency: "COP", method: "NEQUI", paidBefore: null });
     expect(calls[1].url).toBe("https://integrations.api.bold.co/payments/webhook/notifications/TX5");
   });
 
@@ -139,10 +139,11 @@ describe("Bold: conector (API simulada)", () => {
     vi.stubGlobal("fetch", async (url: string) => {
       calls.push({ url });
       return url.includes("/online/link/v1/")
-        ? new Response(JSON.stringify({ id: "LNK_ABC", total: 15999, status: "PAID", reference: "VX-7K2M-9QHT_lq3x", payment_method: "PSE", transaction_id: "TX7" }), { status: 200 })
+        ? new Response(JSON.stringify({ id: "LNK_ABC", total: 15999, status: "PAID", reference: "VX-7K2M-9QHT_lq3x", payment_method: "PSE", transaction_id: "TX7", expiration_date: Date.UTC(2026, 10, 8, 20, 17) * 1e6 }), { status: 200 })
         : new Response(JSON.stringify({ Message: "User is not authorized" }), { status: 403 });
     });
-    expect(await bold.getCheckout!("LNK_ABC")).toEqual({ providerRef: "TX7", reference: "VX-7K2M-9QHT", status: "APPROVED", amount: 15999, currency: "COP", method: "PSE" });
+    // El vencimiento del link (nanosegundos) indica hasta cuándo pudo hacerse el pago.
+    expect(await bold.getCheckout!("LNK_ABC")).toEqual({ providerRef: "TX7", reference: "VX-7K2M-9QHT", status: "APPROVED", amount: 15999, currency: "COP", method: "PSE", paidBefore: new Date(Date.UTC(2026, 10, 8, 20, 17)) });
     expect(await bold.getPayment("TX7")).toBeNull();
     // Tras el 403 no se vuelve a pedir las notificaciones: una sola llamada a ese endpoint.
     expect(calls.filter((c) => c.url.includes("/notifications/")).length).toBe(1);

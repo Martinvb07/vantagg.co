@@ -251,7 +251,7 @@ export type LivePurchase = {
   /** Nombre de la tarjeta o el pase (null en diamantes y cuentas). */
   title: string | null;
   player: string | null;
-  at: string; // momento de la entrega (ISO)
+  at: string; // momento de la compra (pago; ISO)
   deliverySec: number | null; // del pago a la entrega
 };
 export type LiveStats = { today: number; diamonds30d: number };
@@ -265,9 +265,12 @@ function maskPlayerId(id: string | null): string | null {
 }
 
 type Snap = { name?: string; diamonds?: number; bonusDiamonds?: number };
-const DELIVERED = { status: "DELIVERED", isTest: false, deliveredAt: { not: null } } as const;
+const DELIVERED = { status: "DELIVERED", isTest: false, deliveredAt: { not: null }, paidAt: { not: null } } as const;
 
-/** Últimas entregas completadas (reales, no de prueba) y cifras de confianza para la tienda. */
+/**
+ * Últimas compras entregadas (reales, no de prueba) y cifras de confianza para la tienda. Van en el orden en que se
+ * PAGARON (igual que en Bold y en Panel → Pedidos): un pago que la tienda confirmó tarde no aparece como compra de hoy.
+ */
 export async function getLiveDeliveries(take = 10): Promise<LiveData> {
   // Inicio del día en Colombia (UTC−5, sin horario de verano).
   const bogotaNow = new Date(Date.now() - 5 * 3600_000);
@@ -275,19 +278,23 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
   const [rows, today, month] = await Promise.all([
     db.order.findMany({
       where: DELIVERED,
-      orderBy: { deliveredAt: "desc" },
+      orderBy: { paidAt: "desc" },
       take,
       select: { number: true, type: true, itemSnapshot: true, playerId: true, paidAt: true, deliveredAt: true },
     }),
-    db.order.count({ where: { ...DELIVERED, deliveredAt: { gte: todayStart } } }),
+    db.order.count({ where: { ...DELIVERED, paidAt: { gte: todayStart } } }),
     db.order.findMany({
-      where: { ...DELIVERED, type: "TOPUP", deliveredAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
-      orderBy: { deliveredAt: "desc" },
+      where: { ...DELIVERED, type: "TOPUP", paidAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
+      orderBy: { paidAt: "desc" },
       take: 5000,
       select: { itemSnapshot: true },
     }),
   ]);
-  const secs = (paid: Date | null, done: Date | null) => (paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null);
+  // Del pago a la entrega; si pasó más de una hora (pago confirmado tarde) no se muestra como tiempo de entrega.
+  const secs = (paid: Date | null, done: Date | null) => {
+    const s = paid && done ? Math.max(0, Math.round((done.getTime() - paid.getTime()) / 1000)) : null;
+    return s !== null && s <= 3600 ? s : null;
+  };
   const items = rows.map((r): LivePurchase => {
     const snap = (r.itemSnapshot ?? {}) as Snap;
     const topup = r.type === "TOPUP" && typeof snap.diamonds === "number" && snap.diamonds > 0;
@@ -301,7 +308,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       bonus: topup ? (snap.bonusDiamonds ?? 0) : null,
       title: pass,
       player: maskPlayerId(r.playerId),
-      at: r.deliveredAt!.toISOString(),
+      at: (r.paidAt ?? r.deliveredAt)!.toISOString(),
       deliverySec: secs(r.paidAt, r.deliveredAt),
     };
   });

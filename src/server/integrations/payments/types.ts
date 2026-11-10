@@ -25,6 +25,11 @@ export type VerifiedPayment = {
   amount: number; // COP enteros o centavos de USD (ver CheckoutOrder)
   currency: string;
   method?: string | null;
+  /**
+   * El pago se hizo a más tardar en esta fecha (p. ej. cuando venció el link de pago de Bold). Si la tienda lo confirma
+   * después (aviso que no llegó), se guarda esta fecha como «pagado» para que el pedido cuadre con la pasarela.
+   */
+  paidBefore?: Date | null;
 };
 
 export type WebhookResult =

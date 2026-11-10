@@ -247,7 +247,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <dl className="mt-3 space-y-2 text-[13.5px]">
               <Row k="Fecha" v={formatDate(order.createdAt)} />
               <Row k="Pagado con" v={PROVIDER_NAMES[order.paymentProvider] ?? order.paymentProvider} />
-              {order.paidAt && <Row k="Pago confirmado" v={formatDate(order.paidAt)} />}
+              {order.paidAt && <Row k="Pagado" v={formatDate(order.paidAt)} />}
               {order.deliveredAt && <Row k="Entregado" v={formatDate(order.deliveredAt)} />}
               <Row k="Confirmación a" v={order.customerEmail} />
               {order.discount > 0 && <Row k={order.promoCode ? `Código ${order.promoCode}` : "Descuento"} v={<span className="text-volt-300">−{formatMoney(order.discount, order.currency)}</span>} />}

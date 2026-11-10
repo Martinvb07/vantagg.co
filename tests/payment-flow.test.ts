@@ -73,7 +73,7 @@ const RUN = Date.now().toString(36);
 let seq = 0;
 
 // --- API de Bold simulada -------------------------------------------------
-type Link = { id: string; total: number; status: string; reference: string | null; payment_method: string | null; transaction_id: string | null };
+type Link = { id: string; total: number; status: string; reference: string | null; payment_method: string | null; transaction_id: string | null; expiration_date?: number };
 const links = new Map<string, Link>();
 const outbound: string[] = [];
 
@@ -113,7 +113,7 @@ async function makeOrder(opts: { total?: number; packageId?: string; snapshot?: 
       events: { create: { type: "CHECKOUT_STARTED", message: "Link de pago creado.", actor: "SYSTEM", data: { provider: "bold", checkoutRef: linkId } } },
     },
   });
-  links.set(linkId, { id: linkId, total, status: "ACTIVE", reference: boldReference(order.number), payment_method: null, transaction_id: null });
+  links.set(linkId, { id: linkId, total, status: "ACTIVE", reference: boldReference(order.number), payment_method: null, transaction_id: null, expiration_date: order.expiresAt.getTime() * 1e6 });
   return { order, linkId };
 }
 
@@ -193,10 +193,16 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     const unpaid = await makeOrder();
     // Pedidos de hace 60 h (fuera de la revisión de las últimas 3 h), p. ej. si el mantenimiento estuvo detenido.
     const past = new Date(Date.now() - 60 * 3600_000);
-    await db.order.updateMany({ where: { id: { in: [paid.order.id, unpaid.order.id] } }, data: { createdAt: past, expiresAt: new Date(past.getTime() + 3600_000) } });
+    const linkExpired = new Date(past.getTime() + 3600_000);
+    await db.order.updateMany({ where: { id: { in: [paid.order.id, unpaid.order.id] } }, data: { createdAt: past, expiresAt: linkExpired } });
+    links.get(paid.linkId)!.expiration_date = linkExpired.getTime() * 1e6;
     payLink(paid.linkId, `TX-${RUN}-tarde`);
     await expireStaleOrders();
     expect(["PAID", "PROCESSING", "DELIVERED"]).toContain(await statusOf(paid.order.id));
+    // Cuadra con Bold: «pagado» queda con la fecha en que se pagó a más tardar (vencimiento del link), no la de hoy.
+    const paidAt = (await db.order.findUniqueOrThrow({ where: { id: paid.order.id }, select: { paidAt: true } })).paidAt!;
+    expect(Math.abs(paidAt.getTime() - linkExpired.getTime())).toBeLessThan(1000);
+    expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "PAYMENT_CONFIRMED_LATE" } })).toBe(1);
     expect(await statusOf(unpaid.order.id)).toBe("CANCELLED");
     expect(await db.orderEvent.count({ where: { orderId: unpaid.order.id, type: "EXPIRED" } })).toBe(1);
     expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "EXPIRED" } })).toBe(0);

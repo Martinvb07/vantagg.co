@@ -1,0 +1,111 @@
+name: Corregir fechas de pago (cuadrar con Bold)
+
+# Manual. Pedidos que la tienda confirmó tarde (p. ej. cuando el mantenimiento estuvo detenido) quedaron «pagados» con
+# la fecha de la confirmación y no con la del cobro en Bold. Bold no informa la hora exacta del cobro, pero un link de
+# pago no se puede pagar después de vencer: «pagado» pasa a esa fecha (a más tardar), y queda anotado en el pedido.
+#   - revisar: solo muestra qué cambiaría.
+#   - aplicar: respalda la base de datos y corrige.
+# No toca montos, estados ni entregas. Repositorio público: solo el final del número de pedido y fechas.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: ¿Revisar o aplicar?
+        type: choice
+        options: [revisar, aplicar]
+        default: revisar
+
+jobs:
+  corregir:
+    name: Fechas de pago
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5 6 7 8; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 6
+          done
+          echo "ssh-keyscan falló tras 8 intentos"; exit 1
+
+      - name: Corregir
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          MODO: ${{ inputs.modo }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' MODO='$MODO' bash -s" <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD) · modo: $MODO"
+          if [ "$MODO" = "aplicar" ]; then
+            dest="${RESPALDOS_DIR:-$HOME/respaldos-tienda}"; mkdir -p "$dest"
+            archivo="$dest/db-antes-fechas-pago-$(date +%Y%m%d-%H%M).sql.gz"
+            mysqldump --defaults-extra-file="$HOME/.my-vanta.cnf" --single-transaction --routines --no-tablespaces vanta_store | gzip > "$archivo"
+            [ "$(gzip -cd "$archivo" | head -c 100000 | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "✖ El respaldo salió vacío: no se cambió nada."; exit 1; }
+            echo "✔ respaldo: $(basename "$archivo") ($(du -h "$archivo" | cut -f1))"
+          fi
+          cat > /tmp/fechas-pago.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const apply = process.env.MODO === "aplicar";
+          const fmt = (d) => new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/Bogota" }).format(d);
+          const short = (n) => "…" + String(n).slice(-5);
+          (async () => {
+            const key = process.env.BOLD_API_KEY || "";
+            const orders = await db.order.findMany({
+              where: { paymentProvider: "bold", isTest: false, paidAt: { not: null } },
+              select: { id: true, number: true, createdAt: true, paidAt: true, events: { where: { type: "CHECKOUT_STARTED" }, select: { data: true } } },
+              orderBy: { createdAt: "desc" },
+              take: 2000,
+            });
+            // Solo los confirmados más de una hora después de crearse (el link vence a la hora): candidatos a fecha mal puesta.
+            const late = orders.filter((o) => o.paidAt.getTime() - o.createdAt.getTime() > 65 * 60_000);
+            console.log(`== Pedidos pagados revisados: ${orders.length} · confirmados más de 1 h después de crearse: ${late.length}`);
+            const fixes = [];
+            for (const o of late) {
+              let exp = null;
+              for (const e of o.events) {
+                const ref = e.data && e.data.checkoutRef;
+                if (!ref) continue;
+                const r = await fetch(`https://integrations.api.bold.co/online/link/v1/${encodeURIComponent(ref)}`, { headers: { Authorization: `x-api-key ${key}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+                if (!r || !r.ok) continue;
+                const l = await r.json().catch(() => ({}));
+                if (l.status === "PAID" && typeof l.expiration_date === "number") exp = new Date(Math.round(l.expiration_date / 1e6));
+              }
+              if (!exp) { console.log(`   ${short(o.number)} · creado ${fmt(o.createdAt)} · pagado ${fmt(o.paidAt)} · sin link pagado en Bold: no se cambia`); continue; }
+              if (o.paidAt.getTime() <= exp.getTime() + 5 * 60_000 || exp.getTime() <= o.createdAt.getTime()) { console.log(`   ${short(o.number)} · creado ${fmt(o.createdAt)} · pagado ${fmt(o.paidAt)} · ya cuadra con Bold`); continue; }
+              fixes.push({ o, exp });
+              console.log(`   ${short(o.number)} · creado ${fmt(o.createdAt)} · pagado (tienda) ${fmt(o.paidAt)} → pagado en Bold a más tardar ${fmt(exp)}`);
+            }
+            if (!fixes.length) { console.log("✔ Todas las fechas de pago cuadran con Bold."); return db.$disconnect(); }
+            if (!apply) { console.log(`• ${fixes.length} pedido(s) para corregir. Corre de nuevo con modo «aplicar».`); return db.$disconnect(); }
+            for (const { o, exp } of fixes) {
+              await db.order.update({ where: { id: o.id }, data: { paidAt: exp } });
+              await db.orderEvent.create({ data: { orderId: o.id, type: "PAYMENT_CONFIRMED_LATE", actor: "SYSTEM", message: `El cliente pagó en Bold a más tardar el ${fmt(exp)} (cuando venció su link de pago); la tienda lo confirmó el ${fmt(o.paidAt)}. Fecha de pago corregida para cuadrar con Bold.`, data: { paidBefore: exp.toISOString(), confirmedAt: o.paidAt.toISOString() } } });
+            }
+            await db.auditLog.create({ data: { action: "orders.fix_paid_at", entity: "Order", data: { fixed: fixes.map(({ o, exp }) => ({ number: o.number, from: o.paidAt.toISOString(), to: exp.toISOString() })) } } });
+            console.log(`✔ ${fixes.length} fecha(s) de pago corregida(s).`);
+            await db.$disconnect();
+          })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); process.exit(1); });
+          JS
+          MODO="$MODO" NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/fechas-pago.cjs
+          rm -f /tmp/fechas-pago.cjs
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { generateOrderNumber, randomToken, safeEqual } from "@/lib/crypto";
 import { clientIp } from "@/lib/request";
 import { env, isProduction } from "@/lib/env";
-import { formatCharge, formatNumber } from "@/lib/money";
+import { formatCharge, formatDate, formatNumber } from "@/lib/money";
 import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validation";
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
@@ -433,9 +433,13 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
 
   // Transición atómica: solo el primer evento marca como pagado (idempotente).
   const now = new Date();
+  // Si la pasarela cobró antes y la tienda se entera tarde (aviso que no llegó, mantenimiento detenido), «pagado» queda
+  // con la fecha en que se hizo el pago a más tardar (vencimiento del link), no con la de hoy: así cuadra con la pasarela.
+  const late = !!p.paidBefore && p.paidBefore.getTime() < now.getTime() - 5 * 60_000 && p.paidBefore.getTime() > order.createdAt.getTime();
+  const paidAt = late ? p.paidBefore! : now;
   const won = await db.order.updateMany({
     where: { id: order.id, status: { in: ["PENDING_PAYMENT", "CANCELLED"] } },
-    data: { status: "PAID", paidAt: now, cancelledAt: null },
+    data: { status: "PAID", paidAt, cancelledAt: null },
   });
   if (won.count === 0) {
     await flagDuplicatePayment(order.id, p, actor, providerId);
@@ -447,6 +451,11 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     public: true,
     data: { providerRef: p.providerRef, method: p.method ?? null },
   });
+  if (late) {
+    await addEvent(order.id, "PAYMENT_CONFIRMED_LATE", `El cliente pagó en ${gatewayName(providerId)} a más tardar el ${formatDate(paidAt)} (cuando venció su link de pago); la tienda lo confirmó el ${formatDate(now)}.`, actor, {
+      data: { paidBefore: paidAt.toISOString(), confirmedAt: now.toISOString() },
+    });
+  }
   void notifyOrder(order.id, "payment_confirmed").catch(() => {});
   await fulfillOrder(order.id);
   return { handled: true };

@@ -34,7 +34,17 @@ type BoldLink = {
   payment_method: string | null;
   transaction_id: string | null;
   is_sandbox?: boolean;
+  /** Nanosegundos desde 1970 (Bold no informa la hora exacta del cobro; el link no se puede pagar después de esto). */
+  expiration_date?: number | null;
+  creation_date?: number | null;
 };
+
+/** Fecha (Date) desde los nanosegundos de Bold; null si no es razonable. */
+function boldTime(ns: number | null | undefined): Date | null {
+  if (typeof ns !== "number" || !Number.isFinite(ns)) return null;
+  const d = new Date(Math.round(ns / 1e6));
+  return d.getTime() > Date.UTC(2020, 0, 1) && d.getTime() < Date.now() + 366 * 86400_000 ? d : null;
+}
 
 const EVENT_STATUS: Record<string, NormalizedPaymentStatus> = {
   SALE_APPROVED: "APPROVED",
@@ -170,12 +180,14 @@ export const boldProvider: PaymentProvider = {
     const status = LINK_STATUS[link.status];
     const reference = boldOrderNumber(link.reference);
     if (!status || !reference) return null;
+    // Un link pagado se pagó antes de vencer: si la tienda se entera tarde, el pago queda con esa fecha (no la de hoy).
+    const paidBefore = status === "APPROVED" ? boldTime(link.expiration_date) : null;
     // Con transacción, los datos completos (monto, moneda, medio) vienen de sus notificaciones.
     if (link.transaction_id) {
       const tx = await latestForPayment(link.transaction_id).catch(() => null);
-      if (tx) return tx;
+      if (tx) return { ...tx, paidBefore };
     }
-    return { providerRef: link.transaction_id ?? link.id, reference, status, amount: Math.round(link.total), currency: "COP", method: link.payment_method };
+    return { providerRef: link.transaction_id ?? link.id, reference, status, amount: Math.round(link.total), currency: "COP", method: link.payment_method, paidBefore };
   },
 
   async healthCheck() {
