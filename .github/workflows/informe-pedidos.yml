@@ -76,7 +76,7 @@ jobs:
           const { PrismaClient } = require("@prisma/client");
           const db = new PrismaClient();
           const H = 3600_000, HORAS = Math.min(Number(process.env.HORAS) || 72, 720);
-          const fmt = (d) => (d ? new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/Bogota" }).format(new Date(d)) : "—");
+          const fmt = (d) => (d ? new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/Bogota" }).format(new Date(d)) : "—");
           const ymd = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date(d));
           const short = (n) => "…" + String(n).slice(-5);
           async function boldLink(id) {

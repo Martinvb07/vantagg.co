@@ -854,6 +854,51 @@ export async function pollPendingPayments(): Promise<number> {
   return applied;
 }
 
+/**
+ * Pedido cancelado por falta de pago (vencido): se pregunta a la pasarela si el cliente igual pagó después. Los avisos
+ * de pago (webhooks) pueden no llegar, y sin esta consulta ese dinero quedaría en la pasarela sin pedido. Si lo pagó,
+ * applyVerifiedPayment lo pasa a pagado (verificando el monto) y lo entrega. Los pedidos que canceló el equipo no se
+ * tocan. Devuelve true si se aplicó un pago.
+ */
+export async function recheckCancelledPayment(orderId: string): Promise<boolean> {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, status: true, paymentProvider: true, payments: { select: { status: true } }, events: { where: { type: "EXPIRED" }, select: { id: true }, take: 1 } },
+  });
+  if (!order || order.status !== "CANCELLED" || !order.events.length) return false;
+  if (order.payments.some((p) => p.status === "APPROVED" || p.status === "VOIDED")) return false;
+  const provider = getPaymentProvider(order.paymentProvider);
+  if (!provider?.isEnabled() || !provider.getCheckout) return false;
+  let applied = false;
+  for (const v of await checkoutsOf(order.id, provider)) {
+    if (v.status !== "APPROVED") continue;
+    await applyVerifiedPayment(provider.id, v, `POLL:${provider.id}`);
+    applied = true;
+  }
+  return applied;
+}
+
+let lastCancelledSweep = 0;
+
+/** Mantenimiento (cada 20 min): pagos que llegaron después de vencer el pedido (canceladas en las últimas 12 h). */
+export async function pollCancelledPayments(): Promise<number> {
+  if (Date.now() - lastCancelledSweep < 20 * 60_000) return 0;
+  lastCancelledSweep = Date.now();
+  const orders = await db.order.findMany({
+    where: {
+      status: "CANCELLED",
+      cancelledAt: { gte: new Date(Date.now() - 12 * 3600_000) },
+      AND: [{ events: { some: { type: "EXPIRED" } } }, { events: { some: { type: "CHECKOUT_STARTED" } } }],
+    },
+    orderBy: { cancelledAt: "desc" },
+    take: 40,
+    select: { id: true },
+  });
+  let applied = 0;
+  for (const o of orders) if (await recheckCancelledPayment(o.id).catch(() => false)) applied++;
+  return applied;
+}
+
 export async function reconcilePayment(orderId: string, actor: string): Promise<{ ok: boolean; message: string }> {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { payments: true } });
   if (!order) return { ok: false, message: "Orden no encontrada." };

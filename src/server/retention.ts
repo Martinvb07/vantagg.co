@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { reminderState } from "./reminders";
 import { getSettings } from "./settings";
+import { recheckCancelledPayment } from "./orders";
 
 /**
  * Borrado automático de pedidos cancelados sin pago (Panel → Ajustes → Pedidos cancelados):
@@ -13,6 +14,7 @@ import { getSettings } from "./settings";
  * Del pedido borrado queda solo el CLIENTE (correo, ID de jugador, cuántos pedidos dejó sin pagar y la fecha del
  * último) para ver si compra después; sin su permiso no recibe ofertas. El registro de correos enviados se conserva
  * (sin el pedido) para no repetir recordatorios.
+ * Antes de borrar se pregunta a la pasarela si el cliente pagó después de vencer (si pagó, se entrega en vez de borrarse).
  * Nunca se borra un pedido con cobro aprobado o anulado, entrega, chat, notas del equipo o solicitudes de soporte:
  * esos son historial que puede hacer falta (reclamos, devoluciones, contabilidad).
  */
@@ -65,7 +67,14 @@ export async function purgeCancelledOrders(opts: { now?: Date; dryRun?: boolean 
     }
     due.push(o);
   }
-  const batch = due.slice(0, PER_RUN);
+  let batch = due.slice(0, PER_RUN);
+  // Última consulta a la pasarela antes de borrar: si el cliente pagó después de vencer (y el aviso no llegó), el
+  // pedido pasa a pagado y se entrega en vez de borrarse con el dinero adentro.
+  if (!opts.dryRun) {
+    const paid = new Set<string>();
+    for (const o of batch) if (!o.isTest && (await recheckCancelledPayment(o.id).catch(() => false))) paid.add(o.id);
+    if (paid.size) batch = batch.filter((o) => !paid.has(o.id));
+  }
   const run: PurgeRun = { deleted: 0, due: due.length, kept, waiting, customers: 0, numbers: batch.map((o) => o.number) };
   if (opts.dryRun || !batch.length) return run;
 

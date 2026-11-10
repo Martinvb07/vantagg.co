@@ -62,7 +62,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, pollCancelledPayments, recheckCancelledPayment, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { canonicalEmail } from "@/server/order-limits";
@@ -200,6 +200,23 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await statusOf(unpaid.order.id)).toBe("CANCELLED");
     expect(await db.orderEvent.count({ where: { orderId: unpaid.order.id, type: "EXPIRED" } })).toBe(1);
     expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "EXPIRED" } })).toBe(0);
+  });
+
+  it("pagó después de vencer y el aviso no llegó: la consulta lo pasa a pagado y se entrega; lo que canceló el equipo no se toca", async () => {
+    const late = await makeOrder();
+    const staff = await makeOrder();
+    const past = new Date(Date.now() - 2 * 3600_000);
+    await db.order.update({ where: { id: late.order.id }, data: { expiresAt: past } });
+    await expireStaleOrders(); // Bold aún no lo reporta pagado: se cancela por falta de pago
+    expect(await statusOf(late.order.id)).toBe("CANCELLED");
+    await db.order.update({ where: { id: staff.order.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    payLink(late.linkId, `TX-${RUN}-despues`);
+    payLink(staff.linkId, `TX-${RUN}-equipo`);
+    expect(await pollCancelledPayments()).toBeGreaterThanOrEqual(1);
+    expect(["PAID", "PROCESSING", "DELIVERED"]).toContain(await statusOf(late.order.id));
+    expect(await db.order.findUniqueOrThrow({ where: { id: late.order.id }, select: { cancelledAt: true } })).toMatchObject({ cancelledAt: null });
+    expect(await recheckCancelledPayment(staff.order.id)).toBe(false);
+    expect(await statusOf(staff.order.id)).toBe("CANCELLED");
   });
 
   it("rechaza el webhook con firma inválida, alterada o ausente", async () => {

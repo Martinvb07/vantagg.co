@@ -32,6 +32,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const inWindow = (d: number) => reminders?.recovery.ages.filter((a) => a < d).length ?? 0;
   const exportQs = new URLSearchParams(Object.entries(sp).filter(([k, v]) => k !== "p" && v) as [string, string][]).toString();
   const pages = Math.max(1, Math.ceil(total / PAGE));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date()); // AAAA-MM-DD en Colombia
   const qs = (p: number) => new URLSearchParams({ ...(sp as Record<string, string>), p: String(p) }).toString();
 
   return (
@@ -74,6 +75,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <Button type="submit" variant="secondary">
           Filtrar
         </Button>
+        <Link href={`?desde=${today}&hasta=${today}`} className="inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-medium ring-1 ring-white/10 hover:bg-white/10">
+          Hoy
+        </Link>
       </form>
 
       <Table>
@@ -114,7 +118,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               <td>
                 <OrderStatusBadge status={o.status} simulated={o.delivery?.simulated} />
               </td>
-              <td className="whitespace-nowrap text-fg-muted">{formatDate(o.createdAt)}</td>
+              <td className="whitespace-nowrap text-fg-muted">
+                {formatDate(o.createdAt)}
+                {/* Pagado otro día (p. ej. la pasarela confirmó tarde): se ve aquí aunque el pedido quede más abajo. */}
+                {o.paidAt && formatDate(o.paidAt, false) !== formatDate(o.createdAt, false) && (
+                  <span className="block text-[11.5px] text-volt-300">Pagado {formatDate(o.paidAt)}</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
