@@ -1,0 +1,105 @@
+name: Conectar avisos de pago y de entregas
+
+# Manual. Pone en el servidor las llaves con las que Bold y Central One firman sus avisos (webhooks), para que la tienda
+# los acepte al instante (sin ellas igual funciona: consulta pagos y entregas cada 2 minutos). Las llaves salen de los
+# secretos del ambiente «produccion» (Settings → Environments → produccion → Environment secrets), nunca se imprimen:
+#   - BOLD_SECRET_KEY: panel de Bold → Integraciones → Llaves de integración → «Llave secreta» (de PRODUCCIÓN).
+#   - TOPUP_WEBHOOK_SECRET (opcional): portal de Central One → Webhooks → secreto del webhook a /api/webhooks/topup.
+# Solo cambia las que estén cargadas. Guarda una copia del .env y la restaura si la tienda no vuelve a responder.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+jobs:
+  conectar:
+    name: Llaves de los avisos
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Revisar secretos (sin mostrarlos)
+        env:
+          BOLD_SECRET: ${{ secrets.BOLD_SECRET_KEY }}
+          TOPUP_SECRET: ${{ secrets.TOPUP_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "$BOLD_SECRET" ] || [ -n "$TOPUP_SECRET" ] || { echo "✖ No hay secretos cargados: agrega BOLD_SECRET_KEY (y/o TOPUP_WEBHOOK_SECRET) en Settings → Environments → produccion."; exit 1; }
+          if [ -n "$BOLD_SECRET" ]; then [[ "$BOLD_SECRET" =~ ^[A-Za-z0-9._-]{8,200}$ ]] || { echo "✖ BOLD_SECRET_KEY tiene un formato inesperado (¿espacios o comillas al copiarla?)"; exit 1; }; echo "✔ BOLD_SECRET_KEY cargada"; else echo "• BOLD_SECRET_KEY no cargada (no se cambia)"; fi
+          if [ -n "$TOPUP_SECRET" ]; then [[ "$TOPUP_SECRET" =~ ^[A-Za-z0-9._+/=-]{8,300}$ ]] || { echo "✖ TOPUP_WEBHOOK_SECRET tiene un formato inesperado"; exit 1; }; echo "✔ TOPUP_WEBHOOK_SECRET cargada"; else echo "• TOPUP_WEBHOOK_SECRET no cargada (no se cambia)"; fi
+
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5 6 7 8; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 6
+          done
+          echo "ssh-keyscan falló tras 8 intentos"; exit 1
+
+      - name: Configurar en el servidor y verificar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          BOLD_SECRET: ${{ secrets.BOLD_SECRET_KEY }}
+          TOPUP_SECRET: ${{ secrets.TOPUP_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          # Las llaves viajan por la entrada estándar (no quedan en la línea de comandos ni en el registro).
+          {
+            printf 'VPS_PATH=%q\nBOLD_SECRET=%q\nTOPUP_SECRET=%q\n' "$VPS_PATH" "$BOLD_SECRET" "$TOPUP_SECRET"
+            cat <<'ENDSSH'
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          umask 077
+          cp .env .env.antes-avisos
+          setkv() { local tmp; tmp=$(mktemp); grep -v -E "^$1=" .env > "$tmp" || true; printf '%s=%s\n' "$1" "$2" >> "$tmp"; cat "$tmp" > .env; rm -f "$tmp"; }
+          cambio=0
+          if [ -n "$BOLD_SECRET" ]; then
+            actual=$(grep -E '^BOLD_SECRET_KEY=' .env | tail -1 | cut -d= -f2- | tr -d "\"'" || true)
+            if [ "$actual" = "$BOLD_SECRET" ]; then echo "• La llave secreta de Bold ya era esa (sin cambios)"; else setkv BOLD_SECRET_KEY "$BOLD_SECRET"; cambio=1; echo "✔ Llave secreta de Bold actualizada"; fi
+            m=$(grep -E '^BOLD_TEST_MODE=' .env | tail -1 | cut -d= -f2- | tr -d "\"' " || true)
+            [ "$m" = "true" ] && echo "⚠ BOLD_TEST_MODE=true: Bold está en modo pruebas en el servidor"
+          fi
+          if [ -n "$TOPUP_SECRET" ]; then
+            actual=$(grep -E '^TOPUP_WEBHOOK_SECRET=' .env | tail -1 | cut -d= -f2- | tr -d "\"'" || true)
+            if [ "$actual" = "$TOPUP_SECRET" ]; then echo "• El secreto del webhook de Central One ya era ese (sin cambios)"; else setkv TOPUP_WEBHOOK_SECRET "$TOPUP_SECRET"; cambio=1; echo "✔ Secreto del webhook de Central One guardado"; fi
+          fi
+          chmod 600 .env
+          if [ "$cambio" = 1 ]; then
+            pm2 restart vanta >/dev/null
+            ok=0
+            for i in $(seq 1 25); do
+              [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3020/api/health || true)" = "200" ] && { ok=1; break; }
+              sleep 3
+            done
+            if [ "$ok" != 1 ]; then
+              echo "!! La tienda no respondió tras reiniciar: se restaura el .env anterior"
+              cat .env.antes-avisos > .env
+              pm2 restart vanta >/dev/null
+              rm -f .env.antes-avisos
+              exit 1
+            fi
+            echo "✔ Tienda en línea con las llaves nuevas"
+          fi
+          rm -f .env.antes-avisos
+          # Los receptores de avisos existen y exigen firma (401 = activo; 404 en Central One = falta su secreto).
+          echo "Receptor de avisos de Bold: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3020/api/webhooks/bold || true) (401 = activo y exigiendo firma)"
+          echo "Receptor de avisos de Central One: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST -H 'Host: vantagg.co' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3020/api/webhooks/topup || true) (401 = activo, 404 = falta su secreto)"
+          echo "Para comprobar Bold: en su panel usa «Probar webhook» y corre «Revisión de pedidos y cobros»; el aviso debe aparecer aceptado."
+          ENDSSH
+          } | ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" 'bash -s'
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

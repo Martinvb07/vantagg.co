@@ -219,6 +219,23 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await statusOf(staff.order.id)).toBe("CANCELLED");
   });
 
+  it("aviso de Bold con firma inválida: se rechaza y el registro dice si es del modo pruebas o de otra llave", async () => {
+    const { order, linkId } = await makeOrder();
+    payLink(linkId, `TX-${RUN}-pista`);
+    const body = boldEvent("SALE_APPROVED", order.number, `TX-${RUN}-pista`, 4900);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect((await postWebhook(body, sign(body, ""))).status).toBe(401);
+      expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(/MODO PRUEBAS.*pedido de esta tienda: sí/);
+      warn.mockClear();
+      expect((await postWebhook(body, sign(body, "otra-llave"))).status).toBe(401);
+      expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toMatch(/OTRA llave secreta.*tipo SALE_APPROVED/);
+    } finally {
+      warn.mockRestore();
+    }
+    expect(await statusOf(order.id)).toBe("PENDING_PAYMENT");
+  });
+
   it("rechaza el webhook con firma inválida, alterada o ausente", async () => {
     const { order, linkId } = await makeOrder();
     payLink(linkId, `TX-${RUN}-firma`);

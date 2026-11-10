@@ -6,6 +6,7 @@ import { ipFromHeaders } from "@/lib/request";
 import { getPaymentProvider } from "@/server/integrations/payments";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { applyDeliveryResult, applyVerifiedPayment, confirmApprovedWebhook } from "@/server/orders";
+import { boldOrderNumber, verifyBoldSignature } from "@/server/integrations/payments/signatures";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
   }
 
   if (!result.ok) {
-    console.warn(`[webhook:${providerId}] rechazado: ${result.reason}`);
+    const hint = providerId === "bold" && result.status === 401 ? await boldRejectHint(rawBody, req.headers).catch(() => "") : "";
+    console.warn(`[webhook:${providerId}] rechazado: ${result.reason}${hint}`);
     return NextResponse.json({ error: "rejected" }, { status: result.status });
   }
 
@@ -69,6 +71,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
     await db.webhookEvent.delete({ where: { id: event.id } }).catch(() => {});
     return NextResponse.json({ error: "processing_error" }, { status: 500 });
   }
+}
+
+/**
+ * Por qué Bold no pasó la firma (sin datos del cliente): si viene firmado como el modo pruebas de Bold (llave vacía),
+ * el webhook está configurado en el ambiente de pruebas; si no, Bold firma con otra llave secreta que la del servidor.
+ * También dice el tipo de aviso y si la referencia es de un pedido de esta tienda (no se aplica nada).
+ */
+async function boldRejectHint(rawBody: string, headers: Headers): Promise<string> {
+  const sig = headers.get("x-bold-signature");
+  if (!sig) return " (sin cabecera de firma)";
+  const testMode = verifyBoldSignature(rawBody, sig, "");
+  let type = "?";
+  let ours = "?";
+  try {
+    const n = JSON.parse(rawBody) as { type?: unknown; data?: { metadata?: { reference?: string } } };
+    type = String(n.type ?? "?").slice(0, 30);
+    const ref = boldOrderNumber(n.data?.metadata?.reference);
+    ours = ref ? ((await db.order.count({ where: { number: ref } })) > 0 ? "sí" : "no") : "sin referencia";
+  } catch {
+    /* cuerpo no JSON */
+  }
+  return ` · ${testMode ? "firmado en MODO PRUEBAS de Bold (el webhook está en el ambiente de pruebas)" : "firmado con OTRA llave secreta (la del servidor no es la actual de Bold)"} · tipo ${type} · pedido de esta tienda: ${ours}`;
 }
 
 async function recordEvent(provider: string, externalId: string, type: string, payload: unknown) {
