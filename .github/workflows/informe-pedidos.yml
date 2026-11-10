@@ -108,6 +108,19 @@ jobs:
             const t1 = Date.now();
             await db.order.findMany({ where: { status: "CANCELLED", isTest: false, cancelledAt: { gte: new Date(now - 30 * 24 * H) } }, include: { notifications: true, events: true, payments: true }, take: 2000 });
             console.log(`== Página Pedidos del panel: listado ${t1 - t0} ms · recordatorios ${Date.now() - t1} ms · pedidos en total: ${await db.order.count()}`);
+            // Conexiones (solo ✔/✖ y conteos; nunca saldos, llaves ni correos).
+            const ago = (d) => (d ? Math.round((now - new Date(d).getTime()) / 60000) : null);
+            const boldStatus = await fetch("https://integrations.api.bold.co/online/link/v1/payment_methods", { headers: { Authorization: `x-api-key ${process.env.BOLD_API_KEY || ""}` }, signal: AbortSignal.timeout(10_000) }).then((r) => r.status).catch(() => "sin respuesta");
+            const st = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["supplierSyncedAt", "emailAutomationsAt"] } } })).map((r) => [r.key, r.value]));
+            const synced = ago(st.supplierSyncedAt);
+            const notif = await db.notification.groupBy({ by: ["status"], where: { createdAt: { gte: new Date(now - 24 * H) } }, _count: true });
+            const lastSent = await db.notification.findFirst({ where: { status: "SENT" }, orderBy: { sentAt: "desc" }, select: { sentAt: true } });
+            const dels = await db.delivery.groupBy({ by: ["status"], where: { updatedAt: { gte: new Date(now - 48 * H) } }, _count: true });
+            const stuckPaid = await db.order.count({ where: { status: { in: ["PAID", "PROCESSING"] }, paidAt: { lt: new Date(now - 15 * 60_000) } } });
+            console.log("== Conexiones:");
+            console.log(`   Bold (pagos): ${boldStatus === 200 ? "✔ responde" : `✖ respondió ${boldStatus}`}`);
+            console.log(`   Central One (recargas): catálogo sincronizado hace ${synced ?? "—"} min ${synced !== null && synced <= 30 ? "✔" : "✖"} · entregas 48 h: ${dels.map((d) => `${d.status} ${d._count}`).join(", ") || "ninguna"} · pagados sin entregar hace +15 min: ${stuckPaid}${stuckPaid ? " ✖" : " ✔"}`);
+            console.log(`   Correos: último enviado hace ${ago(lastSent?.sentAt) ?? "—"} min · últimas 24 h: ${notif.map((n) => `${n.status} ${n._count}`).join(", ") || "ninguno"}${notif.some((n) => n.status === "FAILED") ? " ⚠ hay fallidos" : ""} · correos automáticos hace ${ago(st.emailAutomationsAt) ?? "—"} min`);
             const hooks = await db.webhookEvent.groupBy({ by: ["provider"], where: { createdAt: { gte: new Date(now - 10 * 24 * H) } }, _count: true });
             console.log(`== Avisos de pago registrados por la tienda en 10 días: ${hooks.length ? hooks.map((h) => `${h.provider}: ${h._count}`).join(" · ") : "NINGUNO ✖"}`);
             const orders = await db.order.findMany({
