@@ -1,0 +1,117 @@
+name: Diagnóstico de pedidos sin pagar
+
+# Manual y de solo lectura: por qué no se borran los pedidos sin pagar. Revisa que el mantenimiento automático
+# (cada 2 min) esté programado y corriendo, cuántos pedidos esperan pago o están cancelados (por antigüedad) y
+# por qué no se borran. No cambia nada. Repositorio público: solo conteos, sin correos, IDs ni montos.
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnostico:
+    name: Pedidos sin pagar
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+    steps:
+      - name: Preparar clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          for intento in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "ssh-keyscan falló tras 5 intentos"; exit 1
+
+      - name: Revisar
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" \
+            "VPS_PATH='$VPS_PATH' bash -s" <<'ENDSSH' | sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<correo>/g' \
+              -e 's/Bearer [A-Za-z0-9._~+\/=-]+/Bearer <oculto>/g'
+          set -uo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          cd "$VPS_PATH"
+          echo "== versión: commit $(git rev-parse --short HEAD) · hora del servidor: $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          # 1) Tarea programada del mantenimiento (solo el horario y adónde va su salida; nunca la llave).
+          c=$(crontab -l 2>/dev/null || true)
+          linea=$(printf '%s\n' "$c" | grep 'api/cron/maintenance' || true)
+          if [ -n "$linea" ]; then
+            echo "✔ Mantenimiento programado: $(printf '%s' "$linea" | awk '{print $1,$2,$3,$4,$5}')"
+            printf '%s' "$linea" | grep -q '^#' && echo "✖ ¡La línea del mantenimiento está COMENTADA (desactivada)!"
+            printf '%s' "$linea" | grep -oE '>>? *[^ ]+' | head -1 | sed 's/^/   salida: /'
+          else
+            echo "✖ NO hay mantenimiento programado en crontab: los pedidos no vencen ni se borran"
+          fi
+          systemctl is-active cron >/dev/null 2>&1 && echo "✔ servicio cron activo" || (systemctl is-active crond >/dev/null 2>&1 && echo "✔ servicio crond activo" || echo "⚠ no pude confirmar que el servicio cron esté activo")
+          # Últimas ejecuciones registradas por el sistema (si las guarda).
+          (grep -h "CRON" /var/log/syslog 2>/dev/null | grep -i "maintenance\|curl" | tail -n 3 | sed -E 's/Bearer [^ ]+/Bearer <oculto>/' | sed 's/^/   syslog: /') || true
+
+          # 2) Estado en la base (solo conteos).
+          cat > /tmp/diag-cancelados.cjs <<'JS'
+          const { PrismaClient } = require("@prisma/client");
+          const db = new PrismaClient();
+          const H = 3600_000;
+          const ago = (d) => (d ? `${Math.round((Date.now() - new Date(d).getTime()) / 60000)} min` : "nunca");
+          (async () => {
+            const s = Object.fromEntries((await db.setting.findMany({ where: { key: { in: ["purgeCancelled", "autoRecovery", "maintenanceMode", "emailAutomationsAt", "supplierSyncedAt"] } } })).map((r) => [r.key, r.value]));
+            console.log(`== Ajustes: borrar cancelados ${s.purgeCancelled === "true" ? "ACTIVADO" : "✖ APAGADO"} · correo «comprar de nuevo» ${s.autoRecovery === "false" ? "apagado" : "activo"} · mantenimiento de la tienda ${s.maintenanceMode === "true" ? "✖ ACTIVADO (no se envían correos)" : "apagado"}`);
+            console.log(`== Señales de que el mantenimiento corre: catálogo sincronizado hace ${ago(s.supplierSyncedAt)} (cada 15 min) · correos automáticos hace ${ago(s.emailAutomationsAt)} (cada 10 min, 8 a. m.–9 p. m.)`);
+            const now = new Date();
+            const pending = await db.order.findMany({ where: { status: "PENDING_PAYMENT" }, select: { expiresAt: true, createdAt: true } });
+            const stale = pending.filter((o) => o.expiresAt < now);
+            const oldest = stale.reduce((m, o) => (!m || o.createdAt < m ? o.createdAt : m), null);
+            console.log(`== Esperando pago: ${pending.length} · ya vencidos y sin cancelar: ${stale.length}${stale.length ? ` (el más viejo hace ${ago(oldest)}) ✖ el mantenimiento no los está venciendo` : " ✔"}`);
+            const cancelled = await db.order.findMany({
+              where: { status: "CANCELLED" },
+              select: { cancelledAt: true, createdAt: true, isTest: true, payments: { select: { status: true } }, delivery: { select: { id: true } }, notifications: { where: { template: "order_recovery" }, select: { id: true } }, events: { where: { type: "EXPIRED" }, select: { id: true } }, _count: { select: { notes: true, tickets: true, messages: true, chatAttachments: true } } },
+            });
+            const b = { total: cancelled.length, sinFecha: 0, menos12: 0, entre12y48: 0, mas48: 0, conHistorial: 0, conCorreo: 0, sinCorreo: 0, porEquipo: 0 };
+            for (const o of cancelled) {
+              if (!o.cancelledAt) { b.sinFecha++; continue; }
+              const age = (Date.now() - o.cancelledAt.getTime()) / H;
+              if (age < 12) { b.menos12++; continue; }
+              if (age < 48) b.entre12y48++; else b.mas48++;
+              const keep = o.payments.some((p) => p.status === "APPROVED" || p.status === "VOIDED") || o.delivery || o._count.notes || o._count.tickets || o._count.messages || o._count.chatAttachments;
+              if (keep) { b.conHistorial++; continue; }
+              if (o.notifications.length) b.conCorreo++; else b.sinCorreo++;
+              if (!o.events.length) b.porEquipo++;
+            }
+            console.log(`== Cancelados: ${b.total} · hace menos de 12 h: ${b.menos12} · 12 a 48 h: ${b.entre12y48} · más de 48 h: ${b.mas48} · SIN fecha de cancelación: ${b.sinFecha}${b.sinFecha ? " ✖ (la regla de borrado no los ve)" : ""}`);
+            console.log(`   De los de 12 h o más: ${b.conHistorial} se conservan (cobro, entrega, chat, notas o soporte) · ${b.conCorreo} ya recibieron el correo · ${b.sinCorreo} sin correo (${b.porEquipo} cancelados por el equipo)`);
+            const logs = await db.auditLog.findMany({ where: { action: "orders.purge_cancelled" }, orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, data: true } });
+            const day = logs.filter((l) => Date.now() - l.createdAt.getTime() < 24 * H).reduce((n, l) => n + (Number(l.data?.deleted) || 0), 0);
+            console.log(`== Último borrado automático: hace ${ago(logs[0]?.createdAt)} · borrados en las últimas 24 h: ${day}`);
+            await db.$disconnect();
+          })().catch(async (e) => { console.log("✖", e.message); await db.$disconnect(); });
+          JS
+          NODE_PATH="$PWD/node_modules" node --env-file=.env /tmp/diag-cancelados.cjs
+          rm -f /tmp/diag-cancelados.cjs
+
+          # 3) Lo que diría el borrado ahora mismo (sin borrar nada).
+          s=$(grep -E '^CRON_SECRET=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+          r=$(curl -sS --max-time 120 -X POST -H "Authorization: Bearer $s" -H "Content-Type: application/json" -H "Host: vantagg.co" -H "X-Forwarded-Proto: https" --data '{"dryRun": true}' -w '\nHTTP %{http_code}' http://127.0.0.1:3020/api/cron/cancelados || true)
+          echo "== Borrado en modo revisar: $(printf '%s' "$r" | tail -n1) · $(printf '%s' "$r" | head -n1 | head -c 400)"
+
+          # 4) Errores recientes de la tienda relacionados (mantenimiento, borrado, correos).
+          log=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const a=JSON.parse(t);const p=a.find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_err_log_path||"")}catch{console.log("")}})' || true)
+          if [ -n "$log" ] && [ -f "$log" ]; then
+            echo "== Errores recientes (mantenimiento, borrado, correos):"
+            grep -E "pedidos|cancelad|mantenimiento|maintenance|correos|cron|Error" "$log" | tail -n 15 | cut -c1-240 | sed 's/^/   /' || echo "   (ninguno)"
+          fi
+          ENDSSH
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
