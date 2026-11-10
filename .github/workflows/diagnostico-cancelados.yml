@@ -44,19 +44,25 @@ jobs:
           cd "$VPS_PATH"
           echo "== versión: commit $(git rev-parse --short HEAD) · hora del servidor: $(date -u '+%Y-%m-%d %H:%M UTC')"
 
-          # 1) Tarea programada del mantenimiento (solo el horario y adónde va su salida; nunca la llave).
+          # 1) Tarea programada del mantenimiento DE ESTA TIENDA (puerto 3020 / vantagg.co); las de otras tiendas del
+          #    servidor no cuentan. Solo el horario; nunca la línea completa (puede tener llaves).
           c=$(crontab -l 2>/dev/null || true)
-          linea=$(printf '%s\n' "$c" | grep 'api/cron/maintenance' || true)
+          activas=$(printf '%s\n' "$c" | grep -v '^[[:space:]]*#' || true)
+          linea=$(printf '%s\n' "$activas" | grep -E 'deploy/cron-mantenimiento\.sh|127\.0\.0\.1:3020/api/cron/maintenance|vantagg\.co/api/cron/maintenance' | head -1 || true)
           if [ -n "$linea" ]; then
-            echo "✔ Mantenimiento programado: $(printf '%s' "$linea" | awk '{print $1,$2,$3,$4,$5}')"
-            printf '%s' "$linea" | grep -q '^#' && echo "✖ ¡La línea del mantenimiento está COMENTADA (desactivada)!"
-            printf '%s' "$linea" | grep -oE '>>? *[^ ]+' | head -1 | sed 's/^/   salida: /'
+            echo "✔ Mantenimiento de vantagg.co programado: $(printf '%s' "$linea" | awk '{print $1,$2,$3,$4,$5}')"
           else
-            echo "✖ NO hay mantenimiento programado en crontab: los pedidos no vencen ni se borran"
+            echo "✖ NO hay mantenimiento de vantagg.co en crontab: los pedidos no vencen ni se borran (el próximo deploy lo agrega)"
           fi
+          otras=$(printf '%s\n' "$activas" | grep 'api/cron/maintenance' | grep -vcE '127\.0\.0\.1:3020|vantagg\.co|cron-mantenimiento\.sh' || true)
+          [ "${otras:-0}" -gt 0 ] && echo "   (además hay $otras tarea(s) de mantenimiento de otra(s) tienda(s) del servidor: no se tocan)"
+          printf '%s\n' "$activas" | grep -q 'respaldo-vps\.sh' && echo "✔ Respaldo diario programado" || echo "⚠ Respaldo diario NO programado"
           systemctl is-active cron >/dev/null 2>&1 && echo "✔ servicio cron activo" || (systemctl is-active crond >/dev/null 2>&1 && echo "✔ servicio crond activo" || echo "⚠ no pude confirmar que el servicio cron esté activo")
-          # Últimas ejecuciones registradas por el sistema (si las guarda).
-          (grep -h "CRON" /var/log/syslog 2>/dev/null | grep -i "maintenance\|curl" | tail -n 3 | sed -E 's/Bearer [^ ]+/Bearer <oculto>/' | sed 's/^/   syslog: /') || true
+          # Última corrida (solo conteos) y errores recientes del mantenimiento.
+          if [ -f logs/mantenimiento-ultimo.json ]; then
+            echo "   última corrida hace $(( ($(date +%s) - $(stat -c %Y logs/mantenimiento-ultimo.json)) / 60 )) min: $(head -c 400 logs/mantenimiento-ultimo.json)"
+          fi
+          [ -s logs/mantenimiento-errores.log ] && tail -n 3 logs/mantenimiento-errores.log | sed 's/^/   error: /'
 
           # 2) Estado en la base (solo conteos).
           cat > /tmp/diag-cancelados.cjs <<'JS'

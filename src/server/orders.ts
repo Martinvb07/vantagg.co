@@ -1031,11 +1031,14 @@ export async function sendPaymentReminders(now = new Date()): Promise<number> {
 export async function expireStaleOrders() {
   const stale = await db.order.findMany({
     where: { status: "PENDING_PAYMENT", expiresAt: { lt: new Date() } },
-    select: { id: true, type: true },
+    select: { id: true, type: true, events: { where: { type: "CHECKOUT_STARTED" }, select: { id: true }, take: 1 } },
     take: 200,
   });
   let cancelled = 0;
   for (const o of stale) {
+    // Última consulta a la pasarela antes de cancelar si el cliente llegó a abrir el pago (por si el aviso nunca llegó,
+    // p. ej. si el mantenimiento estuvo detenido y el pedido ya salió de la revisión de las últimas 3 h).
+    if (o.events.length && (await checkPendingPayment(o.id).catch(() => false))) continue;
     const r = await db.order.updateMany({ where: { id: o.id, status: "PENDING_PAYMENT" }, data: { status: "CANCELLED", cancelledAt: new Date() } });
     if (r.count) {
       cancelled++;

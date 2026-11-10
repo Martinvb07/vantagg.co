@@ -99,13 +99,14 @@ Cada push a `main`: tipos + pruebas + build en CI → en el VPS `git reset`, `np
 
 ## 7. Cron y respaldos
 
-```bash
-crontab -e
-```
+Cada deploy corre `deploy/tareas-programadas.sh`, que agrega al crontab las que falten (sin tocar las de otros proyectos del servidor y guardando antes una copia en `~/respaldos-tienda`):
+
 ```cron
-*/2 * * * * curl -fsS -m 50 -H "Authorization: Bearer TU_CRON_SECRET" https://vantagg.co/api/cron/maintenance > /dev/null
+*/2 * * * * sh /var/www/vantagg/deploy/cron-mantenimiento.sh >/dev/null 2>&1
 30 3 * * * sh /var/www/vantagg/deploy/respaldo-vps.sh >> /home/vanta/respaldo.log 2>&1
 ```
+
+`cron-mantenimiento.sh` lee `CRON_SECRET` de `.env` en cada llamada (la llave no queda en el crontab). Última corrida: `logs/mantenimiento-ultimo.json`; errores: `logs/mantenimiento-errores.log`. **Si instalas otro proyecto en el mismo usuario, agrega sus líneas con `crontab -e`; no reemplaces el crontab entero** (así se perdió el mantenimiento en noviembre de 2026 y los pedidos sin pagar dejaron de vencerse y borrarse).
 
 Para el respaldo crea `~/.my-vanta.cnf` (`chmod 600`; no uses `~/.my.cnf`, cambiaría el usuario de `mysql` en todo el servidor):
 

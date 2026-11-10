@@ -62,7 +62,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { canonicalEmail } from "@/server/order-limits";
@@ -186,6 +186,20 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await checkPendingPayment(order.id)).toBe(false);
     expect(await statusOf(order.id)).toBe("PENDING_PAYMENT");
     expect(fakes.topup.createTopUp).not.toHaveBeenCalled();
+  });
+
+  it("al vencer un pedido viejo se consulta a Bold una última vez: si ya lo pagó se confirma; si no, se cancela", async () => {
+    const paid = await makeOrder();
+    const unpaid = await makeOrder();
+    // Pedidos de hace 60 h (fuera de la revisión de las últimas 3 h), p. ej. si el mantenimiento estuvo detenido.
+    const past = new Date(Date.now() - 60 * 3600_000);
+    await db.order.updateMany({ where: { id: { in: [paid.order.id, unpaid.order.id] } }, data: { createdAt: past, expiresAt: new Date(past.getTime() + 3600_000) } });
+    payLink(paid.linkId, `TX-${RUN}-tarde`);
+    await expireStaleOrders();
+    expect(["PAID", "PROCESSING", "DELIVERED"]).toContain(await statusOf(paid.order.id));
+    expect(await statusOf(unpaid.order.id)).toBe("CANCELLED");
+    expect(await db.orderEvent.count({ where: { orderId: unpaid.order.id, type: "EXPIRED" } })).toBe(1);
+    expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "EXPIRED" } })).toBe(0);
   });
 
   it("rechaza el webhook con firma inválida, alterada o ausente", async () => {

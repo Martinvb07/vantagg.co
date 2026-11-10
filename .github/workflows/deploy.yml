@@ -192,6 +192,10 @@ jobs:
             [ -s "$geo" ] || echo "Aviso: no se pudo descargar la base de países por IP (los precios siguen en pesos)."
           fi
 
+          # Tareas programadas (mantenimiento cada 2 min y respaldo diario): se agregan si faltan, sin tocar las de otros
+          # proyectos del servidor. Si algo falla aquí la tienda ya quedó desplegada: solo se avisa.
+          sh deploy/tareas-programadas.sh || echo "Aviso: no se pudieron revisar las tareas programadas (ver deploy/LEEME-VPS.md)."
+
           echo "OK — desplegado $(git rev-parse --short HEAD)"
           ENDSSH
 
