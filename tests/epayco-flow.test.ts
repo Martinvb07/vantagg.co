@@ -37,6 +37,8 @@ const fakes = vi.hoisted(() => ({
     notifyStaffDeliveryIssue: vi.fn(async () => {}),
     notifyStaffPaymentIssue: vi.fn(async () => {}),
     notifyStaffUnknownPayment: vi.fn(async () => {}),
+    notifyStaffOrderAlert: vi.fn(async () => {}),
+    notifyStaffSystemAlert: vi.fn(async () => {}),
   },
   topup: {
     id: "fake",

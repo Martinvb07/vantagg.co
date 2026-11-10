@@ -106,6 +106,8 @@ Cada deploy corre `deploy/tareas-programadas.sh`, que agrega al crontab las que 
 30 3 * * * sh /var/www/vantagg/deploy/respaldo-vps.sh >> /home/vanta/respaldo.log 2>&1
 ```
 
+Además, la tienda trae un **vigilante** propio (src/server/watchdog.ts) que no depende del crontab: cada 20 s confirma con Bold los pagos de la última media hora (entrega en segundos aunque el aviso de Bold no llegue); si la tarea programada deja de llamar al mantenimiento por más de 6 min, lo hace la tienda cada 2 min y avisa al correo del equipo (Panel → Ajustes → correo para avisos internos); y avisa si una recarga pagada lleva más de 5 min sin entregarse, si un pago se confirmó tarde o si la tienda no puede consultar a la pasarela. `VIGILANTE=off` en `.env` lo apaga.
+
 `cron-mantenimiento.sh` lee `CRON_SECRET` de `.env` en cada llamada (la llave no queda en el crontab). Última corrida: `logs/mantenimiento-ultimo.json`; errores: `logs/mantenimiento-errores.log`. **Si instalas otro proyecto en el mismo usuario, agrega sus líneas con `crontab -e`; no reemplaces el crontab entero** (así se perdió el mantenimiento en noviembre de 2026 y los pedidos sin pagar dejaron de vencerse y borrarse).
 
 Para el respaldo crea `~/.my-vanta.cnf` (`chmod 600`; no uses `~/.my.cnf`, cambiaría el usuario de `mysql` en todo el servidor):

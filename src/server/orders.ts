@@ -20,7 +20,7 @@ import { activeTopUpProvider, getTopUpProvider } from "./integrations/topup";
 import type { TopUpProvider, TopUpRequest, TopUpResult } from "./integrations/topup/types";
 import { confirmRedemption, releaseRedemption, reservePromo, undoPromoReservation } from "./promo";
 import { postSystemMessage } from "./chat";
-import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffPaymentIssue, notifyStaffUnknownPayment } from "./notifications";
+import { notifyOrder, notifyStaffAccountSold, notifyStaffDeliveryIssue, notifyStaffOrderAlert, notifyStaffPaymentIssue, notifyStaffUnknownPayment } from "./notifications";
 import { audit } from "@/lib/audit";
 import { recordCheckoutConsent } from "./marketing";
 import { orderLimitError } from "./order-limits";
@@ -452,9 +452,9 @@ export async function applyVerifiedPayment(providerId: string, p: VerifiedPaymen
     data: { providerRef: p.providerRef, method: p.method ?? null },
   });
   if (late) {
-    await addEvent(order.id, "PAYMENT_CONFIRMED_LATE", `El cliente pagó en ${gatewayName(providerId)} a más tardar el ${formatDate(paidAt)} (cuando venció su link de pago); la tienda lo confirmó el ${formatDate(now)}.`, actor, {
-      data: { paidBefore: paidAt.toISOString(), confirmedAt: now.toISOString() },
-    });
+    const msg = `El cliente pagó en ${gatewayName(providerId)} a más tardar el ${formatDate(paidAt)} (cuando venció su link de pago); la tienda lo confirmó el ${formatDate(now)}.`;
+    await addEvent(order.id, "PAYMENT_CONFIRMED_LATE", msg, actor, { data: { paidBefore: paidAt.toISOString(), confirmedAt: now.toISOString() } });
+    void notifyStaffOrderAlert(order.id, "late", "Pago confirmado tarde", msg, "La recarga se entrega en este momento. Escríbele al cliente para disculparte por la espera.").catch(() => {});
   }
   void notifyOrder(order.id, "payment_confirmed").catch(() => {});
   await fulfillOrder(order.id);
@@ -849,9 +849,12 @@ export async function applyGatewayReturn(number: string, token: string, provider
   return order;
 }
 
-/** Mantenimiento: revisa pagos pendientes recientes por si el webhook de la pasarela se demora. */
-export async function pollPendingPayments(): Promise<number> {
-  const since = new Date(Date.now() - 3 * 3600_000);
+/**
+ * Revisa pagos pendientes recientes por si el aviso de la pasarela se demora o no llega. El mantenimiento mira las
+ * últimas 3 h; el vigilante de la tienda, cada 20 s, los pedidos de la última media hora (así se entregan al instante).
+ */
+export async function pollPendingPayments(opts: { sinceMs?: number } = {}): Promise<number> {
+  const since = new Date(Date.now() - (opts.sinceMs ?? 3 * 3600_000));
   const orders = await db.order.findMany({
     where: { status: "PENDING_PAYMENT", createdAt: { gte: since }, events: { some: { type: "CHECKOUT_STARTED" } } },
     orderBy: { createdAt: "desc" },

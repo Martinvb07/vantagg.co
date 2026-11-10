@@ -493,6 +493,26 @@ export function staffPaymentIssueEmail(b: Brand, p: { number: string; item: stri
   });
 }
 
+/** Aviso urgente al equipo: un pago sin entregar, un pago que se confirmó tarde o el mantenimiento automático detenido. */
+export function staffAlertEmail(b: Brand, p: { title: string; reason: string; number?: string; item?: string; adminLink: string; note?: string }): Email {
+  const rows: Row[] = [];
+  if (p.number) rows.push(["Pedido", p.number]);
+  if (p.item) rows.push(["Producto", p.item]);
+  return build(b, p.number ? `${p.title} · ${p.number}` : p.title, {
+    internal: true,
+    badge: "Revisar ahora",
+    tone: "danger",
+    ...(p.number ? { tag: p.number } : {}),
+    title: p.title,
+    intro: p.number ? "La tienda detectó algo que puede afectar a este cliente." : "La tienda detectó algo que puede afectar las ventas.",
+    preheader: p.reason.slice(0, 90),
+    rows,
+    quote: p.reason,
+    cta: { label: p.number ? "Abrir el pedido" : "Abrir el panel", url: p.adminLink },
+    ...(p.note ? { note: p.note } : {}),
+  });
+}
+
 export function staffDeliveryIssueEmail(b: Brand, p: { number: string; item: string; reason: string; adminLink: string }): Email {
   return build(b, `Recarga detenida · ${p.number}`, {
     internal: true,

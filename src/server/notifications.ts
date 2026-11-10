@@ -9,6 +9,7 @@ import {
   orderEmail,
   passwordChangedEmail,
   staffAccountSoldEmail,
+  staffAlertEmail,
   staffChatEmail,
   staffClaimEmail,
   staffDeliveryIssueEmail,
@@ -287,6 +288,37 @@ export async function notifyStaffPaymentIssue(orderId: string, kind: "duplicate"
     staffPaymentIssueEmail(await getBrand(), { number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Pedido", title, reason: reason.slice(0, 500), adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`) }),
   );
   await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+}
+
+/**
+ * Aviso urgente al equipo sobre un pedido (uno por tipo y pedido): «stuck» = pagado y sin entregar varios minutos;
+ * «late» = la tienda confirmó el pago tarde (el cliente esperó).
+ */
+export async function notifyStaffOrderAlert(orderId: string, kind: "stuck" | "late", title: string, reason: string, note?: string) {
+  const to = await staffInbox();
+  if (!to) return;
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, number: true, itemSnapshot: true } });
+  if (!order) return;
+  const template = `staff_order_${kind}`;
+  try {
+    await db.notification.create({ data: { orderId, channel: "email", recipient: to, template } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return;
+    throw err;
+  }
+  const r = await sendEmail(to, template, staffAlertEmail(await getBrand(), { title, reason: reason.slice(0, 600), number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Pedido", adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`), note }));
+  await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+}
+
+/** Aviso urgente al equipo sobre la tienda (no un pedido): como mucho uno por hora por tipo, aunque la tienda se reinicie. */
+export async function notifyStaffSystemAlert(key: string, title: string, reason: string, note?: string) {
+  const to = await staffInbox();
+  if (!to) return;
+  const settingKey = `staffAlertAt:${key}`.slice(0, 60);
+  const prev = await db.setting.findUnique({ where: { key: settingKey } });
+  if (prev && Date.now() - Number(prev.value) < 3600_000) return;
+  await db.setting.upsert({ where: { key: settingKey }, create: { key: settingKey, value: String(Date.now()) }, update: { value: String(Date.now()) } });
+  await sendEmail(to, `staff_system_${key}`.slice(0, 60), staffAlertEmail(await getBrand(), { title, reason: reason.slice(0, 600), adminLink: adminEntryUrl("/admin/pedidos"), note }));
 }
 
 /** Cobro aprobado de un pedido que ya no existe en la tienda (p. ej. borrado por estar cancelado): revisar y devolver. */

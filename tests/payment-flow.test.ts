@@ -33,6 +33,8 @@ const fakes = vi.hoisted(() => ({
     notifyStaffDeliveryIssue: vi.fn(async () => {}),
     notifyStaffPaymentIssue: vi.fn(async () => {}),
     notifyStaffUnknownPayment: vi.fn(async () => {}),
+    notifyStaffOrderAlert: vi.fn(async () => {}),
+    notifyStaffSystemAlert: vi.fn(async () => {}),
   },
   topup: {
     id: "fake",
@@ -203,6 +205,8 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     const paidAt = (await db.order.findUniqueOrThrow({ where: { id: paid.order.id }, select: { paidAt: true } })).paidAt!;
     expect(Math.abs(paidAt.getTime() - linkExpired.getTime())).toBeLessThan(1000);
     expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "PAYMENT_CONFIRMED_LATE" } })).toBe(1);
+    // El equipo recibe el aviso de que este cliente esperó.
+    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(paid.order.id, "late", "Pago confirmado tarde", expect.stringContaining("a más tardar"), expect.any(String));
     expect(await statusOf(unpaid.order.id)).toBe("CANCELLED");
     expect(await db.orderEvent.count({ where: { orderId: unpaid.order.id, type: "EXPIRED" } })).toBe(1);
     expect(await db.orderEvent.count({ where: { orderId: paid.order.id, type: "EXPIRED" } })).toBe(0);
@@ -704,6 +708,30 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
 
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {
     for (const from of ORDER_STATUSES) expect(canTransitionManually(from, "PAID")).toBe(false);
+  });
+
+  it("vigilante: recarga pagada sin entregar hace 10 min → aviso al equipo; tarea programada detenida → la tienda hace el mantenimiento y avisa", async () => {
+    const { watchdogTick } = await import("@/server/watchdog");
+    const { order } = await makeOrder();
+    const tenMinAgo = new Date(Date.now() - 10 * 60_000);
+    await db.order.update({ where: { id: order.id }, data: { status: "PAID", paidAt: tenMinAgo } });
+    await db.orderEvent.create({ data: { orderId: order.id, type: "PAYMENT_CONFIRMED", message: "La pasarela confirmó el pago.", actor: "POLL:bold", createdAt: tenMinAgo } });
+    const fresh = await makeOrder();
+    await db.order.update({ where: { id: fresh.order.id }, data: { status: "PAID", paidAt: new Date() } });
+    await db.orderEvent.create({ data: { orderId: fresh.order.id, type: "PAYMENT_CONFIRMED", message: "La pasarela confirmó el pago.", actor: "POLL:bold" } });
+    await watchdogTick();
+    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringContaining("10 min"), expect.any(String));
+    expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(fresh.order.id, "stuck", expect.anything(), expect.anything(), expect.anything());
+    expect(fakes.notify.notifyStaffSystemAlert).not.toHaveBeenCalled();
+    // 7 min sin que la tarea programada llame: la tienda corre el mantenimiento por su cuenta y avisa.
+    const maintenance = await import("@/server/maintenance");
+    const before = outbound.length;
+    await watchdogTick(Date.now() + 7 * 60_000);
+    // El mantenimiento completo intenta actualizar las tasas de cambio: la simulación lo bloquea (no sale nada).
+    const extra = outbound.splice(before).filter((u) => !u.startsWith("https://integrations.api.bold.co/"));
+    expect(extra.every((u) => u.startsWith("https://open.er-api.com/"))).toBe(true);
+    expect(maintenance.maintenanceStatus().lastRunAt).toBeGreaterThan(0);
+    expect(fakes.notify.notifyStaffSystemAlert).toHaveBeenCalledWith("cron", expect.stringContaining("mantenimiento"), expect.any(String), expect.any(String));
   });
 
   it("nada salió a internet salvo la API de Bold simulada", () => {
