@@ -6,13 +6,13 @@ import { audit } from "@/lib/audit";
 import { generateOrderNumber, randomToken } from "@/lib/crypto";
 import { formatNumber } from "@/lib/money";
 import { DEFAULT_TOPUP_REGION } from "@/domain/topup-regions";
-import { compareRank, maskPlayer, parseMinCop, parsePeriodKey, parsePrizes, periodOf, type RankingPeriod } from "@/domain/ranking";
+import { compareRank, isSeason, maskPlayer, parseMinCop, parsePeriodKey, parsePrizes, periodOf, previousPeriod, type RankingPeriod } from "@/domain/ranking";
 import { getSettings } from "./settings";
 import { canonicalEmail } from "./order-limits";
 import { activeTopUpProvider } from "./integrations/topup";
 import { checkPlayerRegion, supplierRegionName } from "./supplier";
 import { fulfillOrder } from "./orders";
-import { notifyOrder } from "./notifications";
+import { notifyOrder, notifyStaffSystemAlert } from "./notifications";
 
 /** Pasarela de los pedidos de premio: no cobran nada y no cuentan como compras del ranking. */
 export const PRIZE_PROVIDER = "premio";
@@ -150,6 +150,7 @@ export type AwardResult = { ok: true; number: string; message: string } | { ok: 
 export async function awardPrize(input: { periodKey: string; pos: number; actorId: string; playerId?: string | null }, now = new Date()): Promise<AwardResult> {
   const period = parsePeriodKey(input.periodKey);
   if (!period || ![1, 2, 3].includes(input.pos)) return { ok: false, error: "Mes o puesto inválido." };
+  if (!isSeason(period.key)) return { ok: false, error: `En ${period.month} ${period.year} no hubo Top 3 del mes (la primera temporada es noviembre de 2026).` };
   if (now < period.end) return { ok: false, error: `El mes de ${period.month} todavía no ha cerrado.` };
 
   const existing = (await prizeOrders(period.key)).get(input.pos);
@@ -238,4 +239,27 @@ export async function awardPrize(input: { periodKey: string; pos: number; actorI
   if (after?.status === "DELIVERED") return { ok: true, number: order.number, message: `Premio entregado: ${formatNumber(pkg.diamonds + pkg.bonusDiamonds)} diamantes al ID ${playerId} (pedido ${order.number}).` };
   if (after?.status === "DELIVERY_FAILED") return { ok: true, number: order.number, message: `Pedido de premio ${order.number} creado, pero la entrega falló por ahora: se reintenta sola. Revisa el pedido.` };
   return { ok: true, number: order.number, message: `Premio en camino: pedido ${order.number}.` };
+}
+
+/**
+ * Al cerrar una temporada, avisa una sola vez al correo de alertas del equipo que hay premios por entregar (lo llama el
+ * mantenimiento). Los meses anteriores al lanzamiento no cuentan.
+ */
+export async function notifyRankingClosed(now = new Date()): Promise<boolean> {
+  const cfg = await rankingConfig();
+  const last = previousPeriod(periodOf(now));
+  if (!cfg.enabled || !isSeason(last.key)) return false;
+  const key = "rankingClosedNotified";
+  const done = await db.setting.findUnique({ where: { key } });
+  if (done?.value === last.key) return false;
+  const winners = (await rankingQualifiers(last, cfg.minCop)).slice(0, 3);
+  await db.setting.upsert({ where: { key }, create: { key, value: last.key }, update: { value: last.key } });
+  if (!winners.length) return false;
+  await notifyStaffSystemAlert(
+    `ranking-${last.key}`,
+    `Cerró el Top 3 de ${last.month}: ${winners.length} premio(s) por entregar`,
+    `Hay ${winners.length} ganador(es) del Top 3 de ${last.month}. Entrega cada premio en Panel → Ranking y premios (botón «Entregar»): sale gratis al ID del ganador y le llega un correo de felicitación.`,
+    "Conviene esperar unos días por si hay contracargos en Bold. Cada premio se puede entregar una sola vez.",
+  );
+  return true;
 }

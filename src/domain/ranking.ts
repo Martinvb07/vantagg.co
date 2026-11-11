@@ -42,6 +42,10 @@ export function parsePeriodKey(key: string): RankingPeriod | null {
   return periodFromParts(Number(m[1]), month0);
 }
 
+/** Primera temporada del Top 3 (lanzamiento). Los meses anteriores no fueron concurso: no tienen premios. */
+export const FIRST_SEASON = "2026-11";
+export const isSeason = (key: string) => key >= FIRST_SEASON;
+
 /** Premios por puesto: cantidad de diamantes del paquete (p. ej. «2180,1060,520»). */
 export const DEFAULT_PRIZES = [2180, 1060, 520];
 

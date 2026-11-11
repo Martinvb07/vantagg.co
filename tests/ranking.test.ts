@@ -51,7 +51,7 @@ vi.mock("@/server/settings", () => ({
 
 import { db } from "@/lib/db";
 import { compareRank, maskPlayer, parseMinCop, parsePeriodKey, parsePrizes, periodOf, previousPeriod } from "@/domain/ranking";
-import { awardPrize, computeRanking, getPublicRanking, PRIZE_PROVIDER, prizeKey } from "@/server/ranking";
+import { awardPrize, computeRanking, getPublicRanking, notifyRankingClosed, PRIZE_PROVIDER, prizeKey } from "@/server/ranking";
 
 describe("Reglas del mes (hora de Colombia)", () => {
   it("el mes empieza a las 00:00 de Colombia (05:00 UTC)", () => {
@@ -109,9 +109,10 @@ describe("Sección del inicio", () => {
 
 describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
   const RUN = `rk${Date.now().toString(36)}`;
-  // Un mes pasado y fijo: no se cruza con pedidos de otras pruebas.
-  const period = parsePeriodKey("2019-03")!;
-  const at = (day: number, hour = 12) => new Date(Date.UTC(2019, 2, day, hour + 5));
+  // Una temporada fija (marzo de 2027): no se cruza con pedidos de otras pruebas.
+  const period = parsePeriodKey("2027-03")!;
+  const at = (day: number, hour = 12) => new Date(Date.UTC(2027, 2, day, hour + 5));
+  const closed = new Date(Date.UTC(2027, 3, 3, 15)); // 3 de abril: marzo ya cerró
   const mail = (n: string) => `${n}.${RUN}@example.com`;
   let seq = 0;
   let adminId = "";
@@ -153,7 +154,7 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
     await order(mail("f"), 500_000, at(7), { isTest: true });
     await order(mail("f"), 500_000, at(7), { status: "REFUNDED" });
     await order(mail("f"), 0, at(7), { paymentProvider: PRIZE_PROVIDER });
-    await order(mail("f"), 500_000, new Date(Date.UTC(2019, 3, 1, 5, 0, 0))); // 1 de abril, 00:00 en Colombia
+    await order(mail("f"), 500_000, new Date(Date.UTC(2027, 3, 1, 5, 0, 0))); // 1 de abril, 00:00 en Colombia
     await order(mail("f"), 500_000, at(8), { status: "PENDING_PAYMENT", paidAt: null });
 
     await db.diamondPackage.create({ data: { slug: `premio-${RUN}`, name: "2180 diamantes", diamonds: 2180, bonusDiamonds: 218, price: 64999, region: "latam", providerSku: `sku-${RUN}`, active: true } });
@@ -165,6 +166,7 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
     await db.user.deleteMany({ where: { email: { contains: RUN } } });
     await db.diamondPackage.deleteMany({ where: { slug: `premio-${RUN}` } });
     await db.auditLog.deleteMany({ where: { action: "ranking.prize" } });
+    await db.setting.deleteMany({ where: { key: "rankingClosedNotified" } });
     await db.$disconnect();
   });
 
@@ -182,7 +184,7 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
   });
 
   it("la vista pública solo lleva puestos e IDs enmascarados (nunca correos ni montos)", async () => {
-    const pub = await getPublicRanking(new Date(Date.UTC(2019, 2, 20)));
+    const pub = await getPublicRanking(new Date(Date.UTC(2027, 2, 20)));
     expect(pub).not.toBeNull();
     const json = JSON.stringify(pub);
     expect(json).not.toContain("@");
@@ -195,9 +197,12 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
     const early = await awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }, at(20));
     expect(early.ok).toBe(false);
 
+    // Antes del lanzamiento no hubo concurso: no hay premios.
+    expect((await awardPrize({ periodKey: "2026-10", pos: 1, actorId: adminId }, closed)).ok).toBe(false);
+
     const [first, second] = await Promise.all([
-      awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }),
-      awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }),
+      awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }, closed),
+      awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }, closed),
     ]);
     expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
     expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
@@ -209,12 +214,22 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
     expect(prize.status).toBe("DELIVERED");
     expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(prize.id, "ranking_prize");
 
-    const again = await awardPrize({ periodKey: period.key, pos: 1, actorId: adminId });
+    const again = await awardPrize({ periodKey: period.key, pos: 1, actorId: adminId }, closed);
     expect(again.ok).toBe(false);
     expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
 
     // El premio no suma al ranking.
     const rows = (await computeRanking(period)).filter((r) => r.key.includes(RUN));
     expect(rows.find((r) => r.email === mail("b"))?.total).toBe(200_000);
+  });
+
+  it("al cerrar la temporada avisa al equipo una sola vez (y nunca por meses antes del lanzamiento)", async () => {
+    await db.setting.deleteMany({ where: { key: "rankingClosedNotified" } });
+    fakes.notify.notifyStaffSystemAlert.mockClear();
+    expect(await notifyRankingClosed(new Date(Date.UTC(2026, 10, 5)))).toBe(false); // octubre 2026: antes del lanzamiento
+    expect(await notifyRankingClosed(closed)).toBe(true); // marzo 2027 cerró con ganadores
+    expect(await notifyRankingClosed(closed)).toBe(false); // ya avisó
+    expect(fakes.notify.notifyStaffSystemAlert).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(fakes.notify.notifyStaffSystemAlert.mock.calls[0])).toContain("marzo");
   });
 });

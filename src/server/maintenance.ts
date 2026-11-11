@@ -6,6 +6,7 @@ import { runEmailAutomations } from "./marketing";
 import { purgeCancelledOrders } from "./retention";
 import { ensureFxRates } from "./fx";
 import { getSettings } from "./settings";
+import { notifyRankingClosed } from "./ranking";
 
 /**
  * Mantenimiento periódico (lo llama la tarea programada cada 2 min y, si esa tarea se detiene, el vigilante de la
@@ -64,5 +65,7 @@ async function run() {
     console.error("[pedidos] no se pudieron borrar los cancelados:", (e as Error).message);
     return 0;
   }) : 0;
-  return { ok: true as const, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
+  // Top 3 del mes: al cerrar la temporada, un aviso al equipo para entregar los premios (una vez por mes).
+  const rankingClosed = await notifyRankingClosed().catch(() => false);
+  return { ok: true as const, rankingClosed, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
 }

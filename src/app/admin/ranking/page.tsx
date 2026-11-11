@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { formatDate, formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TOPUP_REGION } from "@/domain/topup-regions";
-import { previousPeriod, periodOf } from "@/domain/ranking";
+import { isSeason, previousPeriod, periodOf } from "@/domain/ranking";
 import { ORDER_STATUS_META } from "@/domain/order-status";
 import { computeRanking, prizeOrders, prizePackage, rankingConfig } from "@/server/ranking";
 import { awardPrizeAction, saveRankingAction } from "@/app/actions/ranking";
@@ -33,7 +33,8 @@ export default async function AdminRankingPage() {
   ]);
   const prizePkgs = await Promise.all(cfg.prizes.map((d) => prizePackage(d)));
   const qualifiers = rows.filter((r) => r.qualifies);
-  const lastWinners = lastRows.filter((r) => r.qualifies).slice(0, 3);
+  const lastIsSeason = isSeason(last.key);
+  const lastWinners = lastIsSeason ? lastRows.filter((r) => r.qualifies).slice(0, 3) : [];
   const place = new Map(qualifiers.map((r, i) => [r.key, i + 1]));
   const amounts = [...new Set(packages.map((p) => p.diamonds))];
 
@@ -103,8 +104,12 @@ export default async function AdminRankingPage() {
       </Table>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Panel title={`Premios de ${last.month} (mes cerrado)`}>
-          {lastWinners.length === 0 ? (
+        <Panel title={lastIsSeason ? `Premios de ${last.month} (mes cerrado)` : "Premios"}>
+          {!lastIsSeason ? (
+            <p className="text-[13px] text-fg-muted">
+              La primera temporada es {current.month}. Cuando cierre, aquí aparecen los 3 ganadores con el botón para entregar cada premio, y te llega un aviso al correo de alertas.
+            </p>
+          ) : lastWinners.length === 0 ? (
             <p className="text-[13px] text-fg-muted">Nadie ganó en {last.month}: ningún cliente que aceptó ofertas llegó a {formatMoney(cfg.minCop)}.</p>
           ) : (
             <ul className="space-y-4">
