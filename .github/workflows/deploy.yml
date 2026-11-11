@@ -51,8 +51,21 @@ jobs:
       - name: Tipos
         run: npm run lint
 
+      # Base de PRUEBAS aparte (vanta_test): sin ella se saltaban las pruebas de pagos, entregas, vigilante, borrado y
+      # catálogo. Todo es simulado (Bold y el proveedor de recargas son dobles de prueba; nada sale a internet).
+      - name: Base de pruebas (pagos y entregas simulados)
+        run: |
+          mysql -h 127.0.0.1 -uroot -pci -e "CREATE DATABASE IF NOT EXISTS vanta_test"
+          DATABASE_URL=mysql://root:ci@127.0.0.1:3306/vanta_test npx prisma migrate deploy
+
       - name: Pruebas
-        run: npm test
+        env:
+          TEST_DATABASE_URL: mysql://root:ci@127.0.0.1:3306/vanta_test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee pruebas.log
+          # Que las pruebas con base de datos de verdad corrieron (no se saltaron).
+          if grep -qE "[0-9]+ skipped" pruebas.log; then echo "✖ Hay pruebas saltadas: revisa la base de pruebas"; exit 1; fi
 
       - name: Build
         # next/font descarga las fuentes de Google al compilar y a veces Google responde mal: un reintento.
