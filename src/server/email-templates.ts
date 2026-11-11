@@ -279,7 +279,7 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 // Pedidos
 // ---------------------------------------------------------------------
 
-export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery";
+export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery" | "delay_apology";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
 export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean };
 
@@ -291,7 +291,7 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
   const chat = { label: "Abrir chat de entrega", url: `${o.link}#chat` };
   const labels = account ? ["Pedido", "Pago", "Cuenta entregada"] : ["Pedido", "Pago", o.isPass ? "Entregado" : "Diamantes entregados"];
   const steps = (done: number, problem = false): Steps => ({ labels, done, problem });
-  const sorry = o.late ? "Perdón por la demora: tu pago tardó en confirmarse por una falla de nuestra parte, ya resuelta. " : "";
+  const sorry = o.late ? "Te pedimos disculpas por la demora: hubo un retraso en nuestro sistema, ya resuelto. Tu pago siempre estuvo seguro. " : "";
 
   const map: Record<OrderTemplate, { subject: string; block: Omit<Block, "rows"> }> = {
     order_created: {
@@ -334,6 +334,21 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       block: { badge: "Reembolsado", tone: "neutral", title: "Reembolso procesado", intro: "Devolvimos el dinero por el mismo medio de pago. Según tu banco puede tardar algunos días en verse.", preheader: "Te devolvimos el dinero", cta: view, note: test },
     },
     // Pedido que venció sin pagar: un solo recordatorio, con el ID ya escrito para comprar de nuevo.
+    // Disculpa por una entrega que tardó (retraso del sistema). Va sola, a pedidos ya entregados.
+    delay_apology: {
+      subject: `Te pedimos disculpas por la demora · ${o.number}`,
+      block: {
+        badge: "Disculpas",
+        tone: "info",
+        steps: steps(3),
+        title: "Te pedimos disculpas por la demora",
+        intro: `${o.isPass ? `Tu ${o.item}` : account ? "Tu cuenta" : "Tu recarga"} llegó más tarde de lo normal porque hubo un retraso en nuestro sistema. Ya lo resolvimos para que no vuelva a pasar. Gracias por tu paciencia y por confiar en nosotros.`,
+        preheader: "Hubo un retraso en nuestro sistema",
+        cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` },
+        secondary: { label: "Ver mi pedido", url: o.link },
+        note: test,
+      },
+    },
     order_recovery: {
       subject: account ? `La cuenta que elegiste sigue disponible · ${o.number}` : `¿Aún quieres ${o.isPass ? "tu compra" : "tus diamantes"}? · ${o.number}`,
       block: {

@@ -58,9 +58,9 @@ describe("Plantillas de correo", () => {
   });
   it("pago confirmado tarde: el correo de pago y el de entrega piden perdón; los normales no", () => {
     const base = { number: "VX-1", type: "TOPUP" as const, item: "110 diamantes", total: "$ 1", link: "https://tienda.example/pedido/VX-1?t=x", isTest: false };
-    expect(T.orderEmail(brand, "delivered", { ...base, late: true }).text).toContain("Perdón por la demora");
-    expect(T.orderEmail(brand, "payment_confirmed", { ...base, late: true }).text).toContain("Perdón por la demora");
-    expect(T.orderEmail(brand, "delivered", base).text).not.toContain("Perdón");
+    expect(T.orderEmail(brand, "delivered", { ...base, late: true }).text).toContain("disculpas por la demora");
+    expect(T.orderEmail(brand, "payment_confirmed", { ...base, late: true }).text).toContain("disculpas por la demora");
+    expect(T.orderEmail(brand, "delivered", base).text).not.toContain("disculpas");
     expect(T.staffAlertEmail(brand, { title: "Pago sin entregar", reason: "lleva 6 min", number: "VX-1", adminLink: "https://tienda.example/admin" }).subject).toBe("Pago sin entregar · VX-1");
   });
   it("el aviso de chat nunca incluye el contenido del mensaje", () => {

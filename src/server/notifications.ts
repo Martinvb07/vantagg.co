@@ -131,8 +131,10 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     throw err;
   }
 
-  // Pago confirmado tarde (falla de la tienda): el correo de pago y el de entrega piden perdón por la demora.
-  const late = (template === "payment_confirmed" || template === "delivered") && (await db.orderEvent.count({ where: { orderId, type: "PAYMENT_CONFIRMED_LATE" } })) > 0;
+  // Retraso del sistema: si el pago se confirmó tarde, o la entrega llegó más de 1 h después del pago, el correo de pago
+  // y el de entrega piden disculpas (un solo correo; no se manda aparte la disculpa).
+  const slowDelivery = template === "delivered" && !!order.paidAt && !!order.deliveredAt && order.deliveredAt.getTime() - order.paidAt.getTime() > APOLOGY_AFTER_MS;
+  const late = (template === "payment_confirmed" || template === "delivered") && (slowDelivery || (await db.orderEvent.count({ where: { orderId, type: "PAYMENT_CONFIRMED_LATE" } })) > 0);
   const email = orderEmail(await getBrand(), template, {
     late,
     number: order.number,
@@ -149,6 +151,31 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
   });
   const r = await sendEmail(order.customerEmail, template, email);
   await db.notification.update({ where: { id: notification.id }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+  // La disculpa ya fue en el correo de entrega: queda anotada para no mandarla otra vez por separado.
+  if (late && template === "delivered") {
+    await db.notification.create({ data: { orderId, channel: "email", recipient: order.customerEmail, template: "delay_apology", status: "SKIPPED", error: "Incluida en el correo de entrega" } }).catch(() => {});
+  }
+}
+
+/** Una entrega que llega más de esto después del pago se considera demorada: el cliente recibe una disculpa. */
+export const APOLOGY_AFTER_MS = 60 * 60_000;
+
+/**
+ * Disculpas por demora a pedidos ya entregados más de 1 h después del pago (p. ej. los que esperaron mientras el
+ * mantenimiento estuvo detenido). Una sola vez por pedido; los que ya la recibieron en su correo de entrega no cuentan.
+ * dryRun: solo dice a quiénes les llegaría.
+ */
+export async function sendDelayApologies(opts: { dryRun: boolean; days?: number }) {
+  const since = new Date(Date.now() - (opts.days ?? 15) * 86400_000);
+  const orders = await db.order.findMany({
+    where: { type: "TOPUP", isTest: false, status: "DELIVERED", paidAt: { not: null }, deliveredAt: { gte: since }, notifications: { none: { template: "delay_apology" } } },
+    select: { id: true, number: true, paidAt: true, deliveredAt: true },
+    orderBy: { deliveredAt: "asc" },
+    take: 200,
+  });
+  const due = orders.filter((o) => o.deliveredAt!.getTime() - o.paidAt!.getTime() > APOLOGY_AFTER_MS);
+  if (!opts.dryRun) for (const o of due) await notifyOrder(o.id, "delay_apology");
+  return due.map((o) => ({ number: o.number, paidAt: o.paidAt!, deliveredAt: o.deliveredAt! }));
 }
 
 /** Aviso al comprador de un mensaje nuevo en el chat. Máximo uno cada 15 min por pedido. */
