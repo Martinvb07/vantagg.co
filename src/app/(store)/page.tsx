@@ -13,11 +13,13 @@ import { formatNumber, packageTitle } from "@/lib/money";
 import { db } from "@/lib/db";
 import { BannerSlot } from "@/components/store/banner-slot";
 import { LivePurchases } from "@/components/store/live-purchases";
+import { TopMonth } from "@/components/store/top-month";
 import { Container } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 import { accountsVisible, getAccountFacets, getAccounts, getPackages, getLiveDeliveries } from "@/server/catalog";
 import { getSettings } from "@/server/settings";
+import { getPublicRanking } from "@/server/ranking";
 import type { Metadata } from "next";
 
 // Canónica solo en el inicio (antes la heredaban todas las páginas sin canónica propia).
@@ -73,7 +75,7 @@ const SHORTCUTS = [
 ];
 
 export default async function HomePage() {
-  const [packages, accounts, recent, settings, facets, heroBanners] = await Promise.all([getPackages(), getAccounts({ take: 12 }), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => [])]);
+  const [packages, accounts, recent, settings, facets, heroBanners, ranking] = await Promise.all([getPackages(), getAccounts({ take: 12 }), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => []), getPublicRanking().catch(() => null)]);
   const showAccounts = await accountsVisible();
   // Temporada: el banner de Halloween va de primero (los del panel siguen igual detrás).
   const banners = isHalloween()
@@ -148,6 +150,9 @@ export default async function HomePage() {
         <LivePurchases initial={recent} />
 
         <BannerSlot slot="HOME_TRUST" variant="wide" label="Cómo comprar" />
+
+        {/* Top 3 del mes: entre los banners, donde iban las cuentas (las cuentas, si hay, siguen debajo) */}
+        {ranking && <TopMonth data={ranking} />}
 
         {/* Cuentas */}
         {visibleAccounts.length > 0 && (

@@ -51,10 +51,14 @@ export const SETTING_DEFAULTS = {
   minMarginPct: "0", // ganancia mínima (% del precio de venta) de todos los paquetes; 0 = sin mínimo
   minMarginSmallPct: "0", // ganancia mínima de los paquetes de 100 diamantes o menos; 0 = la general
   supplierSyncedAt: "", // última sincronización del catálogo (ISO)
+  // Top 3 del mes (Panel → Ranking y premios)
+  rankingMode: "on", // "on": se muestra en el inicio; "off": oculto
+  rankingMinCop: "120000", // gasto mínimo en el mes (pesos) para ganar
+  rankingPrizes: "2180,1060,520", // diamantes del paquete de premio de los puestos 1, 2 y 3
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "rankingMode", "rankingMinCop", "rankingPrizes"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

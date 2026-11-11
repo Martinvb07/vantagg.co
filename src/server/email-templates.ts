@@ -279,9 +279,9 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 // Pedidos
 // ---------------------------------------------------------------------
 
-export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery" | "delay_apology";
+export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery" | "delay_apology" | "ranking_prize";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean };
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean; /** Premio del Top 3 del mes (p. ej. «puesto #1 del Top 3 de noviembre»): pedido sin cobro. */ prize?: string };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
@@ -321,7 +321,9 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       subject: account ? `Entrega completada · ${o.number}` : o.isPass ? `¡Tu compra llegó! · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
       block: account
         ? { badge: "Entregado", tone: "success", steps: steps(3), title: "Entrega completada", intro: sorry + "Cambia la contraseña y el correo de recuperación de la cuenta si aún no lo hiciste. El chat sigue abierto 7 días por si necesitas algo.", preheader: "Tu cuenta fue entregada", cta: view, note: test }
-        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: sorry + (o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros."), preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
+        : o.prize
+          ? { badge: "Premio entregado", tone: "success", steps: steps(3), title: "¡Tu premio llegó!", intro: `Abre Free Fire y revisa tu saldo: ya tienes tus diamantes del ${o.prize}. Gracias por ser de los que más recargan con nosotros.`, preheader: "Tu premio ya está en tu cuenta", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle", url: o.link }, note: test }
+          : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: sorry + (o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros."), preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
     },
     delivery_failed: {
       subject: account ? `Estamos revisando tu entrega · ${o.number}` : `Tu recarga se está demorando · ${o.number}`,
@@ -334,6 +336,19 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
       block: { badge: "Reembolsado", tone: "neutral", title: "Reembolso procesado", intro: "Devolvimos el dinero por el mismo medio de pago. Según tu banco puede tardar algunos días en verse.", preheader: "Te devolvimos el dinero", cta: view, note: test },
     },
     // Pedido que venció sin pagar: un solo recordatorio, con el ID ya escrito para comprar de nuevo.
+    // Premio del Top 3 del mes: se avisa al ganador apenas se crea el pedido de premio (sin cobro).
+    ranking_prize: {
+      subject: `¡Ganaste en el Top 3 del mes! · ${o.number}`,
+      block: {
+        badge: "Premio",
+        tone: "success",
+        title: "¡Felicitaciones, ganaste!",
+        intro: `Quedaste en el ${o.prize ?? "Top 3 del mes"}. Tu premio, ${o.item}, va en camino a tu ID: te avisamos apenas llegue. Gracias por confiar en nosotros.`,
+        preheader: "Tu premio va en camino a tu ID",
+        cta: { label: "Ver mi premio", url: o.link },
+        note: test,
+      },
+    },
     // Disculpa por una entrega que tardó (retraso del sistema). Va sola, a pedidos ya entregados.
     delay_apology: {
       subject: `Te pedimos disculpas por la demora · ${o.number}`,

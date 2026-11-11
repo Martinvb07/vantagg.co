@@ -27,7 +27,7 @@ import { OrderChat } from "@/components/orders/order-chat";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Estado del pedido", robots: { index: false, follow: false } };
 
-const PROVIDER_NAMES: Record<string, string> = { bold: "Bold", epayco: "ePayco" };
+const PROVIDER_NAMES: Record<string, string> = { bold: "Bold", epayco: "ePayco", premio: "Premio del Top 3 (sin costo)" };
 
 const HERO: Record<OrderStatusValue, { icon: typeof Clock; tone: string; title: string }> = {
   PENDING_PAYMENT: { icon: Clock, tone: "text-warn-400 bg-warn-400/12 ring-warn-400/25", title: "Esperando tu pago" },

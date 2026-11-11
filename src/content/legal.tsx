@@ -3,6 +3,7 @@ import type { StoreSettings } from "@/server/settings";
 import { googleTagConfig } from "@/domain/google-tag";
 import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { CookieChoiceButton } from "@/components/legal/cookie-notice";
+import { parseMinCop, parsePrizes } from "@/domain/ranking";
 
 /**
  * Textos legales base. Son una PLANTILLA redactada para este modelo de negocio:
@@ -13,7 +14,7 @@ export type LegalContext = { epayco?: boolean };
 export type LegalDoc = { title: string; description: string; body: (s: StoreSettings, ctx?: LegalContext) => ReactNode };
 
 /** Fecha de vigencia de estos textos (Decreto 1377 de 2013, art. 13). Actualízala al cambiar cualquier documento. */
-export const LEGAL_UPDATED = "2026-11-02";
+export const LEGAL_UPDATED = "2026-11-11";
 
 const company = (s: StoreSettings) => s.legalName || s.storeName;
 /** Herramientas de medición de anuncios instaladas (Panel → Ajustes → Publicidad). */
@@ -357,5 +358,51 @@ export const LEGAL: Record<string, LegalDoc> = {
         </p>
       </>
     ),
+  },
+  "top-del-mes": {
+    title: "Bases del Top 3 del mes",
+    description: "Cómo funciona el ranking mensual de compradores y la entrega de sus premios en diamantes.",
+    body: (s) => {
+      const [p1, p2, p3] = parsePrizes(s.rankingPrizes).map((n) => n.toLocaleString("es-CO"));
+      const min = `$ ${parseMinCop(s.rankingMinCop).toLocaleString("es-CO")}`;
+      return (
+        <>
+          <p>
+            El Top 3 del mes es una promoción de <strong>{company(s)}</strong> que premia a los tres clientes que más compran en la tienda durante un mes
+            calendario. No es un sorteo: el premio depende solo de las compras, no del azar. No tiene costo de participación.
+          </p>
+          <h2>1. Quién participa</h2>
+          <ul>
+            <li>Clientes que aceptaron recibir ofertas por correo (al registrarse, en «Mi cuenta» o al pagar) y que no se han dado de baja al cierre del mes.</li>
+            <li>Las compras se agrupan por el correo con el que se hicieron.</li>
+          </ul>
+          <h2>2. Qué compras cuentan</h2>
+          <ul>
+            <li>Recargas, tarjetas, pases y cuentas pagadas y entregadas, según la fecha del pago, del primer día del mes a las 00:00 al último día a las 23:59 (hora de Colombia).</li>
+            <li>Cuenta el valor pagado en pesos colombianos. No cuentan pedidos de prueba, pedidos reembolsados o anulados, ni los premios entregados.</li>
+            <li>Para ganar hay que sumar al menos <strong>{min}</strong> en compras del mes.</li>
+          </ul>
+          <h2>3. Premios</h2>
+          <ul>
+            <li>Puesto #1: recarga de {p1} diamantes. Puesto #2: recarga de {p2} diamantes. Puesto #3: recarga de {p3} diamantes.</li>
+            <li>Si dos clientes suman lo mismo, queda adelante quien llegó primero a ese monto.</li>
+            <li>El premio se envía al ID de Free Fire de la última recarga del ganador en ese mes, o al que confirme con nosotros. No se cambia por dinero.</li>
+            <li>Si un puesto no tiene a nadie que cumpla el mínimo, ese premio no se entrega.</li>
+          </ul>
+          <h2>4. Entrega</h2>
+          <p>
+            Al cerrar el mes revisamos las compras (incluidos contracargos) y entregamos los premios en los días siguientes. Le escribimos al ganador al
+            correo de sus compras. Podemos excluir compras con contracargo o señales de fraude.
+          </p>
+          <h2>5. Privacidad</h2>
+          <p>
+            En la tienda solo se muestra el puesto y el ID de jugador enmascarado (por ejemplo 12****89). Nunca publicamos nombres, correos ni montos.
+            Puedes dejar de participar en cualquier momento dándote de baja de los correos de ofertas.
+          </p>
+          <h2>6. Contacto</h2>
+          <p>Dudas sobre el Top 3 del mes: {contact(s)}.</p>
+        </>
+      );
+    },
   },
 };

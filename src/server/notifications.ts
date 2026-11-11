@@ -1,4 +1,5 @@
 import "server-only";
+import { parsePeriodKey } from "@/domain/ranking";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env, isProduction } from "@/lib/env";
@@ -135,13 +136,18 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
   // y el de entrega piden disculpas (un solo correo; no se manda aparte la disculpa).
   const slowDelivery = template === "delivered" && !!order.paidAt && !!order.deliveredAt && order.deliveredAt.getTime() - order.paidAt.getTime() > APOLOGY_AFTER_MS;
   const late = (template === "payment_confirmed" || template === "delivered") && (slowDelivery || (await db.orderEvent.count({ where: { orderId, type: "PAYMENT_CONFIRMED_LATE" } })) > 0);
+  // Premio del Top 3 del mes: pedido sin cobro.
+  const prizeInfo = (order.itemSnapshot as { prize?: { period?: string; pos?: number } }).prize;
+  const prizeMonth = prizeInfo?.period ? parsePeriodKey(prizeInfo.period)?.month : null;
+  const prize = prizeInfo?.pos ? `puesto #${prizeInfo.pos} del Top 3 de ${prizeMonth ?? "el mes"}` : undefined;
   const email = orderEmail(await getBrand(), template, {
     late,
+    prize,
     number: order.number,
     type: order.type,
     item: (order.itemSnapshot as { name?: string }).name ?? "Producto digital",
     // Clientes de otros países que pagan en dólares: lo que se les cobró (y su equivalente en pesos).
-    total: order.chargeCurrency && order.chargeAmount != null ? `${formatCharge(order.chargeAmount, order.chargeCurrency)} (≈ ${formatMoney(order.total, order.currency)})` : formatMoney(order.total, order.currency),
+    total: prize ? "Premio · sin costo" : order.chargeCurrency && order.chargeAmount != null ? `${formatCharge(order.chargeAmount, order.chargeCurrency)} (≈ ${formatMoney(order.total, order.currency)})` : formatMoney(order.total, order.currency),
     playerId: order.playerId,
     link: orderLink(order),
     isTest: order.isTest,

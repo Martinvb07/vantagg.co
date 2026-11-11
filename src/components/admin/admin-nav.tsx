@@ -23,6 +23,7 @@ import {
   Settings,
   ShieldCheck,
   Ticket,
+  Trophy,
   UserRound,
   Users,
   Warehouse,
@@ -44,6 +45,7 @@ const GROUPS: Group[] = [
       { href: "/admin/pedidos", label: "Pedidos", icon: Receipt, admin: false, badge: "orders" },
       { href: "/admin/chats", label: "Entregar cuentas", icon: MessagesSquare, admin: false, badge: "chats" },
       { href: "/admin/clientes", label: "Clientes", icon: UserRound, admin: false },
+      { href: "/admin/ranking", label: "Ranking y premios", icon: Trophy, admin: true },
     ],
   },
   {

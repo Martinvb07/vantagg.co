@@ -63,6 +63,14 @@ describe("Plantillas de correo", () => {
     expect(T.orderEmail(brand, "delivered", base).text).not.toContain("disculpas");
     expect(T.staffAlertEmail(brand, { title: "Pago sin entregar", reason: "lleva 6 min", number: "VX-1", adminLink: "https://tienda.example/admin" }).subject).toBe("Pago sin entregar · VX-1");
   });
+  it("premio del Top 3: avisa que ganó, sin cobro, y el de entrega dice que llegó el premio", () => {
+    const base = { number: "VX-1", type: "TOPUP" as const, item: "2.398 diamantes Free Fire", total: "Premio · sin costo", link: "https://tienda.example/pedido/VX-1?t=x", isTest: false, prize: "puesto #1 del Top 3 de noviembre" };
+    const won = T.orderEmail(brand, "ranking_prize", base);
+    expect(won.subject).toContain("Ganaste");
+    expect(won.text).toContain("puesto #1 del Top 3 de noviembre");
+    expect(won.text).toContain("Premio · sin costo");
+    expect(T.orderEmail(brand, "delivered", base).text).toContain("¡Tu premio llegó!");
+  });
   it("el aviso de chat nunca incluye el contenido del mensaje", () => {
     const e = T.chatMessageEmail(brand, { number: "VX-1", link: "https://tienda.example/pedido/VX-1?t=x" });
     expect(e.html).toContain("#chat");
