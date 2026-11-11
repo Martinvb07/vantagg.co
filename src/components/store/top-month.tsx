@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Crown, Gem } from "lucide-react";
 import { CoverArt, tierFor } from "@/components/brand/covers";
 import { TopBadge } from "@/components/brand/top-badge";
+import { LiveCountdown } from "@/components/store/live-countdown";
 import { formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { PublicRanking } from "@/server/ranking";
@@ -13,15 +14,6 @@ import type { PublicRanking } from "@/server/ranking";
  */
 
 const TITLES = ["Campeón del mes", "Subcampeón", "Tercer lugar"];
-
-function countdown(endsAt: string, now = new Date()) {
-  const ms = Math.max(0, new Date(endsAt).getTime() - now.getTime());
-  return [
-    [Math.floor(ms / 86_400_000), "Días"],
-    [Math.floor((ms / 3_600_000) % 24), "Horas"],
-    [Math.floor((ms / 60_000) % 60), "Min"],
-  ] as const;
-}
 
 /** Esquinas tipo visor del juego (igual que «Booyah en tiempo real»). */
 function HudCorners() {
@@ -75,14 +67,7 @@ export function TopMonth({ data }: { data: PublicRanking }) {
           </p>
 
           <p className="mt-6 font-mono text-[10.5px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">La temporada cierra en</p>
-          <dl className="mt-2.5 grid max-w-[330px] grid-cols-3 gap-2.5">
-            {countdown(data.endsAt).map(([v, l]) => (
-              <div key={l} className="flex -skew-x-[10deg] flex-col-reverse rounded-[6px] bg-ink-950/60 px-3 py-2.5 ring-1 ring-white/[0.1]">
-                <dt className="mt-1 skew-x-[10deg] text-[10.5px] font-medium uppercase tracking-[0.06em] text-fg-subtle">{l}</dt>
-                <dd className="skew-x-[10deg] font-display text-[24px] font-black italic tabular-nums leading-none">{String(v).padStart(2, "0")}</dd>
-              </div>
-            ))}
-          </dl>
+          <LiveCountdown endsAt={data.endsAt} serverNow={new Date().toISOString()} />
 
           <div className="mt-6 flex items-center gap-5 max-lg:hidden">
             <Link href="/recargas" className="inline-flex h-11 items-center gap-1.5 rounded-full bg-volt-400 pl-5 pr-4 text-[14px] font-semibold text-volt-ink hover:bg-volt-300">
