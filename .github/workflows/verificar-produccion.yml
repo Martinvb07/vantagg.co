@@ -47,6 +47,25 @@ jobs:
           echo "== versión: commit $(git rev-parse --short HEAD) · node $(node -v)"
           echo "== verificación de la tienda"
           npm run -s verificar:produccion 2>&1 || true
+          echo "== Top 3 del mes (solo conteos: sin correos, IDs ni montos)"
+          node --env-file=.env -e '
+            const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
+            (async()=>{
+              const now=new Date(),loc=new Date(now.getTime()-5*3600e3);
+              const start=new Date(Date.UTC(loc.getUTCFullYear(),loc.getUTCMonth(),1)+5*3600e3);
+              const set=Object.fromEntries((await db.setting.findMany({where:{key:{in:["rankingMode","rankingMinCop","rankingPrizes"]}}})).map(r=>[r.key,r.value]));
+              const min=Number(set.rankingMinCop||120000);
+              const os=await db.order.findMany({where:{status:"DELIVERED",isTest:false,paymentProvider:{not:"premio"},total:{gt:0},paidAt:{gte:start}},select:{customerEmail:true,total:true}});
+              const by=new Map();for(const o of os){const k=o.customerEmail.toLowerCase();by.set(k,(by.get(k)||0)+o.total)}
+              const em=[...by.keys()];
+              const ok=new Set([...(await db.user.findMany({where:{email:{in:em},marketingOptIn:true},select:{email:true}})),...(await db.emailContact.findMany({where:{email:{in:em},optIn:true},select:{email:true}}))].map(x=>x.email.toLowerCase()));
+              const q=em.filter(k=>ok.has(k)&&by.get(k)>=min).length;
+              const premios=await db.order.count({where:{paymentProvider:"premio"}});
+              console.log("  en el inicio: "+(set.rankingMode==="off"?"oculto":"visible")+" · premios: "+(set.rankingPrizes||"2180,1060,520")+" · mínimo configurado");
+              console.log("  compras entregadas del mes: "+os.length+" · compradores: "+em.length+" · con permiso de ofertas: "+em.filter(k=>ok.has(k)).length+" · ya llegan al mínimo: "+q);
+              console.log("  pedidos de premio creados (historial): "+premios);
+              await db.$disconnect();
+            })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== tarea programada (mantenimiento y respaldos)"
           c=$(crontab -l 2>/dev/null || true)
           # Solo cuenta la tarea de ESTA tienda (puerto 3020 / vantagg.co): en el servidor hay otras tiendas con la suya.
@@ -123,6 +142,13 @@ jobs:
           printf '%s' "$p" | grep -q "No encontramos esta página" && ! printf '%s' "$p" | grep -qi "pago confirmado\|ID del jugador" && echo "  ✔ /pedido con token falso → página no encontrada (sin datos del pedido)" || echo "  ✖ /pedido con token falso no muestra «no encontrada»"
           revisar /api/orders/VX-0000-0000/chat 404
           echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
+          echo "== Top 3 del mes"
+          revisar /legal/top-del-mes 200
+          h=$(curl -s --max-time 20 "$B/" | tr '\n' ' ')
+          sec=$(printf '%s' "$h" | grep -o 'aria-labelledby="top-del-mes".*>Bases</a>' | head -c 40000 || true)
+          [ -n "$sec" ] && echo "  ✔ el inicio muestra el Top 3 del mes" || echo "  ✖ el inicio NO muestra el Top 3 del mes"
+          printf '%s' "$sec" | grep -qE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' && echo "  ✖ hay un correo en la sección" || echo "  ✔ sin correos en la sección"
+          echo "  podio: $(printf '%s' "$sec" | grep -o 'ID [0-9][0-9]\*\*\*\*[0-9][0-9]' | wc -l) ocupado(s) · $(printf '%s' "$sec" | grep -o 'Puesto libre' | wc -l) libre(s)"
           echo "== verificación del dominio en Meta (Facebook)"
           for u in http://vantagg.co/ https://vantagg.co/; do
             h=$(curl -sL --max-time 20 -A "facebookexternalhit/1.1" "$u" || true)

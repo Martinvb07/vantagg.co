@@ -79,6 +79,34 @@ describe("Reglas del mes (hora de Colombia)", () => {
   });
 });
 
+describe("Sección del inicio", () => {
+  it("dibuja puestos ocupados y libres, perseguidores e insignias, sin correos ni montos", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { createElement } = await import("react");
+    const { TopMonth } = await import("@/components/store/top-month");
+    const data = {
+      month: "noviembre",
+      endsAt: new Date(Date.now() + 3 * 86400_000).toISOString(),
+      minCop: 120000,
+      podium: [
+        { pos: 1, player: "84****21", taken: true, prize: 2180 },
+        { pos: 2, player: null, taken: false, prize: 1060 },
+        { pos: 3, player: null, taken: false, prize: 520 },
+      ],
+      chasers: [],
+    };
+    const html = renderToStaticMarkup(createElement(TopMonth, { data }));
+    expect(html).toContain("ID 84****21");
+    expect(html.match(/Puesto libre/g)).toHaveLength(2);
+    expect(html).toContain("2.180");
+    expect(html).toContain("/legal/top-del-mes");
+    expect(html).not.toMatch(/[\w.+-]+@[\w-]+\.[a-z]{2,}/);
+    const full = renderToStaticMarkup(createElement(TopMonth, { data: { ...data, chasers: [{ pos: 4, player: "12****95" }] } }));
+    expect(full).toContain("Persiguen el podio");
+    expect(full).toContain("12****95");
+  });
+});
+
 describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
   const RUN = `rk${Date.now().toString(36)}`;
   // Un mes pasado y fijo: no se cruza con pedidos de otras pruebas.
