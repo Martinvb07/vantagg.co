@@ -33,7 +33,6 @@ export default async function CuentasPage({ searchParams }: { searchParams: Prom
     regions: csv(sp.servidor)?.filter((c) => FF_REGIONS.some((r) => r.code === c)),
     ranks: csv(sp.rango)?.filter((c) => FF_RANKS.some((r) => r.id === c)),
     tags: csv(sp.caract, 12),
-    onlyAvailable: sp.disponibles === "1",
     verifiedOnly: sp.verificadas === "1",
     featuredOnly: sp.destacadas === "1",
     sort: (SORTS.includes(sp.orden ?? "") ? sp.orden : "recent") as AccountFilters["sort"],

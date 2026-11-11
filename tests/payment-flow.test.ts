@@ -386,6 +386,26 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(delivered.message).not.toContain("0 diamantes");
   });
 
+  it("el proveedor dice «agotado» al entregar: el paquete se oculta de la tienda al instante", async () => {
+    const pkg = await db.diamondPackage.create({ data: { slug: `pkg-${RUN}-agotado`, name: "110 diamantes", diamonds: 100, bonusDiamonds: 10, price: 4900, region: "latam", providerSku: "sku-110" } });
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-ag`, simulated: false, message: "[out_of_stock] El proveedor tiene el producto agotado." });
+    const { order } = await makeOrder({ packageId: pkg.id });
+    await applyVerifiedPayment("bold", approved(order.number, `TX-${RUN}-ag`), "WEBHOOK:bold");
+    expect(await statusOf(order.id)).toBe("DELIVERY_FAILED");
+    expect((await db.diamondPackage.findUniqueOrThrow({ where: { id: pkg.id } })).supplierOutOfStock).toBe(true);
+    expect(await db.auditLog.count({ where: { action: "package.auto_hidden", entityId: pkg.id } })).toBe(1);
+    await db.auditLog.deleteMany({ where: { action: "package.auto_hidden", entityId: pkg.id } });
+  });
+
+  it("otro fallo del proveedor (no agotado) no oculta el paquete", async () => {
+    const pkg = await db.diamondPackage.create({ data: { slug: `pkg-${RUN}-caido`, name: "110 diamantes", diamonds: 100, bonusDiamonds: 10, price: 4900, region: "latam", providerSku: "sku-110" } });
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-cd`, simulated: false, message: "[provider_unavailable] caído" });
+    const { order } = await makeOrder({ packageId: pkg.id });
+    await applyVerifiedPayment("bold", approved(order.number, `TX-${RUN}-cd`), "WEBHOOK:bold");
+    expect(await statusOf(order.id)).toBe("DELIVERY_FAILED");
+    expect((await db.diamondPackage.findUniqueOrThrow({ where: { id: pkg.id } })).supplierOutOfStock).toBe(false);
+  });
+
   it("corte de red con el proveedor: el reintento usa la MISMA clave idempotente", async () => {
     fakes.topup.createTopUp.mockRejectedValueOnce(new Error("ECONNRESET"));
     const { order } = await makeOrder();

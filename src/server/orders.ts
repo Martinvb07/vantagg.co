@@ -621,6 +621,15 @@ async function runDelivery(deliveryId: string, provider: TopUpProvider, idempote
   await applyDeliveryResult(deliveryId, result, `PROVIDER:${provider.id}`);
 }
 
+/**
+ * El proveedor dijo «agotado» al entregar: el paquete se oculta de la tienda en ese instante para que nadie más lo
+ * pague. Vuelve a aparecer solo cuando la sincronización del catálogo (cada pocos minutos) lo ve con existencias.
+ */
+async function hideOutOfStockPackage(packageId: string, orderNumber: string) {
+  const r = await db.diamondPackage.updateMany({ where: { id: packageId, supplierOutOfStock: false }, data: { supplierOutOfStock: true } }).catch(() => ({ count: 0 }));
+  if (r.count) await audit({ actorId: null, action: "package.auto_hidden", entity: "DiamondPackage", entityId: packageId, data: { reason: "out_of_stock", order: orderNumber } });
+}
+
 export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, actor: string) {
   const delivery = await db.delivery.findUnique({ where: { id: deliveryId }, include: { order: true } });
   if (!delivery) return;
@@ -649,6 +658,7 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
 
   if (r.status === "FAILED") {
     await db.delivery.update({ where: { id: deliveryId }, data: { status: "FAILED", lastError: r.message ?? "Error desconocido", lockedAt: null } });
+    if (r.message?.startsWith("[out_of_stock]") && order.packageId) await hideOutOfStockPackage(order.packageId, order.number);
     await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "DELIVERY_FAILED" } });
     await addEvent(order.id, "DELIVERY_FAILED", r.message ?? "El proveedor no pudo completar la entrega.", actor, { data: { providerRef: r.providerRef } });
     await addEvent(order.id, "DELIVERY_ISSUE", "La entrega se está demorando. Nuestro equipo ya la está revisando; tu pago está seguro.", "SYSTEM", { public: true });

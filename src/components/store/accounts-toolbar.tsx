@@ -376,13 +376,13 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
   const pMax = Number(sp.get("precio_max")) || PRICE_MAX;
   const priceActive = !!(sp.get("precio_min") || sp.get("precio_max"));
   const levelActive = !!(sp.get("nivel_min") || sp.get("nivel_max"));
-  const moreCount = (levelActive ? 1 : 0) + caract.length + (sp.get("disponibles") ? 1 : 0) + (sp.get("verificadas") ? 1 : 0);
+  const moreCount = (levelActive ? 1 : 0) + caract.length + (sp.get("verificadas") ? 1 : 0);
   const view = sp.get("vista") === "lista" ? "lista" : "cuadricula";
   const sort = SORTS.find((s) => s.v === sp.get("orden"))?.v ?? "recent";
-  const anyActive = ["q", "servidor", "rango", "precio_min", "precio_max", "nivel_min", "nivel_max", "caract", "disponibles", "verificadas", "destacadas"].some((k) => sp.get(k));
+  const anyActive = ["q", "servidor", "rango", "precio_min", "precio_max", "nivel_min", "nivel_max", "caract", "verificadas", "destacadas"].some((k) => sp.get(k));
   const filterCount = servers.length + ranks.length + (priceActive ? 1 : 0) + moreCount;
   const clearSheet = () =>
-    set({ servidor: null, rango: null, precio_min: null, precio_max: null, nivel_min: null, nivel_max: null, caract: null, disponibles: null, verificadas: null, orden: null });
+    set({ servidor: null, rango: null, precio_min: null, precio_max: null, nivel_min: null, nivel_max: null, caract: null, verificadas: null, orden: null });
   const countLabel = `${total} ${total === 1 ? "cuenta" : "cuentas"}`;
 
   return (
@@ -517,7 +517,7 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
                     {[
                       { k: "nivel" as const, icon: TrendingUp, l: "Nivel de cuenta", on: levelActive },
                       ...(facets.tags.length ? [{ k: "caract" as const, icon: Sparkles, l: "Características", on: caract.length > 0 }] : []),
-                      { k: "estado" as const, icon: ShieldCheck, l: "Disponibilidad", on: !!(sp.get("disponibles") || sp.get("verificadas")) },
+                      { k: "estado" as const, icon: ShieldCheck, l: "Inventario revisado", on: !!sp.get("verificadas") },
                     ].map(({ k, icon: Icon, l, on }) => (
                       <button key={k} type="button" onClick={() => setMoreView(k)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14.5px] hover:bg-white/[0.04]">
                         <Icon className="size-[18px] text-fg-muted" />
@@ -549,9 +549,8 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
                   </div>
                 </Panel>
               ) : (
-                <Panel title="Disponibilidad" onBack={() => setMoreView("menu")}>
+                <Panel title="Inventario revisado" onBack={() => setMoreView("menu")}>
                   <div className="py-1.5">
-                    <CheckRow checked={sp.get("disponibles") === "1"} onToggle={() => set({ disponibles: sp.get("disponibles") ? null : "1" })} label="Solo disponibles ahora" hint="Oculta las reservadas en otro checkout" />
                     <CheckRow checked={sp.get("verificadas") === "1"} onToggle={() => set({ verificadas: sp.get("verificadas") ? null : "1" })} label="Solo inventario revisado" hint="Revisadas por el equipo" />
                   </div>
                 </Panel>
@@ -695,9 +694,8 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
                   </SheetCard>
                 )}
 
-                <SheetCard title="Disponibilidad" icon={<ShieldCheck className="size-4" />}>
+                <SheetCard title="Inventario revisado" icon={<ShieldCheck className="size-4" />}>
                   <div className="-my-1 divide-y divide-white/[0.06]">
-                    <SwitchRow checked={sp.get("disponibles") === "1"} onToggle={() => set({ disponibles: sp.get("disponibles") ? null : "1" })} label="Solo disponibles ahora" hint="Oculta las reservadas en otro checkout" />
                     <SwitchRow checked={sp.get("verificadas") === "1"} onToggle={() => set({ verificadas: sp.get("verificadas") ? null : "1" })} label="Solo inventario revisado" hint="Revisadas por el equipo" />
                   </div>
                 </SheetCard>

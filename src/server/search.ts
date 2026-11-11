@@ -5,7 +5,7 @@ import { FAQ } from "@/content/faq";
 import { FF_RANKS, FF_REGIONS, rankLabel, regionInfo } from "@/domain/freefire";
 import { quotePrice } from "@/domain/pricing";
 import { PASS_INFO, packDetail, packTitle } from "@/domain/packs";
-import { accountsVisible, listingAvailability, getPackages } from "./catalog";
+import { accountsVisible, buyableAccountsWhere, listingAvailability, getPackages } from "./catalog";
 
 /**
  * Búsqueda en vivo por palabras clave. Entiende intención ("cuentas", "nequi",
@@ -84,17 +84,15 @@ export async function smartSearch(raw: string): Promise<SearchResult> {
     getPackages(),
     !showAccounts ? Promise.resolve([]) : db.accountListing
       .findMany({
-        where: { status: { in: ["PUBLISHED", "RESERVED"] } },
+        where: buyableAccountsWhere(),
         orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
         take: 300,
         select: { id: true, slug: true, title: true, description: true, rank: true, region: true, level: true, skinsCount: true, price: true, compareAtPrice: true, currency: true, isDemo: true, status: true, reservedUntil: true, images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } }, tags: { select: { tag: true } } },
       })
       .catch(() => []),
   ]);
-  const visible = listings.filter((l) => {
-    const a = listingAvailability(l);
-    return a.available || a.reservedTemporarily;
-  });
+  // Solo lo que se puede comprar ahora (las reservadas en otro checkout y las vendidas no salen).
+  const visible = listings.filter((l) => listingAvailability(l).available);
 
   // Secciones
   const sections = SECTIONS.filter((s) => showAccounts || s.href !== "/cuentas").map((s) => ({ s, score: tokens.filter((t) => tokenHits(t, s.kw) || tokenHits(t, words(s.title))).length }))

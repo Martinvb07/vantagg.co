@@ -25,7 +25,7 @@ export type TopupRegionView = { slug: string; label: string; flag: string | null
 export async function getTopupRegions(): Promise<TopupRegionView[]> {
   const enabled = parseRegionList((await getSettings()).topupRegions);
   if (enabled.length === 0) return [];
-  const counts = await db.diamondPackage.groupBy({ by: ["region"], where: { active: true, region: { in: enabled } }, _count: { _all: true } });
+  const counts = await db.diamondPackage.groupBy({ by: ["region"], where: { ...SELLABLE, region: { in: enabled } }, _count: { _all: true } });
   const names = await db.supplierProduct.findMany({ where: { regionSlug: { in: enabled } }, distinct: ["regionSlug"], select: { regionSlug: true, regionName: true } }).catch(() => []);
   return enabled
     .map((slug) => ({
@@ -44,11 +44,18 @@ export async function mainTopupRegion(): Promise<string> {
   return enabled.includes(DEFAULT_TOPUP_REGION) || enabled.length === 0 ? DEFAULT_TOPUP_REGION : enabled[0];
 }
 
-/** Paquetes visibles. Sin `regions`, solo los de la región principal. */
+/**
+ * Regla de la tienda: lo que no se puede comprar no se muestra. Un paquete inactivo, marcado «no disponible» en el
+ * panel o agotado en el proveedor se oculta solo de la tienda (inicio, recargas, buscador, regiones) y vuelve a
+ * aparecer solo cuando el proveedor lo tiene de nuevo (la sincronización del catálogo corre cada pocos minutos).
+ */
+export const SELLABLE = { active: true, available: true, supplierOutOfStock: false } satisfies Prisma.DiamondPackageWhereInput;
+
+/** Paquetes visibles (solo los que se pueden comprar). Sin `regions`, solo los de la región principal. */
 export async function getPackages(opts: { featuredOnly?: boolean; regions?: string[] } = {}): Promise<PackageView[]> {
   const regions = opts.regions ?? [await mainTopupRegion()];
   const rows = await db.diamondPackage.findMany({
-    where: { active: true, region: { in: regions }, ...(opts.featuredOnly ? { featured: true } : {}) },
+    where: { ...SELLABLE, region: { in: regions }, ...(opts.featuredOnly ? { featured: true } : {}) },
     orderBy: [{ sortOrder: "asc" }, { diamonds: "asc" }],
   });
   const views = rows.map((r) => ({
@@ -147,17 +154,22 @@ export type AccountFilters = {
   verifiedOnly?: boolean;
   ranks?: string[];
   tags?: string[];
-  onlyAvailable?: boolean;
   sort?: "recent" | "price_asc" | "price_desc" | "level_desc";
   featuredOnly?: boolean;
   take?: number;
 };
 
-const PUBLIC_STATUSES: AccountListing["status"][] = ["PUBLISHED", "RESERVED"];
+/**
+ * Cuentas que se pueden comprar ahora: publicadas, o reservadas cuya reserva ya venció (igual que listingAvailability).
+ * Las reservadas en otro checkout y las vendidas no se muestran en la tienda; si la reserva vence, vuelven solas.
+ */
+export function buyableAccountsWhere(now = new Date()): Prisma.AccountListingWhereInput {
+  return { OR: [{ status: "PUBLISHED" }, { status: "RESERVED", OR: [{ reservedUntil: null }, { reservedUntil: { lt: now } }] }] };
+}
 
 export async function getAccounts(f: AccountFilters = {}): Promise<AccountCardView[]> {
   const where: Prisma.AccountListingWhereInput = {
-    status: { in: PUBLIC_STATUSES },
+    AND: [buyableAccountsWhere()],
     ...(f.featuredOnly ? { featured: true } : {}),
     ...(f.minPrice != null || f.maxPrice != null ? { price: { gte: f.minPrice, lte: f.maxPrice } } : {}),
     ...(f.minLevel != null || f.maxLevel != null ? { level: { gte: f.minLevel, lte: f.maxLevel } } : {}),
@@ -177,14 +189,12 @@ export async function getAccounts(f: AccountFilters = {}): Promise<AccountCardVi
           : [{ featured: "desc" }, { createdAt: "desc" }];
 
   const rows = await db.accountListing.findMany({ where, orderBy, take: f.take ?? 60, include: { images: true, tags: true } });
-  let cards = rows.map((r) => toCard(r));
-  if (f.onlyAvailable) cards = cards.filter((c) => c.available);
-  return cards;
+  return rows.map((r) => toCard(r)).filter((c) => c.available);
 }
 
 export async function getAccountFacets() {
   const rows = await db.accountListing.findMany({
-    where: { status: { in: PUBLIC_STATUSES } },
+    where: buyableAccountsWhere(),
     select: { rank: true, price: true, region: true, tags: { select: { tag: true } } },
   });
   const tally = (list: Array<string | null>) => {
@@ -230,7 +240,7 @@ export async function getAccountBySlug(slug: string) {
 export type AccountDetail = NonNullable<Awaited<ReturnType<typeof getAccountBySlug>>>;
 
 export async function getRelatedAccounts(excludeId: string, take = 3) {
-  const all = await getAccounts({ onlyAvailable: true, take: take + 1 });
+  const all = await getAccounts({ take: take + 1 });
   return all.filter((a) => a.id !== excludeId).slice(0, take);
 }
 
@@ -320,12 +330,12 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
 }
 
 /**
- * ¿Se muestra la sección de cuentas? «auto» (predeterminado): solo si hay cuentas publicadas o reservadas,
+ * ¿Se muestra la sección de cuentas? «auto» (predeterminado): solo si hay cuentas que se pueden comprar ahora,
  * así la tienda nunca muestra un catálogo vacío; «on» siempre; «off» nunca.
  */
 export const accountsVisible = cache(async (): Promise<boolean> => {
   const s = await getSettings();
   if (s.accountsMode === "on") return true;
   if (s.accountsMode === "off") return false;
-  return (await db.accountListing.count({ where: { status: { in: PUBLIC_STATUSES } } }).catch(() => 0)) > 0;
+  return (await db.accountListing.count({ where: buyableAccountsWhere() }).catch(() => 0)) > 0;
 });

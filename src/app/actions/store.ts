@@ -251,7 +251,7 @@ export async function getCartLinesAction(refs: Array<{ kind: string; id: string 
       href: `/recargas?paquete=${p.slug}`,
       checkoutHref: `/recargas?paquete=${p.slug}`,
       image: null,
-      available: p.available,
+      available: p.available && !p.supplierOutOfStock,
       isDemo: p.isDemo,
       price: q.price,
       original: q.original,
