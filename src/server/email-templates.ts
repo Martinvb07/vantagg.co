@@ -281,7 +281,7 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 
 export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string };
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
@@ -291,6 +291,7 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
   const chat = { label: "Abrir chat de entrega", url: `${o.link}#chat` };
   const labels = account ? ["Pedido", "Pago", "Cuenta entregada"] : ["Pedido", "Pago", o.isPass ? "Entregado" : "Diamantes entregados"];
   const steps = (done: number, problem = false): Steps => ({ labels, done, problem });
+  const sorry = o.late ? "Perdón por la demora: tu pago tardó en confirmarse por una falla de nuestra parte, ya resuelta. " : "";
 
   const map: Record<OrderTemplate, { subject: string; block: Omit<Block, "rows"> }> = {
     order_created: {
@@ -313,14 +314,14 @@ export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email
     payment_confirmed: {
       subject: `Pago confirmado · ${o.number}`,
       block: account
-        ? { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado! La cuenta ya es tuya", intro: "Te entregamos los datos de acceso por el chat de tu pedido. Te avisamos por correo cuando te escribamos.", preheader: "Abre el chat de entrega de tu cuenta", cta: chat, note: test }
-        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: `${o.isPass ? `Estamos activando tu ${o.item} en tu ID.` : "Estamos enviando los diamantes a tu ID."} ${DELIVERY_TIME.processing}`, preheader: o.isPass ? "Estamos activando tu compra" : "Estamos enviando tus diamantes", cta: view, note: test },
+        ? { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado! La cuenta ya es tuya", intro: sorry + "Te entregamos los datos de acceso por el chat de tu pedido. Te avisamos por correo cuando te escribamos.", preheader: "Abre el chat de entrega de tu cuenta", cta: chat, note: test }
+        : { badge: "Pago confirmado", tone: "success", steps: steps(2), title: "¡Pago confirmado!", intro: `${sorry}${o.isPass ? `Estamos activando tu ${o.item} en tu ID.` : "Estamos enviando los diamantes a tu ID."} ${DELIVERY_TIME.processing}`, preheader: o.isPass ? "Estamos activando tu compra" : "Estamos enviando tus diamantes", cta: view, note: test },
     },
     delivered: {
       subject: account ? `Entrega completada · ${o.number}` : o.isPass ? `¡Tu compra llegó! · ${o.number}` : `¡Tus diamantes llegaron! · ${o.number}`,
       block: account
-        ? { badge: "Entregado", tone: "success", steps: steps(3), title: "Entrega completada", intro: "Cambia la contraseña y el correo de recuperación de la cuenta si aún no lo hiciste. El chat sigue abierto 7 días por si necesitas algo.", preheader: "Tu cuenta fue entregada", cta: view, note: test }
-        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros.", preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
+        ? { badge: "Entregado", tone: "success", steps: steps(3), title: "Entrega completada", intro: sorry + "Cambia la contraseña y el correo de recuperación de la cuenta si aún no lo hiciste. El chat sigue abierto 7 días por si necesitas algo.", preheader: "Tu cuenta fue entregada", cta: view, note: test }
+        : { badge: "Entregado", tone: "success", steps: steps(3), title: o.isPass ? "¡Tu compra llegó!" : "¡Tus diamantes llegaron!", intro: sorry + (o.isPass ? `Abre Free Fire: ${o.item} ya está en tu cuenta. Gracias por comprar con nosotros.` : "Abre Free Fire y revisa tu saldo. Gracias por comprar con nosotros."), preheader: "Recarga entregada", cta: { label: "Volver a recargar", url: `${b.appUrl}/recargas` }, secondary: { label: "Ver el detalle del pedido", url: o.link }, note: test },
     },
     delivery_failed: {
       subject: account ? `Estamos revisando tu entrega · ${o.number}` : `Tu recarga se está demorando · ${o.number}`,

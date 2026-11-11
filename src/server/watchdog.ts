@@ -1,15 +1,16 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { maintenanceStatus, runMaintenance } from "./maintenance";
-import { pollPendingPayments } from "./orders";
-import { notifyStaffOrderAlert, notifyStaffSystemAlert } from "./notifications";
+import { addEvent, pollPendingDeliveries, pollPendingPayments } from "./orders";
+import { notifyOrder, notifyStaffOrderAlert, notifyStaffSystemAlert } from "./notifications";
 import { enabledPaymentProviders } from "./integrations/payments";
 
 /**
  * Vigilante de la tienda: corre dentro del servidor (no depende de la tarea programada ni de los avisos de la pasarela).
  *  1. Cada 20 s confirma con la pasarela los pagos de la última media hora → la entrega sale en segundos.
  *  2. Si la tarea programada deja de llamar al mantenimiento (+6 min), lo hace la tienda cada 2 min y avisa al equipo.
- *  3. Recarga pagada y sin entregar hace +5 min → aviso al equipo (uno por pedido).
+ *  3. Recarga pagada y sin entregar hace +5 min → aviso al equipo y al cliente («tu pago está seguro»), uno por pedido.
+ *     Las entregas en curso se consultan al proveedor cada 30 s (se completan sin esperar el mantenimiento).
  *  4. Cada 10 min comprueba que la tienda pueda consultar a la pasarela; si falla dos veces seguidas, avisa.
  */
 const TICK_MS = 20_000;
@@ -21,6 +22,7 @@ const GATEWAY_EVERY_MS = 10 * 60_000;
 let busy = false;
 let lastSelfRun = 0;
 let lastStuckCheck = 0;
+let lastDeliveryPoll = 0;
 let lastGatewayCheck = 0;
 const gatewayFailures = new Map<string, number>();
 
@@ -54,6 +56,11 @@ export async function watchdogTick(now = Date.now()) {
       ).catch(() => {});
     }
 
+    if (now - lastDeliveryPoll >= 30_000) {
+      lastDeliveryPoll = now;
+      await pollPendingDeliveries().catch(() => 0);
+    }
+
     if (now - lastStuckCheck >= 60_000) {
       lastStuckCheck = now;
       await alertStuckPaid(now);
@@ -84,6 +91,11 @@ async function alertStuckPaid(now: number) {
       `El cliente pagó y la recarga lleva ${mins} min sin entregarse (estado: ${o.status === "PAID" ? "pagado" : "en proceso con el proveedor"}). La tienda la sigue reintentando sola.`,
       "Revisa el saldo y el estado en el proveedor; si hace falta, usa «Reintentar entrega» en el pedido.",
     ).catch(() => {});
+    // Al cliente: que sepa que su pago está seguro y que lo estamos resolviendo (una sola vez).
+    if (!(await db.orderEvent.count({ where: { orderId: o.id, type: "DELIVERY_ISSUE" } }))) {
+      await addEvent(o.id, "DELIVERY_ISSUE", "La entrega se está demorando. Nuestro equipo ya la está revisando; tu pago está seguro.", "SYSTEM", { public: true }).catch(() => {});
+    }
+    await notifyOrder(o.id, "delivery_failed").catch(() => {});
   }
 }
 

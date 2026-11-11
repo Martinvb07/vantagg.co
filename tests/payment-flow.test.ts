@@ -324,6 +324,34 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
   });
 
+  it("caos: vigilante, mantenimiento, página del cliente y 2 avisos de Bold a la vez → una sola compra; sin pago → ninguna", async () => {
+    const { watchdogTick } = await import("@/server/watchdog");
+    const { pollPendingPayments, expireStaleOrders: expire } = await import("@/server/orders");
+    // Pedido pagado en Bold: todos los caminos intentan confirmarlo al mismo tiempo.
+    const paid = await makeOrder();
+    payLink(paid.linkId, `TX-${RUN}-caos`);
+    const body = boldEvent("SALE_APPROVED", paid.order.number, `TX-${RUN}-caos`, 4900);
+    // Pedido NO pagado: los mismos caminos no deben comprar nada.
+    const unpaid = await makeOrder();
+    await Promise.allSettled([
+      watchdogTick(),
+      pollPendingPayments(),
+      checkPendingPayment(paid.order.id),
+      checkPendingPayment(unpaid.order.id),
+      postWebhook(body),
+      postWebhook(body),
+      expire(),
+      fulfillOrder(paid.order.id),
+      fulfillOrder(unpaid.order.id),
+    ]);
+    expect(await statusOf(paid.order.id)).toBe("DELIVERED");
+    expect(await db.delivery.count({ where: { orderId: paid.order.id } })).toBe(1);
+    expect(await db.payment.count({ where: { orderId: paid.order.id, status: "APPROVED" } })).toBe(1);
+    expect(fakes.topup.createTopUp).toHaveBeenCalledTimes(1);
+    expect(await statusOf(unpaid.order.id)).toBe("PENDING_PAYMENT");
+    expect(await db.delivery.count({ where: { orderId: unpaid.order.id } })).toBe(0);
+  });
+
   it("varios procesos de entrega a la vez → una sola compra al proveedor", async () => {
     const { order } = await makeOrder();
     await db.order.update({ where: { id: order.id }, data: { status: "PAID" } });
@@ -722,6 +750,12 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     await watchdogTick();
     expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringContaining("10 min"), expect.any(String));
     expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(fresh.order.id, "stuck", expect.anything(), expect.anything(), expect.anything());
+    // El cliente también se entera (una vez): «tu recarga se está demorando, tu pago está seguro».
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(order.id, "delivery_failed");
+    expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(fresh.order.id, "delivery_failed");
+    expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
+    await watchdogTick(Date.now() + 61_000);
+    expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
     expect(fakes.notify.notifyStaffSystemAlert).not.toHaveBeenCalled();
     // 7 min sin que la tarea programada llame: la tienda corre el mantenimiento por su cuenta y avisa.
     const maintenance = await import("@/server/maintenance");

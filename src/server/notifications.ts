@@ -131,7 +131,10 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     throw err;
   }
 
+  // Pago confirmado tarde (falla de la tienda): el correo de pago y el de entrega piden perdón por la demora.
+  const late = (template === "payment_confirmed" || template === "delivered") && (await db.orderEvent.count({ where: { orderId, type: "PAYMENT_CONFIRMED_LATE" } })) > 0;
   const email = orderEmail(await getBrand(), template, {
+    late,
     number: order.number,
     type: order.type,
     item: (order.itemSnapshot as { name?: string }).name ?? "Producto digital",
