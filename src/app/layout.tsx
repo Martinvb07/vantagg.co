@@ -59,6 +59,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // suppressHydrationWarning: extensiones como Grammarly o ColorZilla agregan atributos a <html>/<body>.
     <html lang="es-CO" className={`${inter.variable} ${sora.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
+        {/* Verificación del dominio en Meta (Facebook / Instagram): va en el HTML del servidor, no por JavaScript. */}
+        <meta name="facebook-domain-verification" content="o124mg9x28nsn70vv0zwe7j0fa29t1" />
         <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS }} />
       </head>
       <body className="min-h-dvh" suppressHydrationWarning>
