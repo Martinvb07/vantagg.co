@@ -68,6 +68,9 @@ jobs:
           outlog=$(pm2 jlist 2>/dev/null | node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{try{const p=JSON.parse(t).find(x=>x.name==="vanta");console.log(p?.pm2_env?.pm_out_log_path||"")}catch{console.log("")}})' || true)
           echo "== Mensajes de la tienda sobre avisos de pago (últimos):"
           cat "$errlog" "$outlog" 2>/dev/null | grep -a "\[webhook:" | sed -E 's/\(([A-Z]{2,4}-)?[A-Z0-9-]{4,}\)/(…)/g; s/[0-9]{6,}/…/g' | cut -c1-200 | tail -n 8 | sed 's/^/   /' || true
+          echo "== Avisos de Bold rechazados (de todos los registros, también de antes de reiniciar):"
+          r=$(cat logs/vanta.err*.log logs/vanta.out*.log 2>/dev/null | grep -a "\[webhook:bold\] rechazado" | sed -E 's/[0-9]{6,}/…/g' | cut -c1-260 | tail -n 6)
+          [ -n "$r" ] && printf '%s\n' "$r" | sed 's/^/   /' || echo "   (ninguno)"
           echo "== Vigilante de la tienda (pagos cada 20 s, mantenimiento de respaldo y avisos):"
           v=$(cat "$outlog" "$errlog" 2>/dev/null | grep -a "\[vigilante\]" | tail -n 3 | cut -c1-160)
           [ -n "$v" ] && printf '%s\n' "$v" | sed 's/^/   /' || echo "   ✖ no aparece en los registros (¿falta desplegar?)"
