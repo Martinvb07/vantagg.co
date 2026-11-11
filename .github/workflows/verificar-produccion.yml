@@ -123,6 +123,12 @@ jobs:
           printf '%s' "$p" | grep -q "No encontramos esta página" && ! printf '%s' "$p" | grep -qi "pago confirmado\|ID del jugador" && echo "  ✔ /pedido con token falso → página no encontrada (sin datos del pedido)" || echo "  ✖ /pedido con token falso no muestra «no encontrada»"
           revisar /api/orders/VX-0000-0000/chat 404
           echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
+          echo "== verificación del dominio en Meta (Facebook)"
+          for u in http://vantagg.co/ https://vantagg.co/; do
+            h=$(curl -sL --max-time 20 -A "facebookexternalhit/1.1" "$u" || true)
+            head=${h%%</head>*}
+            if printf '%s' "$head" | grep -q 'name="facebook-domain-verification" content="o124mg9x28nsn70vv0zwe7j0fa29t1"'; then echo "  ✔ $u → etiqueta en el <head> del HTML"; else echo "  ✖ $u → NO aparece la etiqueta en el <head>"; fi
+          done
           echo "== redirecciones"
           echo "  http://vantagg.co → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' http://vantagg.co/)"
           echo "  https://www.vantagg.co → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://www.vantagg.co/ || echo 'sin respuesta')"
