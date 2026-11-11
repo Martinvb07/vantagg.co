@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { ChevronRight, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Radar, Users } from "lucide-react";
 import { JsonLd } from "@/components/seo/json-ld";
-import { AccountGridCard } from "@/components/store/account-listing";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
 import { isHalloween } from "@/domain/season";
 import { packDetail, packTitle } from "@/domain/packs";
-import { RankEmblem } from "@/components/brand/rank-emblem";
 import { ProductTile } from "@/components/store/product-tile";
-import { FF_RANKS } from "@/domain/freefire";
 import { formatNumber, packageTitle } from "@/lib/money";
 import { db } from "@/lib/db";
 import { BannerSlot } from "@/components/store/banner-slot";
@@ -17,7 +14,7 @@ import { TopMonth } from "@/components/store/top-month";
 import { Container } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
-import { accountsVisible, getAccountFacets, getAccounts, getPackages, getLiveDeliveries } from "@/server/catalog";
+import { accountsVisible, getPackages, getLiveDeliveries } from "@/server/catalog";
 import { getSettings } from "@/server/settings";
 import { getPublicRanking } from "@/server/ranking";
 import type { Metadata } from "next";
@@ -75,18 +72,16 @@ const SHORTCUTS = [
 ];
 
 export default async function HomePage() {
-  const [packages, accounts, recent, settings, facets, heroBanners, ranking] = await Promise.all([getPackages(), getAccounts({ take: 12 }), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), getAccountFacets(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => []), getPublicRanking().catch(() => null)]);
+  const [packages, recent, settings, heroBanners, ranking] = await Promise.all([getPackages(), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => []), getPublicRanking().catch(() => null)]);
   const showAccounts = await accountsVisible();
   // Temporada: el banner de Halloween va de primero (los del panel siguen igual detrás).
   const banners = isHalloween()
     ? [{ id: "temporada-halloween", title: "Noche de Halloween: recarga tus diamantes", imageUrl: "/promo/hero-halloween.svg", imageMobileUrl: "/promo/m/hero-halloween.svg", href: "/recargas" }, ...heroBanners]
     : heroBanners;
-  const visibleAccounts = showAccounts ? accounts : [];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
   const passes = packages.filter((p) => p.pass);
   const bonusPct = diamondPacks[0]?.diamonds ? Math.round((diamondPacks[0].bonusDiamonds / diamondPacks[0].diamonds) * 100) : 0;
-  const rankChips = [...FF_RANKS].reverse().filter((r) => facets.rankCounts[r.id]);
 
   return (
     <>
@@ -151,37 +146,8 @@ export default async function HomePage() {
 
         <BannerSlot slot="HOME_TRUST" variant="wide" label="Cómo comprar" />
 
-        {/* Top 3 del mes: entre los banners, donde iban las cuentas (las cuentas, si hay, siguen debajo) */}
+        {/* Top 3 del mes: entre los banners, en el lugar que antes ocupaban las cuentas (el catálogo sigue en /cuentas) */}
         {ranking && <TopMonth data={ranking} />}
-
-        {/* Cuentas */}
-        {visibleAccounts.length > 0 && (
-          <section>
-            <RowHead title="Cuentas destacadas" sub="Cada cuenta es única · procedencia revisada antes de publicar" href="/cuentas" cta="Ver catálogo" />
-            {rankChips.length > 1 && (
-              <nav aria-label="Cuentas por rango" className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none]">
-                {rankChips.map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/cuentas?rango=${r.id}`}
-                    className="group flex h-11 shrink-0 items-center gap-2 rounded-full bg-ink-850 pl-1.5 pr-3.5 text-[13.5px] font-semibold ring-1 ring-white/[0.08] transition hover:bg-ink-800 hover:ring-white/20"
-                  >
-                    <span className="grid size-8 place-items-center rounded-full bg-white/[0.05]">
-                      <RankEmblem rank={r.id} className="size-6 transition-transform group-hover:scale-110" />
-                    </span>
-                    {r.label}
-                    <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-fg-subtle">{facets.rankCounts[r.id]}</span>
-                  </Link>
-                ))}
-              </nav>
-            )}
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleAccounts.slice(0, 3).map((a) => (
-                <AccountGridCard key={a.id} a={a} />
-              ))}
-            </div>
-          </section>
-        )}
 
         <BannerSlot slot="HOME_BOTTOM" variant="wide" label="Compra con confianza" />
       </Container>
