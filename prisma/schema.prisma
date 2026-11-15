@@ -440,6 +440,14 @@ model Order {
   chatStaffReadAt    DateTime? // última vez que el equipo vio el chat
   chatAttachments    ChatAttachment[]
 
+  // Caja (Panel → Caja): cierre en el que se contó la venta y, si después se reembolsó, cierre que contó ese reembolso.
+  cashCloseId   String?
+  cashClose     CashClose? @relation("CashCloseSales", fields: [cashCloseId], references: [id], onDelete: Restrict)
+  refundCloseId String?
+  refundClose   CashClose? @relation("CashCloseRefunds", fields: [refundCloseId], references: [id], onDelete: Restrict)
+
+  @@index([cashCloseId])
+  @@index([refundCloseId])
   @@index([status])
   @@index([type, chatLastAt])
   @@index([customerEmail])
@@ -689,4 +697,63 @@ model PromoBanner {
   active         Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+}
+
+/// Cierre de caja: corte de las ventas (normalmente cuando se recarga el saldo del proveedor). Una vez creado no se
+/// edita ni se borra. El número 0 es el inicio de la caja: agrupa las ventas anteriores para no contarlas.
+model CashClose {
+  id                   String   @id @default(cuid())
+  number               Int      @unique
+  opening              Boolean  @default(false)
+  closedAt             DateTime @default(now())
+  closedById           String?
+  closedByName         String?  @db.VarChar(191)
+  note                 String?  @db.Text
+  /// Ventas contadas (pedidos pagados que no se habían contado), en pesos.
+  orders               Int      @default(0)
+  salesCop             Int      @default(0)
+  /// Costo del proveedor de esas ventas, en centavos de su moneda (USD/USDT), y la tasa usada para pasarlo a pesos.
+  costCents            Int      @default(0)
+  usdtCop              Int      @default(0)
+  /// Comisión estimada de la pasarela (pesos).
+  feeCop               Int      @default(0)
+  /// Reembolsos de ventas contadas en cierres anteriores (se descuentan aquí).
+  refunds              Int      @default(0)
+  refundsCop           Int      @default(0)
+  refundsCostCents     Int      @default(0)
+  /// Entregas al proveedor entre el cierre anterior y este (incluye premios del Top 3): lo que gastó del saldo.
+  deliveries           Int      @default(0)
+  deliveriesCostCents  Int      @default(0)
+  prizes               Int      @default(0)
+  prizesCostCents      Int      @default(0)
+  /// Recargas de saldo anotadas en esta caja: centavos de la moneda del proveedor y lo que costaron en pesos.
+  rechargeCents        Int      @default(0)
+  rechargeCop          Int      @default(0)
+  /// Saldo del proveedor al cerrar y el que debía haber según la caja (null si no se pudo leer o no había punto de partida).
+  supplierBalanceCents Int?
+  expectedBalanceCents Int?
+  supplierCurrency     String?  @db.VarChar(8)
+  /// Detalle por medio de pago y por tipo de producto.
+  breakdown            Json
+  createdAt            DateTime @default(now())
+
+  sales     Order[] @relation("CashCloseSales")
+  refundsOf Order[] @relation("CashCloseRefunds")
+
+  @@index([closedAt])
+}
+
+/// Recarga de saldo al proveedor anotada en la caja (la recarga se hace en el panel del proveedor; aquí solo se registra).
+model SupplierRecharge {
+  id            String   @id @default(cuid())
+  /// Centavos de la moneda del proveedor (USD/USDT).
+  amountCents   Int
+  /// Pesos pagados por 1 USDT en esa compra (para saber cuánto costó en pesos).
+  rateCop       Int
+  note          String?  @db.VarChar(300)
+  createdById   String?
+  createdByName String?  @db.VarChar(191)
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
 }

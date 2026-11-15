@@ -4,6 +4,7 @@ import { useActionState, useCallback, useEffect, useRef, useState, type Componen
 import { useFormStatus } from "react-dom";
 import { CircleCheck, CircleX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NavNudge } from "@/components/layout/nav-nudge";
 import { cn } from "@/lib/utils";
 import type { ActionResult } from "@/app/actions/admin";
 
@@ -36,13 +37,15 @@ export function ActionForm({
     },
     [action],
   );
-  const [state, formAction] = useActionState(safeAction, null);
+  const [state, formAction, isPending] = useActionState(safeAction, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok && resetOnSuccess) ref.current?.reset();
   }, [state, resetOnSuccess]);
   return (
     <form ref={ref} action={formAction} className={className}>
+      {/* Mientras se guarda, empuja a React para que muestre la página actualizada apenas llegue (ver nav-nudge.tsx). */}
+      <NavNudge active={isPending} />
       {children}
       {state && !hideMessage && (
         <p role="status" className={cn("mt-2 flex items-start gap-1.5 text-[12.5px]", state.ok ? "text-ok-400" : "text-bad-400")}>

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Boxes,
+  Calculator,
   ChevronDown,
   ExternalLink,
   Flag,
@@ -45,6 +46,7 @@ const GROUPS: Group[] = [
       { href: "/admin/pedidos", label: "Pedidos", icon: Receipt, admin: false, badge: "orders" },
       { href: "/admin/chats", label: "Entregar cuentas", icon: MessagesSquare, admin: false, badge: "chats" },
       { href: "/admin/clientes", label: "Clientes", icon: UserRound, admin: false },
+      { href: "/admin/caja", label: "Caja", icon: Calculator, admin: true },
       { href: "/admin/ranking", label: "Ranking y premios", icon: Trophy, admin: true },
     ],
   },

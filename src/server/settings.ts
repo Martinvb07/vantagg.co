@@ -55,10 +55,13 @@ export const SETTING_DEFAULTS = {
   rankingMode: "on", // "on": se muestra en el inicio; "off": oculto
   rankingMinCop: "120000", // gasto mínimo en el mes (pesos) para ganar
   rankingPrizes: "2180,1060,520", // diamantes del paquete de premio de los puestos 1, 2 y 3
+  // Caja (Panel → Caja): comisión de la pasarela para estimar la ganancia (vacío = no se descuenta)
+  cashFeePct: "", // porcentaje por pago (p. ej. "3.29")
+  cashFeeFixed: "", // valor fijo por pago en pesos (p. ej. "900")
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "rankingMode", "rankingMinCop", "rankingPrizes"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "rankingMode", "rankingMinCop", "rankingPrizes", "cashFeePct", "cashFeeFixed"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;
