@@ -153,7 +153,8 @@ jobs:
           echo "  HTML → $(cab / 'content-encoding')"
           for f in "$css" "$js"; do [ -n "$f" ] && echo "  ${f##*/} → $(cab "$f" 'content-encoding|cache-control')"; done
           for f in /portadas/paquete-1.svg /promo/pasos-wide.svg /pagos/pse.webp /brand/diamantes-free-fire-256.webp; do echo "  $f → $(cab "$f" 'content-encoding|cache-control')"; done
-          n=$(printf '%s' "$home" | grep -o 'rel="preload"[^>]*as="font"' | wc -l); echo "  fuentes precargadas en el inicio: $n"
+          # Next precarga las fuentes en la cabecera HTTP «Link» (no en el HTML).
+          n=$(curl -sI --max-time 20 "$B/" | tr -d '\r' | grep -i '^link:' | grep -o 'as="font"' | wc -l || true); echo "  fuentes precargadas en el inicio: ${n:-0}"
           echo "== Top 3 del mes"
           revisar /legal/top-del-mes 200
           h=$(curl -s --max-time 20 "$B/" | tr '\n' ' ')
