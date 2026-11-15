@@ -161,7 +161,9 @@ jobs:
           sec=$(printf '%s' "$h" | grep -o 'aria-labelledby="top-del-mes".*>Bases</a>' | head -c 40000 || true)
           [ -n "$sec" ] && echo "  ✔ el inicio muestra el Top 3 del mes" || echo "  ✖ el inicio NO muestra el Top 3 del mes"
           printf '%s' "$sec" | grep -qE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' && echo "  ✖ hay un correo en la sección" || echo "  ✔ sin correos en la sección"
-          echo "  podio: $(printf '%s' "$sec" | grep -o 'ID [0-9][0-9]\*\*\*\*[0-9][0-9]' | wc -l) ocupado(s) · $(printf '%s' "$sec" | grep -o 'Puesto libre' | wc -l) libre(s)"
+          # Solo el podio (antes de «Persiguen el podio»): un puesto ocupado muestra «ID 12****89» o «Jugador VANTAGG».
+          podio=${sec%%Persiguen el podio*}
+          echo "  podio: $(printf '%s' "$podio" | grep -oE 'ID [0-9]{2}\*{4}[0-9]{2}|Jugador VANTAGG' | wc -l || true) ocupado(s) · $(printf '%s' "$podio" | grep -o 'Puesto libre' | wc -l || true) libre(s)"
           echo "== verificación del dominio en Meta (Facebook)"
           for u in http://vantagg.co/ https://vantagg.co/; do
             h=$(curl -sL --max-time 20 -A "facebookexternalhit/1.1" "$u" || true)

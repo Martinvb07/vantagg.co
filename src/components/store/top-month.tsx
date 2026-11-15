@@ -37,7 +37,8 @@ function Shine() {
   );
 }
 
-const playerLabel = (p: { taken: boolean; player: string | null }) => (p.taken ? `ID ${p.player}` : "Puesto libre");
+/** «ID 12****89» si tiene un ID enmascarado; si no (p. ej. solo compró cuentas), «Jugador VANTAGG». */
+const playerLabel = (p: { taken: boolean; player: string | null }) => (!p.taken ? "Puesto libre" : p.player?.includes("*") ? `ID ${p.player}` : (p.player ?? "Jugador VANTAGG"));
 
 export function TopMonth({ data }: { data: PublicRanking }) {
   const [first, ...rest] = data.podium;
