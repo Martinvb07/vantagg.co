@@ -10,7 +10,7 @@ const LOGOS = {
   visa: { src: "/pagos/visa.svg", alt: "Visa", pad: "px-1.5 py-[7px]" },
   mastercard: { src: "/pagos/mastercard.svg", alt: "Mastercard", pad: "px-2 py-1" },
   nequi: { src: "/pagos/nequi.svg", alt: "Nequi", pad: "px-1.5 py-[7px]" },
-  pse: { src: "/pagos/pse.jpg", alt: "PSE", pad: "p-[3px]" },
+  pse: { src: "/pagos/pse.webp", alt: "PSE", pad: "p-[3px]" },
   bancolombia: { src: "/pagos/bancolombia.svg", alt: "Botón Bancolombia", pad: "px-1" },
   breb: { src: "/pagos/bre-b.png", alt: "Bre-B", pad: "px-0.5" },
 } as const;

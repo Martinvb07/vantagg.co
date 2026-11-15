@@ -20,6 +20,8 @@ import { TICKET_STATUS, ticketRef, topicLabel } from "@/domain/support";
 import { getSettings } from "@/server/settings";
 import { awaitingCustomer, listUserTickets } from "@/server/support";
 import { logoutAction } from "@/app/actions/auth";
+import { rankingStanding } from "@/server/ranking";
+import { TopStanding } from "@/components/store/top-standing";
 import { logoutEverywhereAction } from "@/app/actions/profile";
 import { AvatarPicker } from "./avatar-picker";
 import { CopyChip, ThemePicker } from "./theme-picker";
@@ -75,6 +77,8 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
     getSettings(),
   ]);
 
+  // Su puesto en el Top 3 del mes (solo sus datos). Si falla, la cuenta se muestra igual.
+  const standing = await rankingStanding(account.email, { optIn: account.marketingOptIn }).catch(() => null);
   const sold = orders.filter((o) => (REVENUE_STATUSES as readonly OrderStatusValue[]).includes(o.status));
   const spent = sold.reduce((n, o) => n + o.total, 0);
   const diamonds = orders
@@ -284,6 +288,8 @@ export default async function AccountHome({ searchParams }: { searchParams: Prom
               </div>
             ))}
           </dl>
+
+          {standing && tab === "pedidos" && <TopStanding standing={standing} href={standing.optIn ? "/#top-del-mes" : "/cuenta?seccion=perfil"} className="mt-3" />}
 
           {/* Menú (celular y tablet) */}
           <nav className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:hidden" aria-label="Secciones de la cuenta">

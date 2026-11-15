@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useNavNudge } from "@/components/layout/nav-nudge";
 
 /**
  * Barra fina arriba de la pantalla mientras carga la siguiente sección.
@@ -12,6 +13,8 @@ export function NavProgress() {
   const search = useSearchParams();
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Mientras carga, empuja a React para que aplique la navegación apenas llegue la respuesta (ver nav-nudge.tsx).
+  useNavNudge(state === "loading");
 
   const clear = () => {
     timers.current.forEach(clearTimeout);

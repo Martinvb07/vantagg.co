@@ -56,7 +56,7 @@ const IDLE_AFTER_TOUCH_MS = 8000;
 const AUTO_MS = 6000;
 
 /**
- * Franjas anchas (varias): una a la vez. En el celular el banner sigue al dedo y encaja al soltar (sin pelear con el
+ * Franjas anchas (varias): una a la vez. Van a mitad de página, así que sus imágenes se cargan al acercarse (sin precarga). En el celular el banner sigue al dedo y encaja al soltar (sin pelear con el
  * desplazamiento vertical ni con el gesto de «atrás» del navegador); en escritorio, flechas y puntos. Avanza solo cada
  * 6 s, pero no mientras el mouse está encima, recién se tocó, la pestaña está oculta o el banner no está en pantalla.
  */
@@ -163,7 +163,6 @@ function WideSlider({ banners, label }: { banners: Banner[]; label: string }) {
               key={b.id}
               b={b}
               hidden={idx !== i}
-              priority={idx === 0}
               mobile={mobile}
               sizes="(min-width:1280px) 1200px, 100vw"
               className={cn("w-full rounded-none ring-0 hover:ring-0", mobile ? "aspect-[800/520] sm:aspect-[1600/400]" : "aspect-[1600/400]")}
@@ -292,7 +291,7 @@ function ScrollBanners({ banners, variant, label }: { banners: Banner[]; variant
       <div ref={ref} className={variant === "wide" ? wideRow : row}>
         {banners.map((b, i) =>
           variant === "wide" ? (
-            <BannerLink key={b.id} b={b} priority={i === 0} mobile={wideMobile} sizes="(min-width:1280px) 1200px, 100vw" className={cn("w-full snap-start rounded-none ring-0 sm:rounded-[18px] sm:ring-1", wideMobile ? "aspect-[800/520] sm:aspect-[1600/400]" : "aspect-[1600/400]")} />
+            <BannerLink key={b.id} b={b} mobile={wideMobile} sizes="(min-width:1280px) 1200px, 100vw" className={cn("w-full snap-start rounded-none ring-0 sm:rounded-[18px] sm:ring-1", wideMobile ? "aspect-[800/520] sm:aspect-[1600/400]" : "aspect-[1600/400]")} />
           ) : (
             <BannerLink key={b.id} b={b} priority={i < 2} sizes="(min-width:1024px) 600px, 88vw" className={cn("aspect-[1200/630] w-[88%] snap-start sm:w-[calc(50%-8px)]", variant === "rail" && "lg:w-[calc((100%-32px)/3)]")} />
           ),

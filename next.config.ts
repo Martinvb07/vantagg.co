@@ -21,6 +21,10 @@ const securityHeaders = [
   { key: "Origin-Agent-Cluster", value: "?1" },
 ];
 
+// Archivos de /public (portadas, banners, logos): Next los sirve con «max-age=0» y el navegador los vuelve a pedir en
+// cada visita. Un día de caché y, pasado ese día, se muestran al instante mientras se revisa si cambiaron.
+const publicAssetCache = { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" };
+
 const storageHost = (() => {
   try {
     return process.env.STORAGE_PUBLIC_URL ? new URL(process.env.STORAGE_PUBLIC_URL).hostname : null;
@@ -35,6 +39,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
+    // Fotos subidas (cada una con su nombre propio): la versión optimizada se guarda 7 días, no 60 segundos.
+    minimumCacheTTL: 604800,
     // Las imágenes SVG se muestran sin pasar por el optimizador (unoptimized): el optimizador no acepta SVG.
     dangerouslyAllowSVG: false,
     contentDispositionType: "attachment",
@@ -52,7 +58,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       // Logos de la marca: los correos los cargan desde la bandeja del cliente (otro origen).
-      { source: "/brand/:path*", headers: [{ key: "Cross-Origin-Resource-Policy", value: "cross-origin" }] },
+      { source: "/brand/:path*", headers: [{ key: "Cross-Origin-Resource-Policy", value: "cross-origin" }, publicAssetCache] },
+      { source: "/:dir(portadas|promo|pagos|temporada)/:path*", headers: [publicAssetCache] },
     ];
   },
 };

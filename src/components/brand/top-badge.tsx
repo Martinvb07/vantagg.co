@@ -64,7 +64,7 @@ export function TopBadge({ pos, className }: { pos: number; className?: string }
   const u = (n: string) => `url(#${n}${uid})`;
   const tier = pos === 1 ? "gold" : pos === 2 ? "ice" : pos === 3 ? "lime" : null;
   return (
-    <svg viewBox="0 0 64 64" className={cn("size-12 shrink-0", className)} aria-hidden>
+    <svg viewBox="0 0 64 64" className={cn("shrink-0", className)} aria-hidden>
       <defs>
         <linearGradient id={`body${uid}`} x1="0" y1="0" x2="0.3" y2="1">
           <stop offset="0" stopColor="#3a443e" />

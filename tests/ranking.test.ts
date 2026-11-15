@@ -51,7 +51,8 @@ vi.mock("@/server/settings", () => ({
 
 import { db } from "@/lib/db";
 import { compareRank, maskPlayer, parseMinCop, parsePeriodKey, parsePrizes, periodOf, previousPeriod } from "@/domain/ranking";
-import { awardPrize, computeRanking, getPublicRanking, notifyRankingClosed, PRIZE_PROVIDER, prizeKey } from "@/server/ranking";
+import { awardPrize, computeRanking, getPublicRanking, notifyRankingClosed, PRIZE_PROVIDER, prizeKey, rankingStanding, rankingStandingForOrder } from "@/server/ranking";
+import { standingText } from "@/components/store/top-standing";
 
 describe("Reglas del mes (hora de Colombia)", () => {
   it("el mes empieza a las 00:00 de Colombia (05:00 UTC)", () => {
@@ -181,6 +182,31 @@ describe.skipIf(!cfg.enabled)("Ranking y premios (base de pruebas)", () => {
 
     const winners = rows.filter((r) => r.qualifies);
     expect(winners.map((r) => r.email)).toEqual([mail("b"), mail("a"), `e${RUN}+promo@gmail.com`]); // A llegó antes que E
+  });
+
+  it("el puesto de cada cliente: podio, cuánto le falta y quién no participa", async () => {
+    const now = at(20);
+    const b = await rankingStanding(mail("b"), { now });
+    expect(b).toMatchObject({ pos: 1, prize: 2180, toPodium: 0, optIn: true, total: 200_000 });
+    expect(standingText(b!).title).toBe("Vas #1 en el Top 3 del mes");
+    // D aceptó ofertas pero no llega al mínimo: le faltan 20.000 para entrar y 40.001 para pasar al tercero (140.000),
+    // que se muestran redondeados a 45.000 para no revelar el monto exacto del tercero.
+    const d = await rankingStanding(mail("d"), { now });
+    expect(d).toMatchObject({ pos: null, optIn: true, toMin: 20_000, toPodium: 45_000, prize: null });
+    expect(standingText(d!).title).toContain("Te faltan");
+    // C compró más que todos pero no aceptó ofertas: no participa.
+    const c = await rankingStanding(mail("c"), { now });
+    expect(c).toMatchObject({ pos: null, optIn: false });
+    expect(standingText(c!).title).toBe("Participa por diamantes gratis");
+    // Cliente sin compras este mes que sí aceptó ofertas.
+    expect(await rankingStanding(`nuevo.${RUN}@example.com`, { now, optIn: true })).toMatchObject({ pos: null, total: 0, toMin: 120_000, optIn: true });
+
+    // En la página del pedido: solo pedidos reales entregados este mes de quien participa.
+    const num = (n: number) => `VT-${RUN}-${n}`.toUpperCase();
+    expect(await rankingStandingForOrder(num(1), now)).toMatchObject({ pos: 2 }); // pedido de A
+    expect(await rankingStandingForOrder(num(4), now)).toBeNull(); // C no aceptó ofertas
+    expect(await rankingStandingForOrder(num(8), now)).toBeNull(); // pedido de prueba
+    expect(await rankingStandingForOrder(num(1), closed)).toBeNull(); // ya es otro mes
   });
 
   it("la vista pública solo lleva puestos e IDs enmascarados (nunca correos ni montos)", async () => {

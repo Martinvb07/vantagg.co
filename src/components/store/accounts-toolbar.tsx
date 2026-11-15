@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { createPortal } from "react-dom";
 import { ArrowDownUp, ArrowLeft, Check, ChevronDown, ChevronRight, CircleDollarSign, Globe, LayoutGrid, List, Loader2, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trophy, TrendingUp, X } from "lucide-react";
 import { RankEmblem } from "@/components/brand/rank-emblem";
+import { NavNudge } from "@/components/layout/nav-nudge";
 import { RegionFlag } from "@/components/brand/region-flag";
 import { FF_RANKS, FF_REGIONS, PRICE_MAX, PRICE_MIN, PRICE_STEP, rankLabel } from "@/domain/freefire";
 import { cn } from "@/lib/utils";
@@ -387,6 +388,8 @@ export function AccountsToolbar({ facets, total }: { facets: AccountFacets; tota
 
   return (
     <div className="space-y-3">
+      {/* Los filtros cambian solo los parámetros de /cuentas: evita que la navegación quede en pausa (ver nav-nudge.tsx). */}
+      <NavNudge active={pending} />
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
         <form
           role="search"

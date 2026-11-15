@@ -142,6 +142,18 @@ jobs:
           printf '%s' "$p" | grep -q "No encontramos esta página" && ! printf '%s' "$p" | grep -qi "pago confirmado\|ID del jugador" && echo "  ✔ /pedido con token falso → página no encontrada (sin datos del pedido)" || echo "  ✖ /pedido con token falso no muestra «no encontrada»"
           revisar /api/orders/VX-0000-0000/chat 404
           echo "  /api/auth/google → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/api/auth/google" | cut -c1-60)…"
+          echo "== velocidad (medida desde un servidor de GitHub, lejos de Colombia)"
+          for p in / /recargas /pedido; do
+            curl -s -o /dev/null -H "Accept-Encoding: gzip, br" -w "  $p → HTTP/%{http_version} · primer byte %{time_starttransfer} s · completo %{time_total} s · %{size_download} bytes\n" "$B$p" || true
+          done
+          home=$(curl -s --max-time 20 "$B/")
+          css=$(printf '%s' "$home" | grep -o '/_next/static/css/[^"]*\.css' | head -n1)
+          js=$(printf '%s' "$home" | grep -o '/_next/static/chunks/[^"]*\.js' | head -n1)
+          cab() { curl -sI --max-time 20 -H "Accept-Encoding: gzip, br" "$B$1" | tr -d '\r' | grep -iE "^($2):" | sed -E 's/^([^:]+): */\1=/' | tr '\n' ' '; }
+          echo "  HTML → $(cab / 'content-encoding')"
+          for f in "$css" "$js"; do [ -n "$f" ] && echo "  ${f##*/} → $(cab "$f" 'content-encoding|cache-control')"; done
+          for f in /portadas/paquete-1.svg /promo/pasos-wide.svg /pagos/pse.webp /brand/diamantes-free-fire-256.webp; do echo "  $f → $(cab "$f" 'content-encoding|cache-control')"; done
+          n=$(printf '%s' "$home" | grep -o 'rel="preload"[^>]*as="font"' | wc -l); echo "  fuentes precargadas en el inicio: $n"
           echo "== Top 3 del mes"
           revisar /legal/top-del-mes 200
           h=$(curl -s --max-time 20 "$B/" | tr '\n' ' ')

@@ -23,6 +23,8 @@ import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { PurchaseTracker } from "@/components/analytics/purchase-tracker";
 import { chatState, listMessages, markRead } from "@/server/chat";
 import { OrderChat } from "@/components/orders/order-chat";
+import { rankingStandingForOrder } from "@/server/ranking";
+import { TopStanding } from "@/components/store/top-standing";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Estado del pedido", robots: { index: false, follow: false } };
@@ -62,6 +64,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     order = (await getOrderForCustomer(orderNumber, t, user)) ?? order;
   }
   const settings = await getSettings();
+  // Pedido entregado este mes: su puesto en el Top 3 (solo si participa). No se muestra al equipo ni si falla el cálculo.
+  const standing = order.status === "DELIVERED" && !order.viewerIsStaff ? await rankingStandingForOrder(order.number).catch(() => null) : null;
   const state = chatState(order);
   const chat = { state, messages: state === "hidden" ? [] : await listMessages(order.id) };
   if (state !== "hidden" && !order.viewerIsStaff) await markRead(order.id, "customer");
@@ -187,6 +191,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 <RotateCcw className="size-4" /> Recargar de nuevo
               </Link>
             )}
+            {standing && <TopStanding standing={standing} href="/#top-del-mes" compact className="mt-4 max-w-xl" />}
             {order.status === "PROCESSING" && order.type === "ACCOUNT" && (
               <p className="mt-1.5 text-[13px] text-fg-muted">Te entregamos la cuenta por el chat de abajo. Nunca te pediremos pagos adicionales ni códigos de tu banco.</p>
             )}
@@ -200,7 +205,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         {canPay && (
           <div className="mt-6 flex flex-col gap-3 rounded-[12px] bg-ink-800 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13.5px] text-fg-muted">
-              Puedes completar el pago hasta el <span className="text-fg">{formatDate(order.expiresAt)}</span>.
+              Puedes completar el pago hasta el <span className="text-fg">{formatDate(order.expiresAt).replace(/\.$/, "")}</span>.
             </p>
             <ResumePayment number={order.number} token={order.trackingToken} />
           </div>
@@ -246,7 +251,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             </h2>
             <dl className="mt-3 space-y-2 text-[13.5px]">
               <Row k="Fecha" v={formatDate(order.createdAt)} />
-              <Row k="Pagado con" v={PROVIDER_NAMES[order.paymentProvider] ?? order.paymentProvider} />
+              <Row k={order.paidAt ? "Pagado con" : "Medio de pago"} v={PROVIDER_NAMES[order.paymentProvider] ?? order.paymentProvider} />
               {order.paidAt && <Row k="Pagado" v={formatDate(order.paidAt)} />}
               {order.deliveredAt && <Row k="Entregado" v={formatDate(order.deliveredAt)} />}
               <Row k="Confirmación a" v={order.customerEmail} />

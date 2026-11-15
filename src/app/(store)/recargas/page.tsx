@@ -74,7 +74,19 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
           <div className="contents lg:sticky lg:top-24 lg:block lg:self-start">
             <div className="flex gap-4 lg:block">
               <div className="relative aspect-square w-24 shrink-0 self-start overflow-hidden rounded-[14px] bg-[#0b0f14] ring-1 ring-white/[0.08] sm:w-32 lg:w-full">
-                <img src={settings.topupCoverUrl || "/brand/diamantes-free-fire.webp"} alt="Diamantes Free Fire" className="absolute inset-0 size-full object-cover" />
+                {settings.topupCoverUrl ? (
+                  <img src={settings.topupCoverUrl} alt="Diamantes Free Fire" decoding="async" className="absolute inset-0 size-full object-cover" />
+                ) : (
+                  // En el celular se ve pequeña (96 px): se descarga la versión liviana; la grande solo en escritorio.
+                  <img
+                    src="/brand/diamantes-free-fire-720.webp"
+                    srcSet="/brand/diamantes-free-fire-256.webp 256w, /brand/diamantes-free-fire-720.webp 720w"
+                    sizes="(min-width: 1024px) 360px, (min-width: 640px) 128px, 96px"
+                    alt="Diamantes Free Fire"
+                    decoding="async"
+                    className="absolute inset-0 size-full object-cover"
+                  />
+                )}
               </div>
               <div className="min-w-0 lg:mt-5">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Diamantes Free Fire</h1>

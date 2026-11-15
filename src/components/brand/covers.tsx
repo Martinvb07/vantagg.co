@@ -41,7 +41,9 @@ export function DiamondCover({
     <div className={cn("relative aspect-square overflow-hidden bg-[#060a07]", className)} style={{ containerType: "inline-size" }} aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={coverFile(art ?? Math.max(1, Math.min(tier, 6)))} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full" />
-      {/* Halloween: calabaza abajo a la derecha (solo se ve en temporada, ver globals.css) */}
+      {/* Halloween: calabaza abajo a la derecha (solo se ve en temporada, ver globals.css). Sin loading="lazy": oculta
+          nunca terminaría de cargar y React (19.2) espera las imágenes nuevas antes de mostrar un cambio de página
+          dentro de la misma zona de carga: la navegación se quedaba pegada (pestañas de Mi cuenta, Rastrear pedido). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/temporada/calabaza.svg" alt="" decoding="async" draggable={false} className="halloween-only absolute bottom-[4%] right-[4%] w-[24%] drop-shadow-[0_4px_10px_rgba(255,138,31,0.45)]" />
 

@@ -117,6 +117,60 @@ export async function getPublicRanking(now = new Date()): Promise<PublicRanking 
 }
 
 // ---------------------------------------------------------------------------
+// Puesto de un cliente (para su cuenta y para la página de su pedido): solo sus propios datos.
+// ---------------------------------------------------------------------------
+
+/** Paso del redondeo de «te faltan $X para el podio». */
+const PODIUM_GAP_STEP = 5_000;
+
+export type Standing = {
+  month: string;
+  /** Aceptó ofertas por correo (sin eso no participa). */
+  optIn: boolean;
+  /** Lo que lleva pagado y entregado este mes. */
+  total: number;
+  minCop: number;
+  /** Puesto entre quienes participan (null si aún no llega al mínimo o no aceptó ofertas). */
+  pos: number | null;
+  /** Cuánto le falta para el mínimo (0 si ya llegó). */
+  toMin: number;
+  /** Cuánto le falta para entrar al podio (0 si ya está o si hay un puesto libre y ya llegó al mínimo). */
+  toPodium: number;
+  /** Diamantes del premio que se llevaría hoy (si está en el podio). */
+  prize: number | null;
+};
+
+export async function rankingStanding(email: string, opts: { optIn?: boolean; now?: Date } = {}): Promise<Standing | null> {
+  const cfg = await rankingConfig();
+  if (!cfg.enabled) return null;
+  const period = periodOf(opts.now ?? new Date());
+  const rows = await computeRanking(period, cfg.minCop);
+  const key = canonicalEmail(email);
+  const me = rows.find((r) => r.key === key);
+  const optIn = me?.optIn ?? opts.optIn ?? false;
+  const total = me?.total ?? 0;
+  const q = rows.filter((r) => r.qualifies);
+  const idx = q.findIndex((r) => r.key === key);
+  const pos = idx >= 0 ? idx + 1 : null;
+  const toMin = Math.max(0, cfg.minCop - total);
+  // Con el podio lleno hay que superar al tercero (el empate lo gana quien llegó primero); con un puesto libre basta el mínimo.
+  // La diferencia se redondea hacia arriba a $5.000: así nadie puede deducir cuánto lleva exactamente otra persona.
+  const third = q[2];
+  const toPodium = pos && pos <= 3 ? 0 : third ? Math.max(toMin, Math.ceil((third.total - total + 1) / PODIUM_GAP_STEP) * PODIUM_GAP_STEP) : toMin;
+  return { month: period.month, optIn, total, minCop: cfg.minCop, pos, toMin, toPodium, prize: pos && pos <= 3 ? cfg.prizes[pos - 1] : null };
+}
+
+/** Puesto del comprador de un pedido ya entregado este mes (compra real). null si no aplica o no participa. */
+export async function rankingStandingForOrder(number: string, now = new Date()): Promise<Standing | null> {
+  const o = await db.order.findUnique({ where: { number }, select: { customerEmail: true, status: true, isTest: true, paymentProvider: true, paidAt: true, total: true } });
+  if (!o || o.status !== "DELIVERED" || o.isTest || o.paymentProvider === PRIZE_PROVIDER || o.total <= 0 || !o.paidAt) return null;
+  const period = periodOf(now);
+  if (o.paidAt < period.start || o.paidAt >= period.end) return null;
+  const st = await rankingStanding(o.customerEmail, { now });
+  return st?.optIn ? st : null;
+}
+
+// ---------------------------------------------------------------------------
 // Premios
 // ---------------------------------------------------------------------------
 

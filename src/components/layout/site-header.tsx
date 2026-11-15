@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, Menu, Radar, Search, ShoppingBag, Users, X } from "lucide-react";
+import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, Radar, Search, ShoppingBag, Users, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { useCart } from "@/components/cart/cart-context";
 import { cn } from "@/lib/utils";
 import { SearchBox } from "./search-box";
 import { UserAvatar } from "@/components/account/user-avatar";
+import { logoutAction } from "@/app/actions/auth";
 
 const NAV = [
   { href: "/recargas", label: "Diamantes", icon: Gem },
@@ -334,6 +335,14 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
                 </Link>
               )}
             </div>
+            {/* En el celular «Salir» de Mi cuenta queda al final de una fila deslizable: aquí siempre está a la vista. */}
+            {user && (
+              <form action={logoutAction} className="mt-2">
+                <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-medium text-fg-muted ring-1 ring-white/[0.08] hover:bg-bad-400/10 hover:text-bad-400">
+                  <LogOut className="size-4" /> Cerrar sesión
+                </button>
+              </form>
+            )}
           </nav>
         </div>,
           document.body,
