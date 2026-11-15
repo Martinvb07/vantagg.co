@@ -420,6 +420,8 @@ model Order {
   paidAt          DateTime?
   deliveredAt     DateTime?
   cancelledAt     DateTime?
+  /// Cuándo se marcó como reembolsado (la contabilidad descuenta el reembolso ese día).
+  refundedAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -448,6 +450,8 @@ model Order {
 
   @@index([cashCloseId])
   @@index([refundCloseId])
+  @@index([paidAt])
+  @@index([refundedAt])
   @@index([status])
   @@index([type, chatLastAt])
   @@index([customerEmail])

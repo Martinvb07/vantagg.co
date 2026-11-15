@@ -127,6 +127,7 @@ jobs:
           revisar /acceso-equipo 404
           revisar /api/admin/pulse 404
           revisar /api/admin/export/caja/1 404
+          revisar /api/admin/export/contabilidad 404
           revisar /pagina-que-no-existe 404
           for p in /.env /.git/config /.env.production /package.json /prisma/schema.prisma /deploy/ecosystem.config.js /.next/server/app/page.js; do revisar "$p" 404 "(no debe exponerse)"; done
           c=$(estado -o /dev/null -w '%{redirect_url}' "$B/cuenta"); echo "  /cuenta sin sesión → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/cuenta")"

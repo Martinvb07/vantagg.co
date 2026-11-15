@@ -16,12 +16,13 @@ export async function GET(req: Request) {
   const orders = await db.order.findMany({ where: orderWhere(sp), orderBy: { createdAt: "desc" }, take: 10_000 });
 
   const csv = toCsv(
-    ["Pedido", "Creado (UTC)", "Pagado (UTC)", "Entregado (UTC)", "Tipo", "Producto", "Correo", "Nombre", "Teléfono", "ID jugador", "Subtotal", "Descuento", "Código", "Total", "Moneda", "Estado", "Pasarela", "Prueba"],
+    ["Pedido", "Creado (UTC)", "Pagado (UTC)", "Entregado (UTC)", "Reembolsado (UTC)", "Tipo", "Producto", "Correo", "Nombre", "Teléfono", "ID jugador", "Subtotal", "Descuento", "Código", "Total", "Moneda", "Estado", "Pasarela", "Prueba"],
     orders.map((o) => [
       o.number,
       o.createdAt,
       o.paidAt,
       o.deliveredAt,
+      o.refundedAt,
       o.type === "TOPUP" ? "Recarga" : "Cuenta",
       (o.itemSnapshot as { name?: string }).name ?? "",
       o.customerEmail,

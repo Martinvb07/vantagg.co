@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  BookOpenText,
   Boxes,
   Calculator,
   ChevronDown,
@@ -47,6 +48,7 @@ const GROUPS: Group[] = [
       { href: "/admin/chats", label: "Entregar cuentas", icon: MessagesSquare, admin: false, badge: "chats" },
       { href: "/admin/clientes", label: "Clientes", icon: UserRound, admin: false },
       { href: "/admin/caja", label: "Caja", icon: Calculator, admin: true },
+      { href: "/admin/contabilidad", label: "Contabilidad", icon: BookOpenText, admin: true },
       { href: "/admin/ranking", label: "Ranking y premios", icon: Trophy, admin: true },
     ],
   },

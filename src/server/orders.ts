@@ -187,6 +187,8 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
   if (promo && "error" in promo) return { ok: false, error: promo.error };
   const promoDiscountValue = promo?.discount ?? 0;
   const foreign = await foreignCharge(quote.price - promoDiscountValue, pkg.currency, payment).catch(() => null);
+  // Tasa del USDT de ese momento: la contabilidad pasa el costo a pesos con la tasa del día de la venta.
+  const usdtCop = pkg.costCents != null ? await Promise.resolve().then(() => supplierRate()).then((r) => r.usdtCop, () => null) : null;
 
   try {
     const order = await db.order.create({
@@ -213,6 +215,7 @@ export async function createTopUpOrder(input: unknown, userId: string | null): P
           region: pkg.region,
           regionName,
           costCents: pkg.costCents,
+          ...(usdtCop ? { usdtCop } : {}),
         },
         subtotal: quote.price,
         discount: promoDiscountValue,
@@ -955,7 +958,7 @@ export async function transitionOrder(orderId: string, to: OrderStatusValue, act
   const now = new Date();
   const res = await db.order.updateMany({
     where: { id: order.id, status: order.status },
-    data: { status: to, ...(to === "CANCELLED" ? { cancelledAt: now } : {}) },
+    data: { status: to, ...(to === "CANCELLED" ? { cancelledAt: now } : {}), ...(to === "REFUNDED" ? { refundedAt: now } : {}) },
   });
   if (res.count !== 1) return { ok: false, message: "La orden cambió mientras tanto. Recarga la página." };
   if (to === "CANCELLED") {
