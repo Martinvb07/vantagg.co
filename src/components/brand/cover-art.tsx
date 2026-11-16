@@ -293,34 +293,46 @@ function Star({ x, y, r, fill }: { x: number; y: number; r: number; fill: string
   return <path d={`M${pts.join(" L")}Z`} fill={fill} stroke="#3b2203" strokeWidth="2.2" strokeLinejoin="round" />;
 }
 
-/** Fragmento de arma Evo: cristal violeta tallado (centro x, punta superior y, ancho, alto, giro). */
-const EVO = ["#f6ecff", "#d9b0ff", "#ad6dff", "#7f3cf2", "#4f1abb", "#1d0649"];
-function Shard({ cx, top, w, h, tilt = 0, edge = true }: { cx: number; top: number; w: number; h: number; tilt?: number; edge?: boolean }) {
-  const y1 = top + h * 0.26;
-  const y2 = top + h * 0.78;
-  const bot = top + h;
-  const [l, r] = [cx - w / 2, cx + w / 2];
-  const [l2, r2] = [cx - w * 0.36, cx + w * 0.36];
-  return (
-    <g transform={`rotate(${tilt} ${cx} ${top + h / 2})`} strokeLinejoin="round">
-      <path d={`M${cx} ${top} L${l} ${y1} L${l2} ${y2} L${cx} ${bot}Z`} fill={EVO[2]} />
-      <path d={`M${cx} ${top} L${r} ${y1} L${r2} ${y2} L${cx} ${bot}Z`} fill={EVO[4]} />
-      <path d={`M${cx} ${top} L${cx - w * 0.14} ${y1 + h * 0.06} L${cx} ${bot} L${cx + w * 0.12} ${y1 + h * 0.08}Z`} fill={EVO[1]} />
-      <path d={`M${cx} ${top} L${l} ${y1} L${cx - w * 0.14} ${y1 + h * 0.06}Z`} fill={EVO[0]} />
-      <path d={`M${r} ${y1} L${r2} ${y2} L${cx + w * 0.12} ${y1 + h * 0.08}Z`} fill={EVO[3]} />
-      <path d={`M${cx} ${top} L${r} ${y1} L${r2} ${y2} L${cx} ${bot} L${l2} ${y2} L${l} ${y1}Z`} fill="none" stroke={INK} strokeWidth={Math.max(1.6, w * 0.07)} />
-      {/* Grieta de energía lima: lo que la hace «Evo» */}
-      {edge && <path d={`M${cx - w * 0.22} ${y1 + h * 0.16} L${cx + w * 0.04} ${top + h * 0.5} L${cx - w * 0.06} ${top + h * 0.58} L${cx + w * 0.2} ${y2 - h * 0.04}`} fill="none" stroke={LIME_SOFT} strokeWidth={Math.max(1.2, w * 0.05)} strokeLinecap="round" strokeLinejoin="round" />}
-    </g>
-  );
-}
+/** Armas Evo: turquesa como el token Evo universal del juego. */
+const TEAL = ["#eafeff", "#aef4fb", "#62dcea", "#27b6c8", "#137f92", "#0a4c59", "#05262e"];
+const hexPts = (cx: number, cy: number, r: number) => [0, 60, 120, 180, 240, 300].map((a) => [cx + r * Math.cos((a * Math.PI) / 180), cy + r * Math.sin((a * Math.PI) / 180)] as const);
+const poly = (pts: ReadonlyArray<readonly [number, number]>) => `M${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L")}Z`;
 
-/** Rayo de Evo (el mismo del acceso Evo), centrado en x, y con escala s. */
-function EvoBolt({ x, y, s = 1, u }: { x: number; y: number; s?: number; u: (n: string) => string }) {
+/**
+ * Fragmento (token) Evo: hexágono turquesa con bisel brillante y un átomo blanco al centro, como el del juego.
+ * `face`: id del degradado de la cara (definido en la escena).
+ */
+function Token({ cx, cy, r, u, face }: { cx: number; cy: number; r: number; u: (n: string) => string; face: string }) {
+  const outer = hexPts(cx, cy, r);
+  const inner = hexPts(cx, cy, r * 0.78);
+  // Bisel: arriba claro (le da la luz), abajo oscuro.
+  const shade = [TEAL[4], TEAL[5], TEAL[3], TEAL[2], TEAL[0], TEAL[1]];
+  const w = Math.max(1.4, r * 0.085);
+  const orbit = (rot: number, color: string, dx = 0, dy = 0) => (
+    <ellipse cx={cx + dx} cy={cy + dy} rx={r * 0.5} ry={r * 0.2} fill="none" stroke={color} strokeWidth={w} transform={`rotate(${rot} ${cx + dx} ${cy + dy})`} />
+  );
   return (
-    <g transform={`translate(${x} ${y}) scale(${s}) translate(-101 -89)`}>
-      <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME} filter={u("soft")} opacity="0.7" />
-      <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME_SOFT} stroke={INK} strokeWidth="2.4" strokeLinejoin="round" />
+    <g strokeLinejoin="round">
+      <path d={poly(hexPts(cx, cy, r * 1.1))} fill={TEAL[2]} opacity="0.5" filter={u("soft")} />
+      {outer.map((p, i) => {
+        const q = outer[(i + 1) % 6];
+        return <path key={i} d={poly([p, q, inner[(i + 1) % 6], inner[i]])} fill={shade[i]} />;
+      })}
+      <path d={poly(inner)} fill={`url(#${face})`} />
+      {/* Brillo de galaxia en la cara */}
+      {[[-0.38, -0.3, 0.05], [0.42, 0.18, 0.04], [-0.2, 0.42, 0.035], [0.3, -0.46, 0.03]].map(([dx, dy, k], i) => (
+        <circle key={i} cx={cx + dx * r} cy={cy + dy * r} r={r * k} fill="#fff" opacity="0.55" />
+      ))}
+      {/* Átomo: sombra y trazo blanco */}
+      {[90, 30, -30].map((rot) => (
+        <g key={rot}>{orbit(rot, TEAL[6], r * 0.025, r * 0.04)}</g>
+      ))}
+      {[90, 30, -30].map((rot) => (
+        <g key={rot}>{orbit(rot, "#ffffff")}</g>
+      ))}
+      <circle cx={cx} cy={cy} r={r * 0.1} fill="#fff" />
+      <path d={poly(inner)} fill="none" stroke={TEAL[0]} strokeOpacity="0.55" strokeWidth={Math.max(0.8, r * 0.025)} />
+      <path d={poly(outer)} fill="none" stroke={INK} strokeWidth={Math.max(1.6, r * 0.05)} />
     </g>
   );
 }
@@ -415,56 +427,91 @@ function PassScene({ kind, u }: { kind: PassArt; u: (n: string) => string }): Re
           <RingFront cx={100} cy={136} rx={58} ry={12} u={u} />
         </>
       );
-    // Fragmentos de arma Evo: un cristal grande con dos más pequeños y astillas alrededor
-    case "evo-frag":
+    // Fragmentos de arma Evo: el token turquesa del juego (hexágono con átomo), con dos más atrás
+    case "evo-frag": {
+      const face = u("tface").slice(5, -1);
       return (
         <>
+          <defs>
+            <radialGradient id={face} cx="0.42" cy="0.36" r="0.75">
+              <stop offset="0" stopColor="#2cc3d2" />
+              <stop offset="0.55" stopColor="#0f7686" />
+              <stop offset="1" stopColor="#063943" />
+            </radialGradient>
+          </defs>
           <RingBack cx={100} cy={136} rx={60} ry={12} />
-          <circle cx="100" cy="84" r="52" fill={EVO[3]} opacity="0.16" />
-          <circle cx="100" cy="84" r="34" fill={EVO[2]} opacity="0.2" />
-          <Shard cx={54} top={66} w={24} h={46} tilt={-30} />
-          <Shard cx={148} top={56} w={26} h={50} tilt={26} />
-          <Shard cx={100} top={26} w={46} h={104} tilt={6} />
-          <Shard cx={70} top={34} w={10} h={18} tilt={-18} edge={false} />
-          <Shard cx={138} top={114} w={11} h={19} tilt={34} edge={false} />
-          <Shard cx={40} top={112} w={9} h={15} tilt={-40} edge={false} />
+          <circle cx="100" cy="84" r="58" fill={TEAL[3]} opacity="0.14" />
+          <g transform="rotate(-16 50 108)">
+            <Token cx={50} cy={108} r={19} u={u} face={face} />
+          </g>
+          <g transform="rotate(14 152 70)">
+            <Token cx={152} cy={70} r={16} u={u} face={face} />
+          </g>
+          <Token cx={100} cy={84} r={48} u={u} face={face} />
+          <use href={`#${u("spark").slice(5, -1)}`} transform="translate(128 44) scale(0.9)" opacity="0.95" />
           <RingFront cx={100} cy={136} rx={60} ry={12} u={u} />
         </>
       );
-    // Cajas de fragmentos Evo: cofre negro con bordes lima, tapa abierta y fragmentos saliendo con luz violeta
-    case "evo-box":
+    }
+    // Cajas de fragmentos Evo: el cofre gris del juego (tapa de franjas, luces turquesa y el átomo al frente)
+    case "evo-box": {
+      const id = (n: string) => u(n).slice(5, -1);
       return (
         <>
+          <defs>
+            <linearGradient id={id("cbody")} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#415254" />
+              <stop offset="1" stopColor="#192224" />
+            </linearGradient>
+            <linearGradient id={id("clid2")} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#566a6c" />
+              <stop offset="1" stopColor="#2a3537" />
+            </linearGradient>
+            <linearGradient id={id("crib")} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#ecf8f8" />
+              <stop offset="1" stopColor="#86a4a6" />
+            </linearGradient>
+          </defs>
           <RingBack cx={100} cy={138} rx={64} ry={12} />
-          <circle cx="100" cy="74" r="50" fill={EVO[3]} opacity="0.16" />
-          {/* Luz que sale de la caja */}
-          <path d="M64 84 L44 28 H160 L134 84Z" fill={EVO[2]} opacity="0.16" />
-          <path d="M74 84 L64 36 H140 L124 84Z" fill={EVO[1]} opacity="0.14" />
-          {/* Fragmentos saliendo */}
-          <Shard cx={78} top={42} w={16} h={30} tilt={-22} />
-          <Shard cx={124} top={38} w={18} h={34} tilt={20} />
-          <Shard cx={101} top={26} w={22} h={42} tilt={4} />
-          {/* Tapa abierta, inclinada hacia atrás */}
-          <path d="M50 76 L74 54 L150 56 L126 80Z" fill={u("lid")} stroke={INK} strokeWidth="2.8" strokeLinejoin="round" />
-          <path d="M57 75 L76 58 L143 60 L124 77Z" fill="none" stroke={LIME} strokeWidth="1.8" strokeLinejoin="round" />
-          {/* Boca de la caja (adentro, violeta) */}
-          <path d="M56 86 L78 76 L146 76 L124 86Z" fill={EVO[5]} stroke={INK} strokeWidth="2.6" strokeLinejoin="round" />
-          <path d="M66 85 L82 79 L136 79 L120 85Z" fill={EVO[3]} opacity="0.9" />
-          {/* Cuerpo: frente y costado */}
-          <path d="M124 86 L146 76 V122 L124 136Z" fill="#141a17" stroke={INK} strokeWidth="2.8" strokeLinejoin="round" />
-          <rect x="56" y="86" width="68" height="50" rx="3" fill={u("dark")} stroke={INK} strokeWidth="2.8" />
-          <rect x="61" y="91" width="58" height="40" rx="2.5" fill="none" stroke={LIME} strokeWidth="1.8" />
-          <path d="M129 89 L141 83.5 V119 L129 126Z" fill="none" stroke={LIME} strokeWidth="1.5" strokeOpacity="0.55" strokeLinejoin="round" />
-          {/* Esquinas metálicas */}
-          {[[56, 86], [124, 86], [56, 136], [124, 136]].map(([x, y], i) => (
-            <rect key={i} x={x - 4} y={y - 4} width="8" height="8" rx="1.5" fill={LIME} stroke={INK} strokeWidth="1.6" />
+          <circle cx="100" cy="98" r="58" fill={TEAL[3]} opacity="0.14" />
+          <ellipse cx="100" cy="137" rx="52" ry="6" fill={TEAL[2]} opacity="0.55" filter={u("soft")} />
+          {/* Cuerpo */}
+          <rect x="50" y="90" width="100" height="46" rx="5" fill={`url(#${id("cbody")})`} stroke={INK} strokeWidth="2.8" />
+          <rect x="62" y="96" width="76" height="33" rx="3" fill="#1e282a" stroke="#0b1213" strokeWidth="1.4" />
+          {/* Luces turquesa a los lados y abajo */}
+          {[54, 142].map((x) => (
+            <g key={x}>
+              <rect x={x} y="94" width="4" height="38" rx="2" fill={TEAL[2]} filter={u("soft")} />
+              <rect x={x} y="94" width="4" height="38" rx="2" fill={TEAL[1]} />
+            </g>
           ))}
-          {/* Emblema Evo al frente */}
-          <path d="M90 96 L104 104 V120 L90 128 L76 120 V104Z" fill="#0c100e" stroke={LIME} strokeWidth="1.6" strokeLinejoin="round" />
-          <EvoBolt x={90} y={112} s={0.42} u={u} />
+          <rect x="62" y="131" width="76" height="2.6" rx="1.3" fill={TEAL[2]} filter={u("soft")} />
+          <rect x="62" y="131" width="76" height="2.2" rx="1.1" fill={TEAL[1]} />
+          {/* Tapa: franja delantera y franjas acolchadas arriba */}
+          {Array.from({ length: 6 }, (_, i) => {
+            const x0 = 50 + i * 16.67 + 1;
+            const x1 = x0 + 14.7;
+            const b0 = 100 + (x0 - 100) * 0.84;
+            const b1 = 100 + (x1 - 100) * 0.84;
+            return <path key={i} d={`M${x0.toFixed(1)} 75 L${b0.toFixed(1)} 61 C${b0.toFixed(1)} 55 ${b1.toFixed(1)} 55 ${b1.toFixed(1)} 61 L${x1.toFixed(1)} 75Z`} fill={`url(#${id("crib")})`} stroke="#18232a" strokeWidth="1.5" strokeLinejoin="round" />;
+          })}
+          <rect x="46" y="74" width="108" height="19" rx="4" fill={`url(#${id("clid2")})`} stroke={INK} strokeWidth="2.8" />
+          <path d="M52 78 H148" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="52" y="88.6" width="96" height="2.2" rx="1.1" fill={TEAL[1]} opacity="0.95" />
+          {/* Cierre y emblema del átomo */}
+          <rect x="94" y="87" width="12" height="9" rx="2" fill="#111a1b" stroke={TEAL[2]} strokeWidth="1.2" />
+          <circle cx="100" cy="113" r="13" fill={TEAL[2]} opacity="0.5" filter={u("soft")} />
+          <circle cx="100" cy="113" r="11.5" fill="#0c1517" stroke={TEAL[1]} strokeWidth="2" />
+          <g fill="none" stroke={TEAL[0]} strokeWidth="1.5">
+            {[90, 30, -30].map((rot) => (
+              <ellipse key={rot} cx="100" cy="113" rx="7.2" ry="2.7" transform={`rotate(${rot} 100 113)`} />
+            ))}
+          </g>
+          <circle cx="100" cy="113" r="1.6" fill={TEAL[0]} />
           <RingFront cx={100} cy={138} rx={64} ry={12} u={u} />
         </>
       );
+    }
     // Paquete de nivel: escudo con flechas hacia arriba
     case "level":
       return (

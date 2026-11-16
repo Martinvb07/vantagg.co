@@ -4,9 +4,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
 import { isHalloween } from "@/domain/season";
-import { isEvoKind, packDetail, packPath, packTitle } from "@/domain/packs";
-import { EvoBanner } from "@/components/store/evo-cover";
-import { formatMoney } from "@/lib/money";
+import { isEvoKind, packDetail, packPath, packTitle, passGroup } from "@/domain/packs";
 import { ProductTile } from "@/components/store/product-tile";
 import { formatNumber, packageTitle } from "@/lib/money";
 import { db } from "@/lib/db";
@@ -83,8 +81,8 @@ export default async function HomePage() {
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
   const passes = packages.filter((p) => p.pass && !isEvoKind(p.pass));
-  const evoPacks = packages.filter((p) => isEvoKind(p.pass));
-  const evoPrices = evoPacks.filter((p) => p.available).map((p) => p.quote.price);
+  const evoFrags = packages.filter((p) => p.pass && passGroup(p.pass) === "evo-frag");
+  const evoBoxes = packages.filter((p) => p.pass && passGroup(p.pass) === "evo-box");
   const bonusPct = diamondPacks[0]?.diamonds ? Math.round((diamondPacks[0].bonusDiamonds / diamondPacks[0].diamonds) * 100) : 0;
 
   return (
@@ -145,11 +143,17 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* Armas Evo: fragmentos y cajas Evo (servicio propio, con su página) */}
-        {evoPacks.length > 0 && (
-          <section id="armas-evo" className="scroll-mt-24 space-y-5">
-            <EvoBanner href="/armas-evo" from={evoPrices.length ? formatMoney(Math.min(...evoPrices)) : null} />
-            <PackGrid packs={evoPacks} />
+        {/* Armas Evo: fragmentos y, debajo, las cajas (como diamantes y tarjetas) */}
+        {evoFrags.length > 0 && (
+          <section id="fragmentos-evo" className="scroll-mt-24">
+            <RowHead title="Fragmentos Evo" sub="Tokens para tus armas Evo · directo a tu ID" href="/armas-evo" cta="Ver todo" />
+            <PackGrid packs={evoFrags} />
+          </section>
+        )}
+        {evoBoxes.length > 0 && (
+          <section id="cajas-evo" className="scroll-mt-24">
+            <RowHead title="Cajas de fragmentos Evo" sub="Ábrelas en el juego y recibe tokens · directo a tu ID" href="/armas-evo" cta="Ver todo" />
+            <PackGrid packs={evoBoxes} />
           </section>
         )}
 

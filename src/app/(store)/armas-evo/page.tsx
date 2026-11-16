@@ -14,7 +14,7 @@ import { getPackages, getTopupRegions, mainTopupRegion } from "@/server/catalog"
 import { publicPaymentOptions } from "@/server/integrations/payments";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
-import { isEvoKind, passGroup } from "@/domain/packs";
+import { isEvoKind } from "@/domain/packs";
 import { parsePaymentMethods } from "@/domain/payment-methods";
 import { maintenanceNotice } from "@/domain/maintenance";
 
@@ -25,11 +25,6 @@ export const metadata: Metadata = {
   description: "Compra fragmentos de arma Evo y cajas de fragmentos Evo de Free Fire con tu ID de jugador. Pago en pesos colombianos y entrega automática.",
   alternates: { canonical: "/armas-evo" },
 };
-
-const KINDS = [
-  { group: "evo-frag", title: "Fragmentos de arma Evo", text: "Mejoran tus armas evolutivas." },
-  { group: "evo-box", title: "Cajas de fragmentos Evo", text: "Ábrelas en el juego y recibe fragmentos." },
-] as const;
 
 export default async function ArmasEvoPage({ searchParams }: { searchParams: Promise<{ paquete?: string; id?: string; region?: string }> }) {
   const { paquete, id, region } = await searchParams;
@@ -46,7 +41,6 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
   const paused = maintenanceNotice(settings);
   const prices = packages.filter((p) => p.available).map((p) => p.quote.price);
   const from = prices.length ? Math.min(...prices) : null;
-  const groups = new Set(packages.map((p) => passGroup(p.pass!)));
 
   return (
     <>
@@ -89,19 +83,6 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
                   </li>
                 </ul>
               </div>
-            </div>
-
-            <div className="grid gap-2 max-lg:order-3 lg:mt-5">
-              {KINDS.filter((k) => groups.has(k.group)).map((k) => (
-                <div key={k.group} className="flex items-center gap-3 rounded-[12px] bg-ink-850 p-2.5 pr-4 ring-1 ring-white/[0.07]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/portadas/pase-${k.group}.svg`} alt="" decoding="async" className="size-12 shrink-0 rounded-[9px]" />
-                  <span className="min-w-0">
-                    <span className="block text-[13.5px] font-semibold">{k.title}</span>
-                    <span className="block text-[12.5px] text-fg-muted">{k.text}</span>
-                  </span>
-                </div>
-              ))}
             </div>
 
             <FindPlayerId className="max-lg:order-2 lg:mt-5" />
