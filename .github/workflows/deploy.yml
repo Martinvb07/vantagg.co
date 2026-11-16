@@ -138,6 +138,9 @@ jobs:
             fi
             npx prisma migrate deploy
             rm -rf .next-nuevo
+            # Los tipos generados del build en uso (.next/types, solo para revisar tipos; la tienda no los usa) entran en la
+            # revisión del build nuevo por tsconfig («.next/types/**/*.ts»): si una página se movió o se borró, falla.
+            rm -rf .next/types .next-viejo/types
             # next/font descarga las fuentes de Google al compilar y a veces Google responde mal: un reintento.
             NEXT_DIST_DIR=.next-nuevo npm run build || { echo "Reintentando el build en 20 s..."; sleep 20; NEXT_DIST_DIR=.next-nuevo npm run build; }
             rm -rf .next-viejo
