@@ -32,7 +32,7 @@ export function Stat({ label, value, hint, tone }: { label: string; value: React
   return (
     <div className="rounded-[12px] border border-white/[0.07] bg-ink-850 p-4">
       <p className="text-[12px] text-fg-muted">{label}</p>
-      <p className={cn("mt-1.5 font-display text-2xl font-semibold tabular-nums", tone === "warn" && "text-warn-400", tone === "bad" && "text-bad-400", tone === "ok" && "text-ok-400")}>{value}</p>
+      <p className={cn("mt-1.5 break-words font-display text-[clamp(1.15rem,5.2vw,1.5rem)] font-semibold leading-tight tabular-nums", tone === "warn" && "text-warn-400", tone === "bad" && "text-bad-400", tone === "ok" && "text-ok-400")}>{value}</p>
       {hint && <p className="mt-1 text-[11.5px] text-fg-subtle">{hint}</p>}
     </div>
   );
