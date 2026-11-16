@@ -7,18 +7,39 @@
  * - Entregas: lo que de verdad salió del saldo del proveedor (incluye premios del Top 3), para el cuadre.
  */
 
-export type FeeConfig = { pct: number; fixed: number };
+/**
+ * Comisión de la pasarela. «bold» (predeterminada): la tarifa de Bold para pagos en línea según el medio de pago, con
+ * IVA — es un aproximado. «manual»: porcentaje y valor fijo por pago escritos en Caja (ya con IVA).
+ */
+export type FeeConfig = { mode: "bold" | "manual"; pct: number; fixed: number };
 
-/** Comisión de la pasarela configurada en la caja: porcentaje y valor fijo por pago (ambos opcionales). */
+/**
+ * Tarifa aproximada de Bold para link de pago / pagos en línea (comparativas de pasarelas de 2026): tarjetas 2,99 % +
+ * $900; PSE, Botón Bancolombia y billeteras (Nequi, Daviplata) 2,89 % + $900; más IVA (19 %) sobre la comisión. Las
+ * retenciones de ley de las tarjetas no se cuentan: son anticipos de impuestos, no gasto.
+ */
+export const BOLD_FEES = { card: 2.99, transfer: 2.89, fixed: 900, iva: 0.19 } as const;
+const TRANSFER_METHODS = /^(PSE|NEQUI|DAVIPLATA|BOTON_BANCOLOMBIA|BANCOLOMBIA_TRANSFER|BANCOLOMBIA|BRE_?B|QR|DAVIVIENDA|DALE|MOVII)/;
+
+/** Porcentaje de Bold para un medio de pago (si no se sabe, el de tarjeta, que es el más alto). */
+export function boldRate(method: string | null | undefined): number {
+  const m = String(method ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return TRANSFER_METHODS.test(m) ? BOLD_FEES.transfer : BOLD_FEES.card;
+}
+
+/** Comisión configurada en Caja: si hay porcentaje o valor fijo escritos, esos; si no, la de Bold automática. */
 export function parseFee(pct: string | null | undefined, fixed: string | null | undefined): FeeConfig {
   const p = Number(String(pct ?? "").trim().replace(",", "."));
   const f = Number(String(fixed ?? "").replace(/\D/g, ""));
-  return { pct: Number.isFinite(p) && p > 0 && p < 30 ? Math.round(p * 100) / 100 : 0, fixed: Number.isInteger(f) && f > 0 && f < 100_000 ? f : 0 };
+  const manual = { pct: Number.isFinite(p) && p > 0 && p < 30 ? Math.round(p * 100) / 100 : 0, fixed: Number.isInteger(f) && f > 0 && f < 100_000 ? f : 0 };
+  return manual.pct || manual.fixed ? { mode: "manual", ...manual } : { mode: "bold", pct: 0, fixed: 0 };
 }
 
 /** Comisión estimada de un pago, en pesos. */
-export function feeFor(total: number, fee: FeeConfig): number {
-  if (total <= 0 || (!fee.pct && !fee.fixed)) return 0;
+export function feeFor(total: number, fee: FeeConfig, method?: string | null): number {
+  if (total <= 0) return 0;
+  if (fee.mode === "bold") return Math.round(((total * boldRate(method)) / 100 + BOLD_FEES.fixed) * (1 + BOLD_FEES.iva));
+  if (!fee.pct && !fee.fixed) return 0;
   return Math.round((total * fee.pct) / 100) + fee.fixed;
 }
 
@@ -144,7 +165,7 @@ export function summarizeBox(input: {
     if (s.type === "TOPUP" && s.costCents == null) missingCost += 1;
     salesCop += s.total;
     costCents += cost;
-    feeCop += feeFor(s.total, fee);
+    feeCop += feeFor(s.total, fee, s.method);
     addLine(byPayment, paymentLabel(s.provider, s.method, s.chargeCurrency), s.total, cost);
     addLine(byType, s.type === "TOPUP" ? "Recargas de diamantes" : "Cuentas Free Fire", s.total, cost);
   }

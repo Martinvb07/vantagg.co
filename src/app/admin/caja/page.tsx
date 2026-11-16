@@ -72,14 +72,25 @@ export default async function CashPage() {
   const [state, closes, settings] = await Promise.all([cashState(now), listCloses(), getSettings()]);
   const fee = parseFee(settings.cashFeePct, settings.cashFeeFixed);
   const feeForm = (
-    <Panel title="Comisión de la pasarela">
-      <p className="mb-3 text-[12.5px] text-fg-muted">Solo para estimar la ganancia (no cambia lo que se cobra). Déjalo vacío si no quieres descontarla.</p>
+    <Panel title="Comisión de Bold">
+      <p className="mb-3 text-[12.5px] text-fg-muted">
+        {fee.mode === "bold" ? (
+          <>
+            <b className="text-fg">Automática (aproximada):</b> tarjeta 2,99 % + $900; PSE, Nequi, Daviplata y Botón Bancolombia 2,89 % + $900; más IVA (19 %) sobre la
+            comisión. Si Bold te cobra otra tarifa, escríbela aquí (ya con IVA). No cambia lo que se le cobra al cliente.
+          </>
+        ) : (
+          <>
+            <b className="text-fg">Tarifa escrita a mano</b> (se aplica a todos los pagos). Borra los dos campos y guarda para volver a la comisión automática de Bold.
+          </>
+        )}
+      </p>
       <ActionForm action={saveCashFeeAction} className="grid grid-cols-2 gap-3">
         <Field label="Porcentaje por pago">
-          <input name="pct" inputMode="decimal" defaultValue={settings.cashFeePct} placeholder="3,29" className="field tabular-nums" />
+          <input name="pct" inputMode="decimal" defaultValue={settings.cashFeePct} placeholder="Automática" className="field tabular-nums" />
         </Field>
         <Field label="Valor fijo por pago">
-          <input name="fixed" inputMode="numeric" defaultValue={settings.cashFeeFixed} placeholder="900" className="field tabular-nums" />
+          <input name="fixed" inputMode="numeric" defaultValue={settings.cashFeeFixed} placeholder="Automática" className="field tabular-nums" />
         </Field>
         <div className="col-span-2">
           <SubmitButton size="sm" variant="secondary">
@@ -150,7 +161,7 @@ export default async function CashPage() {
           }
           hint={`≈ ${formatMoney(costCop)} con el dólar a ${formatMoney(s.usdtCop)}${s.missingCost ? ` · ${s.missingCost} sin costo guardado` : ""}`}
         />
-        <Stat label="Ganancia estimada" value={formatMoney(s.profitCop)} tone={s.profitCop < 0 ? "bad" : undefined} hint={fee.pct || fee.fixed ? "Ya descuenta costo, comisión y reembolsos" : "Descuenta costo y reembolsos (sin comisión)"} />
+        <Stat label="Ganancia estimada" value={formatMoney(s.profitCop)} tone={s.profitCop < 0 ? "bad" : undefined} hint={`Ya descuenta costo, reembolsos y comisión de Bold${fee.mode === "bold" ? " (aprox.)" : ""}`} />
         <Stat label={`Saldo en ${supplier}`} value={<BalanceValue balance={balance} />} hint={balance ? `≈ ${formatMoney(centsToCop(balance.cents, s.usdtCop))} · ahora mismo` : "No respondió a tiempo"} />
       </div>
 

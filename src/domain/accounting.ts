@@ -248,7 +248,7 @@ export function summarizeAccounting(input: {
     if (s.type === "TOPUP" && s.costCents == null) missingCost += 1;
     if (s.type === "TOPUP" && s.costCents != null) costKinds[s.costKind ?? "venta"] += 1;
     const cost = rowCop(cents, s.usdtCop, usdtCop);
-    const fee1 = feeFor(s.total, fee);
+    const fee1 = feeFor(s.total, fee, s.method);
     const profit = s.total - fee1 - cost;
     grossCop += s.subtotal;
     discountCop += s.discount;

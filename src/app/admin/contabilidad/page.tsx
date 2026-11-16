@@ -184,18 +184,14 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
           {s.costBackCop > 0 && <Row label="Costo que vuelve" hint="Reembolsos de recargas que no se entregaron" value={`+ ${formatMoney(s.costBackCop)}`} tone="ok" />}
           <Row label="Ganancia bruta" hint={`Margen bruto ${pct(grossMargin)}`} value={formatMoney(s.grossProfitCop)} strong />
           <Row
-            label="Comisión de la pasarela"
+            label={cfg.fee.mode === "bold" ? "Comisión de Bold (aprox.)" : "Comisión de la pasarela"}
             hint={
-              s.feeCop ? (
-                "Configurada en Caja"
-              ) : (
-                <span className="text-warn-400">
-                  Sin configurar: la ganancia neta sale más alta de lo real ·{" "}
-                  <Link href="/admin/caja" className="underline underline-offset-2">
-                    configurar en Caja
-                  </Link>
-                </span>
-              )
+              <>
+                {cfg.fee.mode === "bold" ? "Tarjeta 2,99 % + $900 · PSE y billeteras 2,89 % + $900 · más IVA" : "Tarifa escrita en Caja"} ·{" "}
+                <Link href="/admin/caja" className="underline underline-offset-2">
+                  cambiar en Caja
+                </Link>
+              </>
             }
             value={minus(s.feeCop)}
             tone={s.feeCop ? "bad" : "muted"}

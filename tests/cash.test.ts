@@ -32,11 +32,20 @@ import { addRecharge, cashState, closeCash, closeDetail, removeRecharge, startCa
 
 describe("Cálculos de la caja", () => {
   it("comisión, montos en dólares y nombres de medios de pago", () => {
-    expect(parseFee("3,29", "900")).toEqual({ pct: 3.29, fixed: 900 });
-    expect(parseFee("", "")).toEqual({ pct: 0, fixed: 0 });
-    expect(parseFee("90", "abc")).toEqual({ pct: 0, fixed: 0 });
-    expect(feeFor(100_000, { pct: 3.29, fixed: 900 })).toBe(4190);
-    expect(feeFor(100_000, { pct: 0, fixed: 0 })).toBe(0);
+    expect(parseFee("3,29", "900")).toEqual({ mode: "manual", pct: 3.29, fixed: 900 });
+    // Sin nada escrito: la comisión de Bold automática.
+    expect(parseFee("", "")).toEqual({ mode: "bold", pct: 0, fixed: 0 });
+    expect(parseFee("90", "abc")).toEqual({ mode: "bold", pct: 0, fixed: 0 });
+    // Bold (aprox.): PSE/Nequi 2,89 % + $900 y tarjeta 2,99 % + $900, más IVA del 19 % sobre la comisión.
+    const bold = parseFee("", "");
+    expect(feeFor(50_000, bold, "PSE")).toBe(2791);
+    expect(feeFor(50_000, bold, "NEQUI")).toBe(2791);
+    expect(feeFor(50_000, bold, "BOTON_BANCOLOMBIA")).toBe(2791);
+    expect(feeFor(100_000, bold, "CARD")).toBe(4629);
+    expect(feeFor(100_000, bold, null)).toBe(4629); // sin medio conocido: la de tarjeta
+    expect(feeFor(0, bold, "PSE")).toBe(0);
+    expect(feeFor(100_000, { mode: "manual", pct: 3.29, fixed: 900 })).toBe(4190);
+    expect(feeFor(100_000, { mode: "manual", pct: 0, fixed: 0 })).toBe(0);
     expect(parseUsdCents("150")).toBe(15_000);
     expect(parseUsdCents("150,5")).toBe(15_050);
     expect(parseUsdCents("1.234,50")).toBe(123_450);
@@ -70,7 +79,7 @@ describe("Cálculos de la caja", () => {
       refunds: [{ total: 40_000, costCents: 800, counted: true, delivered: false }],
       deliveries: [{ costCents: 2000, prize: false }, { costCents: 3000, prize: true }],
       recharges: [{ amountCents: 10_000, rateCop: 3900 }],
-      fee: { pct: 3, fixed: 0 },
+      fee: { mode: "manual", pct: 3, fixed: 0 },
       usdtCop: 4000,
       startBalanceCents: 50_000,
       actualBalanceCents: 54_950,
@@ -87,9 +96,9 @@ describe("Cálculos de la caja", () => {
       ["Bold · Tarjeta", 1, 50_000],
     ]);
     expect(closeProfit({ ...s, usdtCop: 4000 })).toBe(s.profitCop);
-    const off = summarizeBox({ sales: [], refunds: [], deliveries: [], recharges: [], fee: { pct: 0, fixed: 0 }, usdtCop: 4000, startBalanceCents: 10_000, actualBalanceCents: 9_000 });
+    const off = summarizeBox({ sales: [], refunds: [], deliveries: [], recharges: [], fee: { mode: "manual", pct: 0, fixed: 0 }, usdtCop: 4000, startBalanceCents: 10_000, actualBalanceCents: 9_000 });
     expect(off).toMatchObject({ diffCents: -1000, balanceOk: false });
-    expect(summarizeBox({ sales: [], refunds: [], deliveries: [], recharges: [], fee: { pct: 0, fixed: 0 }, usdtCop: 4000, startBalanceCents: null, actualBalanceCents: 9_000 }).balanceOk).toBeNull();
+    expect(summarizeBox({ sales: [], refunds: [], deliveries: [], recharges: [], fee: { mode: "manual", pct: 0, fixed: 0 }, usdtCop: 4000, startBalanceCents: null, actualBalanceCents: 9_000 }).balanceOk).toBeNull();
   });
 });
 

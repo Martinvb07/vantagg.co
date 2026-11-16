@@ -106,7 +106,7 @@ describe("Cálculos de la contabilidad", () => {
         { refundedAt: new Date("2026-11-03T17:00:00Z"), total: 20_000, type: "TOPUP", costCents: 400, usdtCop: null, delivered: true },
       ],
       prizes: [{ deliveredAt: new Date("2026-11-02T20:00:00Z"), costCents: 2000, usdtCop: 4100 }],
-      fee: { pct: 3, fixed: 0 },
+      fee: { mode: "manual", pct: 3, fixed: 0 },
       usdtCop: 4000,
     });
     expect(s).toMatchObject({ orders: 3, buyers: 2, grossCop: 185_000, discountCop: 5_000, salesCop: 180_000, refunds: 2, refundsCop: 60_000, netCop: 120_000 });
@@ -129,7 +129,7 @@ describe("Cálculos de la contabilidad", () => {
       ["Recargas de diamantes", 2],
     ]);
     expect(s.granularity).toBe("day");
-    expect(summarizeAccounting({ period: { fromYmd: "2026-01-01", toYmd: "2026-11-15", days: 319 }, sales: [], refunds: [], prizes: [], fee: { pct: 0, fixed: 0 }, usdtCop: 4000 }).series.map((b) => b.key)).toHaveLength(11);
+    expect(summarizeAccounting({ period: { fromYmd: "2026-01-01", toYmd: "2026-11-15", days: 319 }, sales: [], refunds: [], prizes: [], fee: { mode: "manual", pct: 0, fixed: 0 }, usdtCop: 4000 }).series.map((b) => b.key)).toHaveLength(11);
   });
 });
 

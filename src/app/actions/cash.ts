@@ -76,5 +76,5 @@ export async function saveCashFeeAction(_: ActionResult, form: FormData): Promis
   await saveSettings(values);
   await audit({ actorId: user.id, action: "cash.fee", entity: "Setting", data: values });
   revalidatePath("/admin/caja");
-  return { ok: true, message: fee.pct || fee.fixed ? "Comisión guardada: la ganancia ya la descuenta." : "Sin comisión: la ganancia no la descuenta." };
+  return { ok: true, message: fee.mode === "manual" ? "Comisión guardada: se aplica a todos los pagos." : "Comisión automática de Bold (aproximada, según el medio de pago)." };
 }

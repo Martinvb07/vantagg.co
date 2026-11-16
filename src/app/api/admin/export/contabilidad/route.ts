@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     let costCol: number | null = cost;
     let profit = 0;
     if (kind === "Venta") {
-      fee = feeFor(o.total, cfg.fee);
+      fee = feeFor(o.total, cfg.fee, o.payments[0]?.method);
       profit = o.total - fee - cost;
     } else if (kind === "Reembolso") {
       // Si la recarga nunca se entregó, su costo vuelve (costo negativo).

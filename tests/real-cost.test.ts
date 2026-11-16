@@ -76,7 +76,7 @@ describe("Costo de cada venta", () => {
         { day: "2026-11-02", category: "Publicidad", amountCop: 5_000 },
         { day: "2026-11-02", category: "Comisiones y bancos", amountCop: 1_000 },
       ],
-      fee: { pct: 3, fixed: 0 },
+      fee: { mode: "manual", pct: 3, fixed: 0 },
       usdtCop: 4000,
     });
     // Costo a la tasa del día de cada venta: 20 USD × 3.800 + 10 USD × 3.900.
