@@ -54,7 +54,7 @@ const tokenHits = (token: string, ws: string[]) => ws.some((w) => w.startsWith(t
 
 const SECTIONS: Array<{ title: string; subtitle: string; href: string; icon: SearchIcon; kw: string[] }> = [
   { title: "Recargar diamantes", subtitle: "Directo a tu ID · bonus en todos los paquetes", href: "/recargas", icon: "gem", kw: ["diamantes", "diamante", "recarga", "recargar", "recargas", "dimas", "paquete", "paquetes", "bonus"] },
-  { title: "Armas Evo", subtitle: "Fragmentos y cajas Evo directo a tu ID", href: "/armas-evo", icon: "sparkles", kw: ["evo", "armas", "arma", "fragmentos", "fragmento", "cajas", "caja", "evolutivas", "evolutiva", "evolutivo"] },
+  { title: "Armas Evo", subtitle: "Fragmentos y cajas Evo directo a tu ID", href: "/fragmentos", icon: "sparkles", kw: ["evo", "armas", "arma", "fragmentos", "fragmento", "cajas", "caja", "evolutivas", "evolutiva", "evolutivo"] },
   { title: "Cuentas Free Fire", subtitle: "Rango, nivel y skins a la vista", href: "/cuentas", icon: "users", kw: ["cuentas", "cuenta", "perfil", "perfiles", "skins", "nivel", "rango", "rangos"] },
   { title: "Rastrear pedido", subtitle: "Estado del pago y la entrega", href: "/pedido", icon: "radar", kw: ["rastrear", "rastreo", "seguimiento", "pedido", "pedidos", "orden", "estado", "entrega", "llego"] },
   { title: "Mis pedidos", subtitle: "Historial de compras con tu sesión", href: "/cuenta", icon: "list", kw: ["historial", "compras", "pedidos", "sesion"] },

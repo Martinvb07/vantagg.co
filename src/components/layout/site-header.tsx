@@ -14,7 +14,7 @@ import { logoutAction } from "@/app/actions/auth";
 
 const NAV = [
   { href: "/recargas", label: "Diamantes", icon: Gem },
-  { href: "/armas-evo", label: "Armas Evo", icon: Swords },
+  { href: "/fragmentos", label: "Armas Evo", icon: Swords },
   { href: "/cuentas", label: "Cuentas", icon: Users },
   { href: "/pedido", label: "Seguimiento", icon: Radar },
   { href: "/ayuda", label: "Ayuda", icon: LifeBuoy },

@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Fragmentos y cajas Evo de Free Fire",
   description: "Compra fragmentos de arma Evo y cajas de fragmentos Evo de Free Fire con tu ID de jugador. Pago en pesos colombianos y entrega automática.",
-  alternates: { canonical: "/armas-evo" },
+  alternates: { canonical: "/fragmentos" },
   openGraph: { images: [{ url: "/brand/armas-evo-free-fire.webp", width: 960, height: 1044, alt: "Armas Evo: fragmentos y cajas Evo de Free Fire" }] },
 };
 
@@ -51,7 +51,7 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
             "@type": "Product",
             name: "Fragmentos y cajas Evo de Free Fire",
             description: "Fragmentos de arma Evo y cajas de fragmentos Evo de Free Fire por ID de jugador, con pago en pesos colombianos.",
-            offers: { "@type": "AggregateOffer", priceCurrency: "COP", lowPrice: Math.min(...prices), highPrice: Math.max(...prices), offerCount: prices.length, url: `${env.appUrl}/armas-evo` },
+            offers: { "@type": "AggregateOffer", priceCurrency: "COP", lowPrice: Math.min(...prices), highPrice: Math.max(...prices), offerCount: prices.length, url: `${env.appUrl}/fragmentos` },
           }}
         />
       )}

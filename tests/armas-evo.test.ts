@@ -54,7 +54,7 @@ describe("Armas Evo en el catálogo", () => {
     expect(isEvoKind("weekly")).toBe(false);
     expect(isEvoKind(null)).toBe(false);
     expect(PASS_GROUP_TITLE["evo-frag"]).toBe("Fragmentos de arma Evo");
-    expect(packPath({ slug: "100-fragmentos-de-arma-evo", pass: "evo-frag-100" })).toBe("/armas-evo?paquete=100-fragmentos-de-arma-evo");
+    expect(packPath({ slug: "100-fragmentos-de-arma-evo", pass: "evo-frag-100" })).toBe("/fragmentos?paquete=100-fragmentos-de-arma-evo");
     expect(packPath({ slug: "diamantes-572", pass: null })).toBe("/recargas?paquete=diamantes-572");
   });
 });

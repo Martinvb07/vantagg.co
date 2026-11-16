@@ -146,13 +146,13 @@ export default async function HomePage() {
         {/* Armas Evo: fragmentos y, debajo, las cajas (como diamantes y tarjetas) */}
         {evoFrags.length > 0 && (
           <section id="fragmentos-evo" className="scroll-mt-24">
-            <RowHead title="Fragmentos Evo" sub="Tokens para tus armas Evo · directo a tu ID" href="/armas-evo" cta="Ver todo" />
+            <RowHead title="Fragmentos Evo" sub="Tokens para tus armas Evo · directo a tu ID" href="/fragmentos" cta="Ver todo" />
             <PackGrid packs={evoFrags} />
           </section>
         )}
         {evoBoxes.length > 0 && (
           <section id="cajas-evo" className="scroll-mt-24">
-            <RowHead title="Cajas de fragmentos Evo" sub="Ábrelas en el juego y recibe tokens · directo a tu ID" href="/armas-evo" cta="Ver todo" />
+            <RowHead title="Cajas de fragmentos Evo" sub="Ábrelas en el juego y recibe tokens · directo a tu ID" href="/fragmentos" cta="Ver todo" />
             <PackGrid packs={evoBoxes} />
           </section>
         )}

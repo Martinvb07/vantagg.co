@@ -52,7 +52,11 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "8mb" },
   },
   async redirects() {
-    return [{ source: "/ofertas", destination: "/recargas", permanent: false }];
+    return [
+      { source: "/ofertas", destination: "/recargas", permanent: false },
+      // La categoría de fragmentos y cajas Evo se llamaba /armas-evo: los enlaces viejos (con ?paquete=…) siguen sirviendo.
+      { source: "/armas-evo", destination: "/fragmentos", permanent: true },
+    ];
   },
   async headers() {
     return [

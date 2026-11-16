@@ -138,7 +138,7 @@ export const PASS_GROUP_TITLE: Record<PassGroup, string> = {
   pass: "Tarjetas, pases y más",
 };
 
-/** Página donde se compra un paquete: las Armas Evo en /armas-evo, lo demás en /recargas. */
+/** Página donde se compra un paquete: las Armas Evo en /fragmentos, lo demás en /recargas. */
 export function packPath(p: { slug: string; pass: PassKind | null }): string {
-  return `${isEvoKind(p.pass) ? "/armas-evo" : "/recargas"}?paquete=${p.slug}`;
+  return `${isEvoKind(p.pass) ? "/fragmentos" : "/recargas"}?paquete=${p.slug}`;
 }
