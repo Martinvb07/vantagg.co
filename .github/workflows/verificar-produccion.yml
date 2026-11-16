@@ -96,6 +96,19 @@ jobs:
               console.log("  tasa configurada en Proveedor frente a la del mercado: "+(cop?((conf-cop)/cop*100).toFixed(1)+" %":"sin tasa de mercado")+" · comisión configurada: "+((Number(st.cashFeePct)||Number(st.cashFeeFixed))?"sí":"no")+" · capital configurado: "+(Number(st.capitalCop)?"sí":"no")+" · gastos anotados: "+(await db.expense.count()));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
+          echo "== catálogo Free Fire del proveedor: productos que no son diamantes (nombres, sin precios)"
+          node --env-file=.env -e '
+            const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
+            (async()=>{
+              const ps=await db.supplierProduct.findMany({where:{game:"free-fire"},select:{name:true,unit:true,amount:true,delivery:true,outOfStock:true,regionSlug:true}});
+              const reg=new Map();for(const p of ps){reg.set(p.regionSlug,(reg.get(p.regionSlug)||0)+1)}
+              console.log("  regiones: "+[...reg].map(([k,v])=>k+" "+v).join(" · "));
+              const nd=ps.filter(p=>!(p.unit==="Diamonds"&&p.amount>0));
+              const by=new Map();for(const p of nd){const k=p.name+" | unidad="+(p.unit||"-")+" cant="+(p.amount??"-")+" | "+p.delivery;const r=by.get(k)||new Set();r.add(p.regionSlug+(p.outOfStock?"(agotado)":""));by.set(k,r)}
+              console.log("  productos que no son diamantes: "+nd.length+" ("+by.size+" distintos)");
+              for(const [k,r] of [...by].sort().slice(0,150))console.log("   · "+k+" | regiones: "+[...r].join(","));
+              await db.$disconnect();
+            })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== tarea programada (mantenimiento y respaldos)"
           c=$(crontab -l 2>/dev/null || true)
           # Solo cuenta la tarea de ESTA tienda (puerto 3020 / vantagg.co): en el servidor hay otras tiendas con la suya.
