@@ -603,8 +603,6 @@ export function CoverSvg({ art, bare = false, id = "c" }: { art: CoverArtKey; ba
 export const COVER_FILES: Array<{ art: CoverArtKey; bare: boolean }> = [
   ...[1, 2, 3, 4, 5, 6].map((t) => ({ art: t, bare: false })),
   ...(["weekly-lite", "weekly", "monthly", "booyah", "booyah-basic", "booyah-plus", "evo", "evo-frag", "evo-box", "level"] as const).map((k) => ({ art: k, bare: false })),
-  // Armas Evo sin fondo: para la portada de la sección (armada en HTML).
-  ...(["evo-frag", "evo-box"] as const).map((k) => ({ art: k, bare: true })),
   // Solo el objeto (sin fondo): banners armados en HTML y premios del «Top 3 del mes».
   ...[1, 2, 3, 4, 5, 6].map((t) => ({ art: t, bare: true })),
 ];

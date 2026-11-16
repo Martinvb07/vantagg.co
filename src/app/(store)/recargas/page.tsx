@@ -15,7 +15,6 @@ import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
 import { BannerSlot } from "@/components/store/banner-slot";
 import { FindPlayerId } from "@/components/store/find-player-id";
-import { EvoCover } from "@/components/store/evo-cover";
 import { redirect } from "next/navigation";
 import { isEvoKind } from "@/domain/packs";
 import { parsePaymentMethods } from "@/domain/payment-methods";
@@ -121,7 +120,7 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
 
             {hasEvo && (
               <Link href="/armas-evo" className="group flex items-center gap-3 rounded-[12px] bg-ink-850 p-2.5 pr-4 ring-1 ring-white/[0.07] transition hover:ring-volt-400/40 max-lg:order-3 lg:mt-5">
-                <EvoCover title={false} className="size-14 shrink-0 rounded-[10px]" />
+                <img src="/brand/armas-evo-free-fire-256.webp" alt="" decoding="async" className="size-14 shrink-0 rounded-[10px] object-cover" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-semibold">Armas Evo</span>
                   <span className="block text-[12.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID</span>

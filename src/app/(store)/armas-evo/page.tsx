@@ -4,7 +4,6 @@ import { ChevronRight, CircleAlert, Clock, KeyRound, Wallet } from "lucide-react
 import { TopUpCheckout } from "@/components/checkout/topup-checkout";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Container, EmptyState } from "@/components/ui/primitives";
-import { EvoCover } from "@/components/store/evo-cover";
 import { FindPlayerId } from "@/components/store/find-player-id";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,6 +23,7 @@ export const metadata: Metadata = {
   title: "Fragmentos y cajas Evo de Free Fire",
   description: "Compra fragmentos de arma Evo y cajas de fragmentos Evo de Free Fire con tu ID de jugador. Pago en pesos colombianos y entrega automática.",
   alternates: { canonical: "/armas-evo" },
+  openGraph: { images: [{ url: "/brand/armas-evo-free-fire.webp", width: 960, height: 1044, alt: "Armas Evo: fragmentos y cajas Evo de Free Fire" }] },
 };
 
 export default async function ArmasEvoPage({ searchParams }: { searchParams: Promise<{ paquete?: string; id?: string; region?: string }> }) {
@@ -67,7 +67,18 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-8">
           <div className="contents lg:sticky lg:top-24 lg:block lg:self-start">
             <div className="flex gap-4 lg:block">
-              <EvoCover title={false} className="w-24 shrink-0 self-start rounded-[14px] ring-1 ring-white/[0.08] sm:w-32 lg:w-full" />
+              <div className="relative aspect-square w-24 shrink-0 self-start overflow-hidden rounded-[14px] bg-[#0b0f14] ring-1 ring-white/[0.08] sm:w-32 lg:w-full">
+                {/* En el celular se ve pequeña (96 px): se descarga la versión liviana; la grande solo en escritorio. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand/armas-evo-free-fire-720.webp"
+                  srcSet="/brand/armas-evo-free-fire-256.webp 256w, /brand/armas-evo-free-fire-720.webp 720w"
+                  sizes="(min-width: 1024px) 360px, (min-width: 640px) 128px, 96px"
+                  alt="Armas Evo: fragmentos y cajas Evo de Free Fire"
+                  decoding="async"
+                  className="absolute inset-0 size-full object-cover"
+                />
+              </div>
               <div className="min-w-0 lg:mt-5">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Armas Evo</h1>
                 <p className="mt-1 text-[13.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID{from != null ? ` · desde ${formatMoney(from)}` : ""}</p>
