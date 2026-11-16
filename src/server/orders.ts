@@ -641,7 +641,7 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
   if (r.status === "SUCCESS") {
     const updated = await db.delivery.updateMany({
       where: { id: deliveryId, status: { not: "SUCCESS" } },
-      data: { status: "SUCCESS", providerRef: r.providerRef ?? undefined, lastError: null, lockedAt: null },
+      data: { status: "SUCCESS", providerRef: r.providerRef ?? undefined, lastError: null, lockedAt: null, ...(r.costCents && !r.simulated ? { costCents: r.costCents, costCheckedAt: new Date() } : {}) },
     });
     if (updated.count === 0) return;
     await db.order.updateMany({

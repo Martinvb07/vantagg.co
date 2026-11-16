@@ -6,7 +6,8 @@ import { parseFee, summarizeBox, toCents, type BoxSummary, type Breakdown, type 
 import { activeWholesale } from "@/server/integrations/topup";
 import { PRIZE_PROVIDER } from "@/server/ranking";
 import { getSettings } from "@/server/settings";
-import { supplierRate } from "@/server/supplier";
+import { currentUsdCop } from "@/server/fx";
+import { costOf } from "@/server/order-cost";
 
 /**
  * Caja: cierres de caja y recargas de saldo al proveedor.
@@ -53,36 +54,37 @@ const saleSelect = {
   paymentProvider: true,
   chargeCurrency: true,
   payments: { where: { status: "APPROVED" as const }, select: { method: true }, orderBy: { updatedAt: "desc" as const }, take: 1 },
+  delivery: { select: { costCents: true, simulated: true } },
+  package: { select: { costCents: true } },
 } satisfies Prisma.OrderSelect;
-
-function snapCost(snap: unknown): number | null {
-  const c = (snap as { costCents?: unknown } | null)?.costCents;
-  return typeof c === "number" && Number.isFinite(c) ? c : null;
-}
 
 type SaleRecord = Prisma.OrderGetPayload<{ select: typeof saleSelect }>;
 const toSale = (o: SaleRecord): SaleRow => ({
   total: o.total,
   type: o.type,
-  costCents: snapCost(o.itemSnapshot),
+  costCents: costOf(o)?.cents ?? null,
   provider: o.paymentProvider,
   method: o.payments[0]?.method ?? null,
   chargeCurrency: o.chargeCurrency,
 });
 
+const costSelect = { type: true, itemSnapshot: true, delivery: { select: { costCents: true, simulated: true } }, package: { select: { costCents: true } } } satisfies Prisma.OrderSelect;
+
 async function refundRows(client: Client, where: Prisma.OrderWhereInput): Promise<RefundRow[]> {
-  const rows = await client.order.findMany({ where, select: { total: true, itemSnapshot: true, type: true, cashCloseId: true, deliveredAt: true } });
-  return rows.map((o) => ({ total: o.total, costCents: o.type === "TOPUP" ? snapCost(o.itemSnapshot) : null, counted: o.cashCloseId != null, delivered: o.deliveredAt != null }));
+  const rows = await client.order.findMany({ where, select: { ...costSelect, total: true, cashCloseId: true, deliveredAt: true } });
+  return rows.map((o) => ({ total: o.total, costCents: costOf(o)?.cents ?? null, counted: o.cashCloseId != null, delivered: o.deliveredAt != null }));
 }
 
+/** Lo que salió del saldo: lo que cobró el proveedor en cada entrega (o, si aún no se sabe, el costo guardado). */
 async function deliveryRows(client: Client, after: Date, until: Date): Promise<DeliveryRow[]> {
-  const rows = await client.order.findMany({ where: delivered(after, until), select: { itemSnapshot: true, paymentProvider: true } });
-  return rows.map((o) => ({ costCents: snapCost(o.itemSnapshot), prize: o.paymentProvider === PRIZE_PROVIDER }));
+  const rows = await client.order.findMany({ where: delivered(after, until), select: { ...costSelect, paymentProvider: true } });
+  return rows.map((o) => ({ costCents: costOf(o)?.cents ?? null, prize: o.paymentProvider === PRIZE_PROVIDER }));
 }
 
+/** Comisión configurada y tasa del dólar de hoy (la de mercado; si no hay, la configurada en Proveedor). */
 async function cashConfig() {
-  const [s, rate] = await Promise.all([getSettings(), supplierRate()]);
-  return { fee: parseFee(s.cashFeePct, s.cashFeeFixed), usdtCop: rate.usdtCop };
+  const [s, rate] = await Promise.all([getSettings(), currentUsdCop()]);
+  return { fee: parseFee(s.cashFeePct, s.cashFeeFixed), usdtCop: Math.round(rate.rate) };
 }
 
 export type CashState =
@@ -270,11 +272,13 @@ export async function closeDetail(number: number) {
     chargeCurrency: true,
     cashCloseId: true,
     payments: { where: { status: "APPROVED" as const }, select: { method: true }, orderBy: { updatedAt: "desc" as const }, take: 1 },
+    delivery: { select: { costCents: true, simulated: true } },
+    package: { select: { costCents: true } },
   } satisfies Prisma.OrderSelect;
   const [sales, refunds, previous] = await Promise.all([
     db.order.findMany({ where: { cashCloseId: close.id }, select, orderBy: { paidAt: "asc" } }),
     db.order.findMany({ where: { refundCloseId: close.id }, select, orderBy: { paidAt: "asc" } }),
     db.cashClose.findFirst({ where: { number: { lt: number } }, orderBy: { number: "desc" }, select: { number: true, closedAt: true, opening: true, breakdown: true } }),
   ]);
-  return { close, sales, refunds, previous, costOf: (o: { type: string; itemSnapshot: unknown }) => (o.type === "TOPUP" ? snapCost(o.itemSnapshot) : null) };
+  return { close, sales, refunds, previous, costOf: (o: (typeof sales)[number]) => costOf(o)?.cents ?? null };
 }

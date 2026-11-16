@@ -4,7 +4,8 @@ import { activeTopUpProvider } from "./integrations/topup";
 import { ensureFreshCatalog } from "./supplier";
 import { runEmailAutomations } from "./marketing";
 import { purgeCancelledOrders } from "./retention";
-import { ensureFxRates } from "./fx";
+import { ensureFxHistory, ensureFxRates } from "./fx";
+import { backfillDeliveryCosts } from "./supplier-costs";
 import { getSettings } from "./settings";
 import { notifyRankingClosed } from "./ranking";
 
@@ -60,6 +61,9 @@ async function run() {
   });
   // Tasas de cambio del día para los precios en otros países (cada 12 h).
   await ensureFxRates().catch(() => false);
+  // Contabilidad: tasa de los días pasados (TRM) y costo real de entregas que aún no lo tienen.
+  const fxHistory = await ensureFxHistory().catch(() => 0);
+  const realCosts = await backfillDeliveryCosts().catch(() => ({ checked: 0, found: 0 }));
   // Pedidos cancelados sin pago: se borran 12 h después de cancelarse, ya enviado el correo «comprar de nuevo»; queda el cliente.
   const purged = (await getSettings()).purgeCancelled === "true" ? await purgeCancelledOrders().then((r) => r.deleted).catch((e) => {
     console.error("[pedidos] no se pudieron borrar los cancelados:", (e as Error).message);
@@ -67,5 +71,5 @@ async function run() {
   }) : 0;
   // Top 3 del mes: al cerrar la temporada, un aviso al equipo para entregar los premios (una vez por mes).
   const rankingClosed = await notifyRankingClosed().catch(() => false);
-  return { ok: true as const, rankingClosed, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
+  return { ok: true as const, fxHistory, realCosts, rankingClosed, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
 }

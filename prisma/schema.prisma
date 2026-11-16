@@ -503,6 +503,10 @@ model Delivery {
   attempts       Int            @default(0)
   lastError      String?        @db.Text
   lockedAt       DateTime?
+  /// Lo que de verdad cobró el proveedor por esta entrega (centavos de su moneda, USD/USDT). Null si aún no se sabe.
+  costCents      Int?
+  /// Última vez que se le preguntó al proveedor el costo (para no preguntar en cada mantenimiento).
+  costCheckedAt  DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -760,4 +764,28 @@ model SupplierRecharge {
   createdAt     DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Tasa del dólar de cada día (pesos por 1 USD), en hora de Colombia. «mercado»: la del día (como Google), se toma
+/// del servicio de tasas; «TRM»: la oficial del Banco de la República, para días pasados sin tasa de mercado guardada.
+model FxDay {
+  day       String   @id @db.VarChar(10)
+  copPerUsd Float
+  source    String   @db.VarChar(20)
+  updatedAt DateTime @updatedAt
+}
+
+/// Gasto del negocio anotado a mano (publicidad, comisiones bancarias, impuestos…) para la ganancia neta.
+model Expense {
+  id            String   @id @default(cuid())
+  /// Día del gasto (hora de Colombia), «2026-11-15».
+  day           String   @db.VarChar(10)
+  category      String   @db.VarChar(40)
+  concept       String   @db.VarChar(200)
+  amountCop     Int
+  createdById   String?
+  createdByName String?  @db.VarChar(191)
+  createdAt     DateTime @default(now())
+
+  @@index([day])
 }

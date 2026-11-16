@@ -206,12 +206,18 @@ function failureText(f: CoFailure, ref: string | null | undefined): string {
 }
 
 /** Estado de un pedido de Central One → estado de la entrega en la tienda (se mira la línea del paquete). */
+/** «9.4500» (total_sale_amount: lo que Central One descontó del saldo) → 945 centavos. */
+export function saleAmountCents(v: string | number | null | undefined): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+}
+
 export function mapCoOrder(o: CoOrder): TopUpResult {
   const line = o.items?.[0];
   const status = (line?.status ?? o.status ?? "").toLowerCase();
   const ref = o.reference_code ?? null;
   if (status === "completed" || (!line && o.status === "completed")) {
-    return { status: "SUCCESS", providerRef: o.id, simulated: false, message: ref ? `Central One ${ref}` : undefined };
+    return { status: "SUCCESS", providerRef: o.id, simulated: false, message: ref ? `Central One ${ref}` : undefined, costCents: saleAmountCents(o.total_sale_amount) };
   }
   if (status === "refunded") {
     return { status: "FAILED", providerRef: o.id, simulated: false, message: `[provider_rejected] El proveedor revirtió la entrega y devolvió el saldo${ref ? ` (ref. ${ref})` : ""}.` };

@@ -2,20 +2,21 @@ import { audit } from "@/lib/audit";
 import { getCurrentUser, isStaff } from "@/lib/auth";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { ORDER_STATUS_META } from "@/domain/order-status";
-import { resolvePeriod } from "@/domain/accounting";
+import { resolvePeriod, ymdStart } from "@/domain/accounting";
+import { listExpenses } from "@/server/expenses";
 import { centsToCop, feeFor, paymentLabel } from "@/domain/cash";
-import { accountingConfig, ledgerOrders, type LedgerOrder } from "@/server/accounting";
+import { accountingConfig, costOf, ledgerOrders, loadRates, rateOn, type LedgerOrder } from "@/server/accounting";
 
 export const dynamic = "force-dynamic";
 
 /** Hora de Colombia «2026-11-15 08:30». */
 const bogota = (d: Date | null) => (d ? new Date(d.getTime() - 5 * 3_600_000).toISOString().replace("T", " ").slice(0, 16) : "");
-const snap = (o: LedgerOrder) => (o.itemSnapshot ?? {}) as { name?: string; costCents?: unknown; usdtCop?: unknown };
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const snap = (o: LedgerOrder) => (o.itemSnapshot ?? {}) as { name?: string };
+const SOURCE = { real: "Cobrado por el proveedor", venta: "Guardado al vender", estimado: "Estimado (costo actual del paquete)" } as const;
 
 /**
  * Libro de ventas del periodo para Excel: un movimiento por fila (venta por fecha de pago, reembolso por fecha de
- * reembolso y premio del Top 3 por fecha de entrega), con costo, comisión estimada y ganancia. Incluye el correo del
+ * reembolso, premio del Top 3 por fecha de entrega y gasto del negocio por su día), con costo, comisión estimada y ganancia. Incluye el correo del
  * cliente: solo administradores con 2FA, igual que la exportación de pedidos.
  */
 export async function GET(req: Request) {
@@ -23,14 +24,16 @@ export async function GET(req: Request) {
   if (!user || user.role !== "ADMIN" || !user.totpEnabledAt) return new Response("No autorizado", { status: user && isStaff(user.role) ? 403 : 401 });
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const period = resolvePeriod(sp);
-  const [{ sales, refunds, prizes }, cfg] = await Promise.all([ledgerOrders(period), accountingConfig()]);
+  const [{ sales, refunds, prizes }, cfg, rates, expenses] = await Promise.all([ledgerOrders(period), accountingConfig(), loadRates(period), listExpenses(period)]);
 
   type Row = { at: Date; cells: (string | number | null)[] };
   const rows: Row[] = [];
   const line = (kind: "Venta" | "Reembolso" | "Premio Top 3", at: Date, o: LedgerOrder) => {
     const s = snap(o);
-    const cents = o.type === "TOPUP" ? num(s.costCents) : null;
-    const rate = num(s.usdtCop) ?? cfg.usdtCop;
+    const c = costOf(o);
+    const cents = c?.cents ?? null;
+    // Tasa del día de la venta (en un premio, del día de la entrega).
+    const rate = Math.round(rateOn(rates, kind === "Premio Top 3" ? o.deliveredAt! : (o.paidAt ?? at), o));
     const cost = cents != null ? centsToCop(cents, rate) : 0;
     let total = o.total;
     let fee = 0;
@@ -66,6 +69,7 @@ export async function GET(req: Request) {
         total,
         cents != null ? (cents / 100).toFixed(2) : "",
         cents != null ? rate : null,
+        c ? SOURCE[c.kind] : o.type === "TOPUP" ? "Sin costo" : "",
         costCol,
         fee || null,
         profit,
@@ -77,6 +81,11 @@ export async function GET(req: Request) {
   for (const o of sales) line("Venta", o.paidAt!, o);
   for (const o of refunds) line("Reembolso", o.refundedAt!, o);
   for (const o of prizes) line("Premio Top 3", o.deliveredAt!, o);
+  // Gastos del negocio anotados a mano: restan de la ganancia (van al final de su día).
+  for (const e of expenses) {
+    const at = new Date(ymdStart(e.day).getTime() + 86_399_000);
+    rows.push({ at, cells: [e.day, "Gasto", "", e.category, e.concept, "", "", "", null, null, "", -e.amountCop, "", null, "", null, null, -e.amountCop, "", ""] });
+  }
   rows.sort((a, b) => a.at.getTime() - b.at.getTime());
 
   const csv = toCsv(
@@ -94,7 +103,8 @@ export async function GET(req: Request) {
       "Código",
       "Total (COP)",
       "Costo proveedor (USD)",
-      "Tasa (COP por USDT)",
+      "Tasa del dólar (COP)",
+      "Fuente del costo",
       "Costo (COP)",
       "Comisión estimada (COP)",
       "Ganancia estimada (COP)",

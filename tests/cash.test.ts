@@ -24,7 +24,7 @@ vi.mock("@/server/notifications", () => ({
 vi.mock("@/server/integrations/topup", () => ({ activeTopUpProvider: () => null, getTopUpProvider: () => null, activeWholesale: () => null }));
 vi.mock("@/server/chat", () => ({ postSystemMessage: vi.fn(async () => {}) }));
 vi.mock("@/server/supplier", () => ({ checkPlayerRegion: vi.fn(), supplierRate: vi.fn(async () => ({ usdtCop: 4000 })), supplierRegionName: vi.fn(async () => "LATAM") }));
-vi.mock("@/server/settings", () => ({ getSettings: vi.fn(async () => ({ orderPrefix: "VT", cashFeePct: "3", cashFeeFixed: "" })) }));
+vi.mock("@/server/settings", () => ({ getSettings: vi.fn(async () => ({ orderPrefix: "VT", cashFeePct: "3", cashFeeFixed: "", usdtCop: "4000" })), saveSettings: vi.fn(async () => {}) }));
 
 import { db } from "@/lib/db";
 import { centsToCop, closeDiff, closeProfit, feeFor, parseFee, parseUsdCents, paymentLabel, refundEffect, summarizeBox } from "@/domain/cash";

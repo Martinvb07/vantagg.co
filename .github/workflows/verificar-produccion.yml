@@ -86,6 +86,14 @@ jobs:
               console.log("  costo frente al precio (recargas con costo): "+Object.entries(b).map(([k,v])=>k+" "+v).join(" · "));
               console.log("  costo guardado distinto (>30%) del costo actual del paquete: "+distinto+" · tasa del día guardada: "+(cop?"sí":"no"));
               console.log("  paquetes activos sin costo: "+(await db.diamondPackage.count({where:{active:true,costCents:null}}))+" · cierres de caja: "+(await db.cashClose.count()));
+              const dl=await db.delivery.count({where:{status:"SUCCESS",simulated:false,order:{isTest:false}}});
+              const real=await db.delivery.count({where:{status:"SUCCESS",simulated:false,order:{isTest:false},costCents:{not:null}}});
+              console.log("  entregas reales: "+dl+" · con el costo que cobró el proveedor: "+real);
+              const fd=await db.fxDay.groupBy({by:["source"],_count:{_all:true}});
+              console.log("  días con tasa del dólar guardada: "+(fd.map(g=>g.source+" "+g._count._all).join(" · ")||"ninguno"));
+              const st=Object.fromEntries((await db.setting.findMany({where:{key:{in:["usdtCop","cashFeePct","cashFeeFixed","capitalCop"]}}})).map(r=>[r.key,r.value]));
+              const conf=Number(st.usdtCop)||3400;
+              console.log("  tasa configurada en Proveedor frente a la del mercado: "+(cop?((conf-cop)/cop*100).toFixed(1)+" %":"sin tasa de mercado")+" · comisión configurada: "+((Number(st.cashFeePct)||Number(st.cashFeeFixed))?"sí":"no")+" · capital configurado: "+(Number(st.capitalCop)?"sí":"no")+" · gastos anotados: "+(await db.expense.count()));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== tarea programada (mantenimiento y respaldos)"

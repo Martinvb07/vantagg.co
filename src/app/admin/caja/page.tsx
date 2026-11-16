@@ -148,7 +148,7 @@ export default async function CashPage() {
               {formatUsd(s.costCents)} <span className="text-[14px] text-fg-muted">{cur}</span>
             </>
           }
-          hint={`≈ ${formatMoney(costCop)} a ${formatMoney(s.usdtCop)} por USDT${s.missingCost ? ` · ${s.missingCost} sin costo guardado` : ""}`}
+          hint={`≈ ${formatMoney(costCop)} con el dólar a ${formatMoney(s.usdtCop)}${s.missingCost ? ` · ${s.missingCost} sin costo guardado` : ""}`}
         />
         <Stat label="Ganancia estimada" value={formatMoney(s.profitCop)} tone={s.profitCop < 0 ? "bad" : undefined} hint={fee.pct || fee.fixed ? "Ya descuenta costo, comisión y reembolsos" : "Descuenta costo y reembolsos (sin comisión)"} />
         <Stat label={`Saldo en ${supplier}`} value={<BalanceValue balance={balance} />} hint={balance ? `≈ ${formatMoney(centsToCop(balance.cents, s.usdtCop))} · ahora mismo` : "No respondió a tiempo"} />
@@ -167,7 +167,7 @@ export default async function CashPage() {
                 {s.breakdown.byPayment.map((l) => (
                   <Line key={l.label} label={<span className="text-fg-muted">{l.label}</span>} value={<span className="text-fg-muted">{`${formatNumber(l.orders)} · ${formatMoney(l.cop)}`}</span>} />
                 ))}
-                <Line label="Costo del proveedor" hint={`${formatUsd(s.costCents)} ${cur} a ${formatMoney(s.usdtCop)} por USDT (tasa de Proveedor y saldo)`} value={`− ${formatMoney(costCop)}`} tone="bad" />
+                <Line label="Costo del proveedor" hint={`${formatUsd(s.costCents)} ${cur} a ${formatMoney(s.usdtCop)} por USDT (dólar de hoy)`} value={`− ${formatMoney(costCop)}`} tone="bad" />
                 {s.feeCop > 0 && <Line label="Comisión estimada de la pasarela" hint={`${fee.pct ? `${String(fee.pct).replace(".", ",")} %` : ""}${fee.pct && fee.fixed ? " + " : ""}${fee.fixed ? `${formatMoney(fee.fixed)}` : ""} por pago`} value={`− ${formatMoney(s.feeCop)}`} tone="bad" />}
                 {s.refunds > 0 && (
                   <Line

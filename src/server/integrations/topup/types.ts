@@ -39,6 +39,8 @@ export type TopUpResult = {
   message?: string;
   /** true = no se entregó nada real (proveedor de prueba). */
   simulated: boolean;
+  /** Lo que cobró el proveedor por la entrega (centavos de su moneda), si lo informa. */
+  costCents?: number | null;
 };
 
 export type TopUpWebhookResult =

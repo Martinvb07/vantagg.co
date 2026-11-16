@@ -42,6 +42,7 @@ export const SETTING_DEFAULTS = {
   foreignPricing: "reference", // "reference": se cobra en pesos y se muestra el precio en dólares como referencia; "usd": se cobra en dólares (con ePayco)
   foreignSurchargePct: "5", // recargo (%) sobre el precio de Colombia para clientes de otros países
   fxRates: "", // tasas del día (JSON), las actualiza el mantenimiento
+  fxHistoryAt: "", // último intento de completar el historial de tasas con la TRM (ISO)
   topupCoverUrl: "",
   // Proveedor de recargas (se gestionan en Panel → Proveedor)
   topupRegions: "latam", // regiones visibles en la tienda (slugs del proveedor, separados por coma)
@@ -58,10 +59,13 @@ export const SETTING_DEFAULTS = {
   // Caja (Panel → Caja): comisión de la pasarela para estimar la ganancia (vacío = no se descuenta)
   cashFeePct: "", // porcentaje por pago (p. ej. "3.29")
   cashFeeFixed: "", // valor fijo por pago en pesos (p. ej. "900")
+  // Contabilidad: capital con el que empezó el negocio (para el cuadre «cuánto debería tener»)
+  capitalCop: "", // pesos
+  capitalSince: "", // «2026-10-01» (hora de Colombia)
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "rankingMode", "rankingMinCop", "rankingPrizes", "cashFeePct", "cashFeeFixed"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "fxHistoryAt", "rankingMode", "rankingMinCop", "rankingPrizes", "cashFeePct", "cashFeeFixed", "capitalCop", "capitalSince"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

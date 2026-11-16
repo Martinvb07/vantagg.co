@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight, Download, Receipt } from "lucide-react";
-import { PageHeader, Panel, Stat } from "@/components/admin/ui";
+import { Field, PageHeader, Panel, Stat } from "@/components/admin/ui";
+import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/action-form";
 import { requireAdmin } from "@/lib/auth";
 import { formatDate, formatMoney, formatNumber } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { changePct, monthRange, periodLabel, PRESETS, previousPeriod, resolvePeriod } from "@/domain/accounting";
+import { bogotaYmd, changePct, monthRange, periodLabel, PRESETS, previousPeriod, resolvePeriod } from "@/domain/accounting";
 import { closeProfit, formatUsd } from "@/domain/cash";
-import { accountingConfig, accountingSummary, closesIn } from "@/server/accounting";
+import { accountingConfig, accountingSummary, capitalStatus, closesIn, rechargesIn } from "@/server/accounting";
+import { EXPENSE_CATEGORIES, listExpenses } from "@/server/expenses";
+import { addExpenseAction, removeExpenseAction, saveCapitalAction } from "@/app/actions/accounting";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Contabilidad" };
@@ -45,7 +48,13 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const period = resolvePeriod(sp);
   const prev = previousPeriod(period);
-  const [s, before, closes, cfg] = await Promise.all([accountingSummary(period), accountingSummary(prev), closesIn(period), accountingConfig()]);
+  const [s, before, closes, reinvested, expenses, capital, cfg] = await Promise.all([accountingSummary(period), accountingSummary(prev), closesIn(period), rechargesIn(period), listExpenses(period), capitalStatus(), accountingConfig()]);
+  const today = bogotaYmd(new Date());
+  const pct = (n: number | null) => (n == null ? "—" : `${String(n).replace(".", ",")} %`);
+  const grossMargin = s.netCop > 0 ? Math.round((s.grossProfitCop / s.netCop) * 1000) / 10 : null;
+  const noFee = s.feeCop === 0 && s.orders > 0;
+  const k = s.costKinds;
+  const costSources = [k.real && `${k.real} con lo que cobró el proveedor`, k.venta && `${k.venta} con el costo guardado al vender`, k.estimado && `${k.estimado} estimadas con el costo actual`, s.missingCost && `${s.missingCost} sin costo`].filter(Boolean).join(" · ");
   const range = `desde=${period.fromYmd}&hasta=${period.toYmd}`;
   const rangeText = periodLabel(period.fromYmd, period.toYmd);
   const max = Math.max(1, ...s.series.map((b) => b.salesCop));
@@ -96,9 +105,73 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
       <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="Ventas" value={formatMoney(s.salesCop)} hint={<Delta pct={changePct(s.salesCop, before.salesCop)} />} />
         <Stat label="Pedidos pagados" value={formatNumber(s.orders)} hint={`${formatNumber(s.buyers)} ${s.buyers === 1 ? "comprador" : "compradores"} · promedio ${formatMoney(s.avgTicketCop)}`} />
-        <Stat label="Ventas netas" value={formatMoney(s.netCop)} hint={s.refunds ? `Después de ${s.refunds} ${s.refunds === 1 ? "reembolso" : "reembolsos"} (${formatMoney(s.refundsCop)})` : "Sin reembolsos"} />
-        <Stat label="Ganancia estimada" value={formatMoney(s.profitCop)} tone={s.profitCop < 0 ? "bad" : undefined} hint={s.marginPct != null ? <>Margen {String(s.marginPct).replace(".", ",")} % · <Delta pct={changePct(s.profitCop, before.profitCop)} label="vs. anterior" /></> : "Sin ventas"} />
+        <Stat label="Ganancia bruta" value={formatMoney(s.grossProfitCop)} tone={s.grossProfitCop < 0 ? "bad" : undefined} hint={`Ventas netas − costo del proveedor · margen ${pct(grossMargin)}`} />
+        <Stat
+          label="Ganancia neta"
+          value={formatMoney(s.profitCop)}
+          tone={s.profitCop < 0 ? "bad" : undefined}
+          hint={noFee ? <span className="text-warn-400">Falta la comisión de Bold: sale más alta de lo real</span> : <>Margen {pct(s.marginPct)} · <Delta pct={changePct(s.profitCop, before.profitCop)} label="vs. anterior" /></>}
+        />
       </div>
+
+      <Panel title="Cuadre del negocio" className="mb-6">
+        {capital ? (
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-x-8 lg:grid-cols-2">
+            <div className="divide-y divide-white/[0.05]">
+              <Row label="Capital con el que empezaste" hint={`Desde el ${periodLabel(capital.since, capital.since)}`} value={formatMoney(capital.capitalCop)} tone="muted" />
+              <Row label="Ganancia neta desde ese día" hint={`Sobre ${formatMoney(capital.salesCop)} en ventas netas`} value={`${capital.profitCop < 0 ? "−" : "+"} ${formatMoney(Math.abs(capital.profitCop))}`} tone={capital.profitCop < 0 ? "bad" : "ok"} />
+              <Row label="El negocio debería tener" value={formatMoney(capital.shouldHave)} strong />
+              <Row
+                label="En el saldo de Central One"
+                hint={capital.balance ? `${formatUsd(capital.balance.cents)} ${capital.balance.currency} a la tasa de hoy` : "Central One no respondió: recarga la página"}
+                value={capital.inSupplierCop != null ? formatMoney(capital.inSupplierCop) : "—"}
+              />
+              <Row label="Debería estar en Bold, el banco o efectivo" value={capital.elsewhereCop != null ? formatMoney(capital.elsewhereCop) : "—"} strong />
+            </div>
+            <div className="py-3 text-[12.5px] leading-relaxed text-fg-muted lg:border-l lg:border-white/[0.06] lg:pl-8">
+              <p>
+                <b className="text-fg">Así se comprueba la ganancia con la realidad.</b> Suma lo que tienes en Bold (incluidos los pagos que aún no te consigna), en el banco y en
+                efectivo: debería dar la última cifra. Si da menos, falta anotar gastos (publicidad, comisiones, compra de USDT más cara que la tasa del día) o hay
+                retiros personales.
+              </p>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-fg-subtle hover:text-fg">Cambiar capital o fecha</summary>
+                <ActionForm action={saveCapitalAction} className="mt-3 grid grid-cols-2 gap-3">
+                  <Field label="Capital (pesos)">
+                    <input name="capital" inputMode="numeric" defaultValue={cfg.capitalCop || ""} className="field tabular-nums" />
+                  </Field>
+                  <Field label="Desde">
+                    <input name="since" type="date" defaultValue={cfg.capitalSince} max={today} className="field" />
+                  </Field>
+                  <div className="col-span-2">
+                    <SubmitButton size="sm" variant="secondary">
+                      Guardar
+                    </SubmitButton>
+                  </div>
+                </ActionForm>
+              </details>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
+            <p className="text-[13px] leading-relaxed text-fg-muted">
+              <b className="text-fg">¿Con cuánto empezaste?</b> Con el capital inicial y la fecha, aquí verás cuánto debería tener el negocio hoy (capital + ganancia neta),
+              cuánto está en el saldo de Central One y cuánto debería estar en Bold o el banco. Así la ganancia se comprueba contra la plata real.
+            </p>
+            <ActionForm action={saveCapitalAction} className="grid grid-cols-2 gap-3">
+              <Field label="Capital (pesos)">
+                <input name="capital" inputMode="numeric" placeholder="1.000.000" required className="field tabular-nums" />
+              </Field>
+              <Field label="Desde">
+                <input name="since" type="date" required max={today} className="field" />
+              </Field>
+              <div className="col-span-2">
+                <SubmitButton size="sm">Guardar capital</SubmitButton>
+              </div>
+            </ActionForm>
+          </div>
+        )}
+      </Panel>
 
       <div className="mb-6 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Panel title="Estado de resultados" bodyClass="px-4 py-1">
@@ -107,29 +180,35 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
           <Row label="Ventas (cobrado)" value={formatMoney(s.salesCop)} strong />
           <Row label="Reembolsos" hint={s.refunds ? `${s.refunds} en este periodo` : undefined} value={minus(s.refundsCop)} tone={s.refundsCop ? "bad" : "muted"} />
           <Row label="Ventas netas" value={formatMoney(s.netCop)} strong />
-          <Row label="Costo del proveedor" hint={`${formatUsd(s.costCents)} USD${s.missingCost ? ` · ${s.missingCost} sin costo guardado` : ""}`} value={minus(s.costCop)} tone="bad" />
+          <Row label="Costo del proveedor" hint={`${formatUsd(s.costCents)} USD a la tasa del dólar del día de cada venta${costSources ? ` · ${costSources}` : ""}`} value={minus(s.costCop)} tone="bad" />
           {s.costBackCop > 0 && <Row label="Costo que vuelve" hint="Reembolsos de recargas que no se entregaron" value={`+ ${formatMoney(s.costBackCop)}`} tone="ok" />}
+          <Row label="Ganancia bruta" hint={`Margen bruto ${pct(grossMargin)}`} value={formatMoney(s.grossProfitCop)} strong />
           <Row
             label="Comisión de la pasarela"
             hint={
               s.feeCop ? (
-                "Estimada con la comisión de Caja"
+                "Configurada en Caja"
               ) : (
-                <>
-                  Sin comisión configurada ·{" "}
+                <span className="text-warn-400">
+                  Sin configurar: la ganancia neta sale más alta de lo real ·{" "}
                   <Link href="/admin/caja" className="underline underline-offset-2">
                     configurar en Caja
                   </Link>
-                </>
+                </span>
               )
             }
             value={minus(s.feeCop)}
             tone={s.feeCop ? "bad" : "muted"}
           />
           {s.prizes > 0 && <Row label={`Premios del Top 3 (${s.prizes})`} hint="Costo de las recargas regaladas" value={minus(s.prizesCostCop)} tone="bad" />}
-          <Row label="Ganancia estimada" value={<span className={s.profitCop < 0 ? "text-bad-400" : "text-volt-300"}>{formatMoney(s.profitCop)}</span>} strong />
+          {s.expensesByCategory.map((c) => (
+            <Row key={c.label} label={c.label} hint={`${c.count} ${c.count === 1 ? "gasto anotado" : "gastos anotados"}`} value={minus(c.cop)} tone="bad" />
+          ))}
+          {s.expensesCop === 0 && <Row label="Gastos del negocio" hint="Publicidad, bancos, impuestos… anótalos abajo" value={formatMoney(0)} tone="muted" />}
+          <Row label="Ganancia neta" hint={`Margen neto ${pct(s.marginPct)}`} value={<span className={s.profitCop < 0 ? "text-bad-400" : "text-volt-300"}>{formatMoney(s.profitCop)}</span>} strong />
           <p className="pb-3 pt-1 text-[11.5px] text-fg-subtle">
-            El costo se pasa a pesos con la tasa guardada en cada venta (los pedidos viejos usan la tasa actual: {formatMoney(cfg.usdtCop)} por USDT).
+            Dólar: tasa del día de cada venta (promedio del periodo {formatMoney(s.rate.average)}; hoy {formatMoney(s.rate.current)}
+            {s.rate.source === "mercado" ? ", tasa de mercado" : ", tasa configurada en Proveedor"}). El costo es lo que Central One cobró en cada entrega; si aún no se sabe, el costo guardado al vender.
           </p>
         </Panel>
 
@@ -193,6 +272,71 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
         </Panel>
       </div>
 
+      <Panel title={`Gastos del negocio (${formatMoney(s.expensesCop)})`} className="mb-6">
+        <p className="mb-3 text-[12.5px] text-fg-muted">Anota lo que se gasta para vender (publicidad, comisiones del banco, impuestos, la diferencia al comprar USDT…): se resta de la ganancia neta del día del gasto.</p>
+        {expenses.length > 0 && (
+          <ul className="mb-4 divide-y divide-white/[0.05] rounded-[10px] ring-1 ring-white/[0.06]">
+            {expenses.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 text-[13px]">
+                <span className="w-24 shrink-0 tabular-nums text-fg-muted">{periodLabel(e.day, e.day)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block">{e.concept}</span>
+                  <span className="block text-[11.5px] text-fg-subtle">
+                    {e.category}
+                    {e.createdByName ? ` · ${e.createdByName}` : ""}
+                  </span>
+                </span>
+                <span className="font-semibold tabular-nums">{formatMoney(e.amountCop)}</span>
+                <ActionForm action={removeExpenseAction}>
+                  <input type="hidden" name="id" value={e.id} />
+                  <ConfirmSubmit size="sm" confirmText="¿Quitar?">
+                    Quitar
+                  </ConfirmSubmit>
+                </ActionForm>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ActionForm action={addExpenseAction} resetOnSuccess className="grid grid-cols-2 gap-3 lg:grid-cols-[150px_200px_minmax(0,1fr)_150px_auto] lg:items-end">
+          <Field label="Fecha">
+            <input name="day" type="date" required defaultValue={today} max={today} className="field" />
+          </Field>
+          <Field label="Categoría">
+            <select name="category" className="field" defaultValue="Publicidad">
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Concepto" className="col-span-2 lg:col-span-1">
+            <input name="concept" required maxLength={200} placeholder="Ej.: Anuncios de Meta" className="field" />
+          </Field>
+          <Field label="Valor (pesos)">
+            <input name="amount" required inputMode="numeric" placeholder="50.000" className="field tabular-nums" />
+          </Field>
+          <div className="flex items-end">
+            <SubmitButton size="md" variant="secondary">
+              Anotar gasto
+            </SubmitButton>
+          </div>
+        </ActionForm>
+      </Panel>
+
+      <Panel title="Dinero del periodo" className="mb-6" bodyClass="px-4 py-1">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-8 lg:grid-cols-2">
+          <div>
+            <Row label="Entró por ventas" hint="Ventas netas (después de reembolsos)" value={formatMoney(s.netCop)} />
+            <Row label="Reinvertido en el proveedor" hint={reinvested.count ? `${reinvested.count} ${reinvested.count === 1 ? "recarga anotada" : "recargas anotadas"} en Caja (${formatUsd(reinvested.cents)} USD)` : "Sin recargas anotadas en Caja en estas fechas"} value={minus(reinvested.cop)} tone={reinvested.cop ? "bad" : "muted"} />
+            <Row label="Diferencia en efectivo" value={<span className={s.netCop - reinvested.cop < 0 ? "text-bad-400" : ""}>{formatMoney(s.netCop - reinvested.cop)}</span>} strong />
+          </div>
+          <p className="py-3 text-[12.5px] leading-relaxed text-fg-muted lg:border-l lg:border-white/[0.06] lg:pl-8">
+            <b className="text-fg">Ganancia no es efectivo en mano.</b> De cada venta, la mayor parte repone el saldo que se gastó en el proveedor; solo la
+            ganancia es lo que el negocio gana de más. Si todo lo que entra se vuelve a recargar en el proveedor, ese dinero está en el saldo
+            (capital de trabajo), no en caja. Anota cada recarga en <Link href="/admin/caja" className="text-volt-300 underline underline-offset-2">Caja</Link> para que aquí se vea lo reinvertido.
+          </p>
+        </div>
+      </Panel>
+
       <div className="mb-6 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
         <Panel title="Por producto" bodyClass="px-4 pb-2 pt-1">
           {s.byProduct.length === 0 ? (
@@ -214,10 +358,10 @@ export default async function AccountingPage({ searchParams }: { searchParams: P
                     <td className="py-2.5 pr-2">{l.label}</td>
                     <td className="py-2.5 pl-3 text-right text-fg-muted">{formatNumber(l.orders)}</td>
                     <td className="py-2.5 pl-3 text-right">{formatMoney(l.salesCop)}</td>
-                    <td className="py-2.5 pl-3 text-right text-fg-muted max-sm:hidden">{formatMoney(l.costCop)}</td>
+                    <td className="py-2.5 pl-3 text-right text-fg-muted max-sm:hidden">{l.missingCost ? <span className="text-warn-400">{l.missingCost === l.orders ? "Sin costo" : `${formatMoney(l.costCop)} (${l.missingCost} sin costo)`}</span> : formatMoney(l.costCop)}</td>
                     <td className={cn("py-2.5 text-right", l.profitCop < 0 && "text-bad-400")}>
                       {formatMoney(l.profitCop)}
-                      {l.salesCop > 0 && <span className="block text-[11px] text-fg-subtle">{String(Math.round((l.profitCop / l.salesCop) * 1000) / 10).replace(".", ",")} %</span>}
+                      {l.missingCost ? <span className="block text-[11px] text-warn-400">sin costo: no es real</span> : l.salesCop > 0 && <span className="block text-[11px] text-fg-subtle">{String(Math.round((l.profitCop / l.salesCop) * 1000) / 10).replace(".", ",")} %</span>}
                     </td>
                   </tr>
                 ))}

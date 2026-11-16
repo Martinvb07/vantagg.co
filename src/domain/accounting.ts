@@ -117,19 +117,24 @@ export type SaleRow = {
   type: "TOPUP" | "ACCOUNT";
   name: string;
   costCents: number | null;
-  /** Tasa guardada en el pedido (null en pedidos viejos). */
+  /** Tasa del dólar del día de la venta (null: se usa la de hoy). */
   usdtCop: number | null;
+  /** De dónde sale el costo: lo que cobró el proveedor, el guardado al vender o el actual del paquete (estimado). */
+  costKind?: CostKind;
   provider: string;
   method: string | null;
   chargeCurrency?: string | null;
   /** Correo normalizado (para contar compradores distintos). */
   buyer: string;
 };
+export type CostKind = "real" | "venta" | "estimado";
+export type ExpenseRow = { day: string; category: string; amountCop: number };
 export type RefundRow = { refundedAt: Date; total: number; type: "TOPUP" | "ACCOUNT"; costCents: number | null; usdtCop: number | null; delivered: boolean };
 export type PrizeRow = { deliveredAt: Date; costCents: number | null; usdtCop: number | null };
 
 export type Bucket = { key: string; label: string; orders: number; salesCop: number; refundsCop: number; netCop: number; costCop: number; profitCop: number };
-export type Line = { label: string; orders: number; salesCop: number; costCop: number; profitCop: number };
+/** `missingCost`: ventas de recargas de la línea sin ningún costo (su ganancia sale inflada). */
+export type Line = { label: string; orders: number; salesCop: number; costCop: number; profitCop: number; missingCost: number };
 
 export type AccountingSummary = {
   orders: number;
@@ -149,11 +154,19 @@ export type AccountingSummary = {
   prizes: number;
   prizesCostCop: number;
   feeCop: number;
+  /** Ganancia bruta: ventas netas − costo de lo vendido (+ costo que vuelve por reembolsos). */
+  grossProfitCop: number;
+  /** Gastos del negocio anotados (publicidad, bancos…). */
+  expensesCop: number;
+  expensesByCategory: Array<{ label: string; count: number; cop: number }>;
+  /** Ganancia neta: bruta − comisión − premios − gastos. */
   profitCop: number;
-  /** Ganancia sobre ventas netas (%), o null sin ventas. */
+  /** Ganancia neta sobre ventas netas (%), o null sin ventas. */
   marginPct: number | null;
   avgTicketCop: number;
   missingCost: number;
+  /** Cuántas ventas de recargas usan cada fuente de costo. */
+  costKinds: Record<CostKind, number>;
   granularity: "day" | "month";
   series: Bucket[];
   byPayment: Line[];
@@ -195,6 +208,8 @@ export function summarizeAccounting(input: {
   sales: SaleRow[];
   refunds: RefundRow[];
   prizes: PrizeRow[];
+  /** Gastos del negocio del periodo (día en hora de Colombia). */
+  expenses?: ExpenseRow[];
   fee: FeeConfig;
   /** Tasa actual (para pedidos viejos sin tasa guardada). */
   usdtCop: number;
@@ -209,9 +224,10 @@ export function summarizeAccounting(input: {
   const payment = new Map<string, Line>();
   const product = new Map<string, Line>();
   const type = new Map<string, Line>();
-  const add = (map: Map<string, Line>, label: string, sale: number, cost: number, profit: number) => {
-    const l = map.get(label) ?? { label, orders: 0, salesCop: 0, costCop: 0, profitCop: 0 };
+  const add = (map: Map<string, Line>, label: string, sale: number, cost: number, profit: number, missing = 0) => {
+    const l = map.get(label) ?? { label, orders: 0, salesCop: 0, costCop: 0, profitCop: 0, missingCost: 0 };
     l.orders += 1;
+    l.missingCost += missing;
     l.salesCop += sale;
     l.costCop += cost;
     l.profitCop += profit;
@@ -225,10 +241,12 @@ export function summarizeAccounting(input: {
   let costCop = 0;
   let feeCop = 0;
   let missingCost = 0;
+  const costKinds: Record<CostKind, number> = { real: 0, venta: 0, estimado: 0 };
   const buyers = new Set<string>();
   for (const s of sales) {
     const cents = s.type === "TOPUP" ? (s.costCents ?? 0) : 0;
     if (s.type === "TOPUP" && s.costCents == null) missingCost += 1;
+    if (s.type === "TOPUP" && s.costCents != null) costKinds[s.costKind ?? "venta"] += 1;
     const cost = rowCop(cents, s.usdtCop, usdtCop);
     const fee1 = feeFor(s.total, fee);
     const profit = s.total - fee1 - cost;
@@ -246,9 +264,10 @@ export function summarizeAccounting(input: {
       b.costCop += cost;
       b.profitCop += profit;
     }
-    add(payment, paymentLabel(s.provider, s.method, s.chargeCurrency), s.total, cost, profit);
-    add(product, s.type === "TOPUP" ? s.name : "Cuentas Free Fire", s.total, cost, profit);
-    add(type, s.type === "TOPUP" ? "Recargas de diamantes" : "Cuentas Free Fire", s.total, cost, profit);
+    const miss = s.type === "TOPUP" && s.costCents == null ? 1 : 0;
+    add(payment, paymentLabel(s.provider, s.method, s.chargeCurrency), s.total, cost, profit, miss);
+    add(product, s.type === "TOPUP" ? s.name : "Cuentas Free Fire", s.total, cost, profit, miss);
+    add(type, s.type === "TOPUP" ? "Recargas de diamantes" : "Cuentas Free Fire", s.total, cost, profit, miss);
   }
 
   let refundsCop = 0;
@@ -275,10 +294,22 @@ export function summarizeAccounting(input: {
       b.profitCop -= cost;
     }
   }
+  let expensesCop = 0;
+  const byCategory = new Map<string, { label: string; count: number; cop: number }>();
+  for (const e of input.expenses ?? []) {
+    expensesCop += e.amountCop;
+    const c = byCategory.get(e.category) ?? { label: e.category, count: 0, cop: 0 };
+    c.count += 1;
+    c.cop += e.amountCop;
+    byCategory.set(e.category, c);
+    const b = series.get(granularity === "day" ? e.day : e.day.slice(0, 7));
+    if (b) b.profitCop -= e.amountCop;
+  }
   for (const b of series.values()) b.netCop = b.salesCop - b.refundsCop;
 
   const netCop = salesCop - refundsCop;
-  const profitCop = netCop - feeCop - costCop + costBackCop - prizesCostCop;
+  const grossProfitCop = netCop - costCop + costBackCop;
+  const profitCop = grossProfitCop - feeCop - prizesCostCop - expensesCop;
   const sort = (m: Map<string, Line>) => [...m.values()].sort((a, b) => b.salesCop - a.salesCop || a.label.localeCompare(b.label));
   return {
     orders: sales.length,
@@ -295,10 +326,14 @@ export function summarizeAccounting(input: {
     prizes: prizes.length,
     prizesCostCop,
     feeCop,
+    grossProfitCop,
+    expensesCop,
+    expensesByCategory: [...byCategory.values()].sort((a, b) => b.cop - a.cop),
     profitCop,
     marginPct: netCop > 0 ? Math.round((profitCop / netCop) * 1000) / 10 : null,
     avgTicketCop: sales.length ? Math.round(salesCop / sales.length) : 0,
     missingCost,
+    costKinds,
     granularity,
     series: [...series.values()],
     byPayment: sort(payment),
