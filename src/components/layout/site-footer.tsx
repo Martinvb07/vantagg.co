@@ -26,7 +26,7 @@ const COLUMNS = [
     title: "Tienda",
     links: [
       { href: "/recargas", label: "Diamantes Free Fire" },
-      { href: "/fragmentos", label: "Armas Evo" },
+      { href: "/fragmentos", label: "Fragmentos Evo" },
       { href: "/cuentas", label: "Cuentas Free Fire" },
       { href: "/buscar", label: "Buscar" },
       { href: "/carrito", label: "Carrito" },

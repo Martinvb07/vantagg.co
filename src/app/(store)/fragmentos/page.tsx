@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   title: "Fragmentos y cajas Evo de Free Fire",
   description: "Compra fragmentos de arma Evo y cajas de fragmentos Evo de Free Fire con tu ID de jugador. Pago en pesos colombianos y entrega automática.",
   alternates: { canonical: "/fragmentos" },
-  openGraph: { images: [{ url: "/brand/armas-evo-free-fire.webp", width: 960, height: 1044, alt: "Armas Evo: fragmentos y cajas Evo de Free Fire" }] },
+  openGraph: { images: [{ url: "/brand/fragmentos-evo.webp", width: 960, height: 1044, alt: "Fragmentos Evo: fragmentos y cajas Evo de Free Fire" }] },
 };
 
 export default async function ArmasEvoPage({ searchParams }: { searchParams: Promise<{ paquete?: string; id?: string; region?: string }> }) {
@@ -30,7 +30,7 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
   const [allRegions, mainRegion, user, settings] = await Promise.all([getTopupRegions(), mainTopupRegion(), getCurrentUser(), getSettings()]);
   const all = await getPackages({ regions: allRegions.length ? allRegions.map((r) => r.slug) : [mainRegion] });
   const packages = all.filter((p) => isEvoKind(p.pass));
-  // Solo las regiones donde hay Armas Evo (hoy LATAM).
+  // Solo las regiones donde hay fragmentos y cajas Evo (hoy LATAM).
   const counts = new Map<string, number>();
   for (const p of packages) counts.set(p.region, (counts.get(p.region) ?? 0) + 1);
   const regions = allRegions.filter((r) => counts.has(r.slug)).map((r) => ({ ...r, packages: counts.get(r.slug) ?? 0 }));
@@ -61,7 +61,7 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
             Inicio
           </Link>
           <ChevronRight className="size-3.5" />
-          <span className="text-fg-muted">Armas Evo</span>
+          <span className="text-fg-muted">Fragmentos Evo</span>
         </nav>
 
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-8">
@@ -71,16 +71,16 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
                 {/* En el celular se ve pequeña (96 px): se descarga la versión liviana; la grande solo en escritorio. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/brand/armas-evo-free-fire-720.webp"
-                  srcSet="/brand/armas-evo-free-fire-256.webp 256w, /brand/armas-evo-free-fire-720.webp 720w"
+                  src="/brand/fragmentos-evo-720.webp"
+                  srcSet="/brand/fragmentos-evo-256.webp 256w, /brand/fragmentos-evo-720.webp 720w"
                   sizes="(min-width: 1024px) 360px, (min-width: 640px) 128px, 96px"
-                  alt="Armas Evo: fragmentos y cajas Evo de Free Fire"
+                  alt="Fragmentos Evo: fragmentos y cajas Evo de Free Fire"
                   decoding="async"
                   className="absolute inset-0 size-full object-cover"
                 />
               </div>
               <div className="min-w-0 lg:mt-5">
-                <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Armas Evo</h1>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Fragmentos Evo</h1>
                 <p className="mt-1 text-[13.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID</p>
                 <ul className="mt-3 flex flex-wrap gap-1.5 text-[12px]">
                   <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
@@ -106,7 +106,7 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
 
           <div className="min-w-0 max-lg:order-1 lg:col-start-2 lg:row-start-1">
             {packages.length === 0 ? (
-              <EmptyState title="Pronto" description="Las Armas Evo se están activando. Vuelve en unos minutos." />
+              <EmptyState title="Pronto" description="Los fragmentos y cajas Evo se están activando. Vuelve en unos minutos." />
             ) : (
               <TopUpCheckout
                 packages={packages}

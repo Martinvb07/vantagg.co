@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, Radar, Search, ShoppingBag, Swords, Users, X } from "lucide-react";
+import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, Hexagon, LogIn, LogOut, Menu, Radar, Search, ShoppingBag, Users, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { useCart } from "@/components/cart/cart-context";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { logoutAction } from "@/app/actions/auth";
 
 const NAV = [
   { href: "/recargas", label: "Diamantes", icon: Gem },
-  { href: "/fragmentos", label: "Armas Evo", icon: Swords },
+  { href: "/fragmentos", label: "Fragmentos Evo", icon: Hexagon },
   { href: "/cuentas", label: "Cuentas", icon: Users },
   { href: "/pedido", label: "Seguimiento", icon: Radar },
   { href: "/ayuda", label: "Ayuda", icon: LifeBuoy },
@@ -168,7 +168,7 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={cn("group relative inline-flex items-center px-3 text-[14px] font-medium transition-colors duration-200", active ? "text-fg" : "text-fg-muted hover:text-fg")}
+                className={cn("group relative inline-flex items-center whitespace-nowrap px-2.5 text-[14px] font-medium transition-colors duration-200 xl:px-3", active ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
                 {label}
                 <span
@@ -231,9 +231,11 @@ export function SiteHeader({ storeName, logoUrl, user, showAccounts = true }: Pr
           ) : (
             <Link
               href="/ingresar"
-              className="hidden h-10 items-center gap-2 rounded-full bg-volt-400 px-4 text-[13.5px] font-semibold text-volt-ink shadow-[0_1px_0_0_rgb(255_255_255/0.35)_inset,0_6px_20px_-8px_rgb(200_240_79/0.6)] transition-colors hover:bg-volt-300 sm:inline-flex"
+              title="Ingresar"
+              className="hidden h-10 items-center justify-center gap-2 rounded-full bg-volt-400 px-4 text-[13.5px] font-semibold text-volt-ink shadow-[0_1px_0_0_rgb(255_255_255/0.35)_inset,0_6px_20px_-8px_rgb(200_240_79/0.6)] transition-colors hover:bg-volt-300 sm:inline-flex lg:max-xl:w-10 lg:max-xl:px-0"
             >
-              <LogIn className="size-4" /> Ingresar
+              {/* Entre 1024 y 1279 px el menú completo no deja espacio: solo el ícono (como la foto de la cuenta). */}
+              <LogIn className="size-4" /> <span className="lg:max-xl:sr-only">Ingresar</span>
             </Link>
           )}
 

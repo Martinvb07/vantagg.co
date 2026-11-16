@@ -2,7 +2,8 @@
 Portadas de las secciones (960 × 1044): el cofre negro de VANTA con bordes lima y la V, abierto y lleno de lo que se
 vende, sobre el fondo de la marca (V gigante, avión, paracaidista, nubes y remolino lima) y una placa con el nombre.
   - «diamantes»: diamantes azules tallados  → public/brand/diamantes-vantagg(-720|-256).webp
-  - «evo»: fragmentos (tokens) Evo turquesa  → public/brand/armas-evo-free-fire(-720|-256).webp
+  - «fragmentos»: fragmentos (tokens) Evo turquesa y, adelante, la caja Evo gris
+                                            → public/brand/fragmentos-evo(-720|-256).webp
 
     python3 scripts/portada-seccion.py diamantes > /tmp/portada.svg
     node scripts/portada-seccion.cjs /tmp/portada.svg /tmp/portada.png   (luego se pasa a .webp con Pillow)
@@ -10,7 +11,7 @@ vende, sobre el fondo de la marca (V gigante, avión, paracaidista, nubes y remo
 import math
 import sys
 
-VARIANT = sys.argv[1] if len(sys.argv) > 1 else "evo"
+VARIANT = sys.argv[1] if len(sys.argv) > 1 else "fragmentos"
 
 W, H = 960, 1044
 LIME = "#b9f43c"
@@ -95,6 +96,34 @@ def item(cx, cy, r, rot=0.0):
         token(cx, cy, r, rot)
 
 
+def evo_box(cx, cy, s):
+    """Caja de fragmentos Evo (gris, tapa acolchada, luces turquesa y emblema del átomo), como la portada del paquete.
+    Se dibuja en coordenadas de 200 × 200 centradas en (100, 100) y se escala `s` veces en (cx, cy)."""
+    ink = "#04110f"
+    g = [f'<ellipse cx="100" cy="139" rx="66" ry="9" fill="{TEAL[2]}" opacity="0.6" filter="url(#soft)"/>',
+         f'<circle cx="100" cy="100" r="62" fill="{TEAL[3]}" opacity="0.16" filter="url(#soft)"/>',
+         f'<rect x="50" y="90" width="100" height="46" rx="5" fill="url(#cbody)" stroke="{ink}" stroke-width="2.8"/>',
+         '<rect x="62" y="96" width="76" height="33" rx="3" fill="#1e282a" stroke="#0b1213" stroke-width="1.4"/>']
+    for x in (54, 142):
+        g += [f'<rect x="{x}" y="94" width="4" height="38" rx="2" fill="{TEAL[2]}" filter="url(#soft)"/>', f'<rect x="{x}" y="94" width="4" height="38" rx="2" fill="{TEAL[1]}"/>']
+    g += [f'<rect x="62" y="131" width="76" height="2.6" rx="1.3" fill="{TEAL[2]}" filter="url(#soft)"/>', f'<rect x="62" y="131" width="76" height="2.2" rx="1.1" fill="{TEAL[1]}"/>']
+    for i in range(6):
+        x0 = 50 + i * 16.67 + 1
+        x1 = x0 + 14.7
+        b0 = 100 + (x0 - 100) * 0.84
+        b1 = 100 + (x1 - 100) * 0.84
+        g.append(f'<path d="M{x0:.1f} 75 L{b0:.1f} 61 C{b0:.1f} 55 {b1:.1f} 55 {b1:.1f} 61 L{x1:.1f} 75Z" fill="url(#crib)" stroke="#18232a" stroke-width="1.5" stroke-linejoin="round"/>')
+    g += [f'<rect x="46" y="74" width="108" height="19" rx="4" fill="url(#clid2)" stroke="{ink}" stroke-width="2.8"/>',
+          '<path d="M52 78 H148" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.6" stroke-linecap="round"/>',
+          f'<rect x="52" y="88.6" width="96" height="2.2" rx="1.1" fill="{TEAL[1]}" opacity="0.95"/>',
+          f'<rect x="94" y="87" width="12" height="9" rx="2" fill="#111a1b" stroke="{TEAL[2]}" stroke-width="1.2"/>',
+          f'<circle cx="100" cy="113" r="13" fill="{TEAL[2]}" opacity="0.5" filter="url(#soft)"/>',
+          f'<circle cx="100" cy="113" r="11.5" fill="#0c1517" stroke="{TEAL[1]}" stroke-width="2"/>']
+    g += [f'<ellipse cx="100" cy="113" rx="7.2" ry="2.7" fill="none" stroke="{TEAL[0]}" stroke-width="1.5" transform="rotate({a} 100 113)"/>' for a in (90, 30, -30)]
+    g.append(f'<circle cx="100" cy="113" r="1.6" fill="{TEAL[0]}"/>')
+    add(f'<g transform="translate({cx - 100 * s:.1f} {cy - 100 * s:.1f}) scale({s})">' + "".join(g) + "</g>")
+
+
 def star(x, y, s, op=0.9):
     add(f'<path d="M{x} {y - s} L{x + s * 0.22} {y - s * 0.22} L{x + s} {y} L{x + s * 0.22} {y + s * 0.22} L{x} {y + s} L{x - s * 0.22} {y + s * 0.22} L{x - s} {y} L{x - s * 0.22} {y - s * 0.22}Z" fill="#fff" opacity="{op}"/>')
 
@@ -114,6 +143,10 @@ add(f"""<defs>
 <filter id="blur18" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
 <filter id="blur8" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>
 <filter id="blur30" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="30"/></filter>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6"/></filter>
+<linearGradient id="cbody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#415254"/><stop offset="1" stop-color="#192224"/></linearGradient>
+<linearGradient id="clid2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#566a6c"/><stop offset="1" stop-color="#2a3537"/></linearGradient>
+<linearGradient id="crib" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ecf8f8"/><stop offset="1" stop-color="#86a4a6"/></linearGradient>
 </defs>""")
 
 # Fondo, brillo y V gigante de la marca
@@ -181,19 +214,32 @@ add(f'<path d="M60 790 C80 900 860 900 905 760" fill="none" stroke="{LIME}" stro
 add(f'<path d="M60 790 C80 900 860 900 905 760" fill="none" stroke="url(#swirl)" stroke-width="16" stroke-linecap="round" transform="rotate(-7 480 790)"/>')
 add(f'<path d="M140 860 C260 930 700 930 820 850" fill="none" stroke="{LIME}" stroke-width="6" stroke-linecap="round" opacity="0.6" transform="rotate(-7 480 790)"/>')
 
-# Flotando a la derecha y destellos
-item(852, 640, 44, 16)
-item(818, 778, 30, -10)
+# Flotando a la derecha y destellos; en «fragmentos», la caja Evo adelante a la derecha.
+if VARIANT == "diamantes":
+    item(852, 640, 44, 16)
+    item(818, 778, 30, -10)
+else:
+    item(880, 600, 40, 16)
+    evo_box(778, 846, 2.35)
 item(118, 690, 28, 20)
 item(196, 566, 18, -8)
 for x, y, s in [(300, 470, 22), (128, 560, 14), (880, 520, 16), (612, 420, 12), (760, 300, 10), (420, 900, 12)]:
     star(x, y, s)
 
 # Placa con el nombre de la sección, arriba a la izquierda
-add('<g transform="translate(58 70)">'
-    '<rect x="0" y="0" width="404" height="104" rx="22" fill="#0b1606" opacity="0.6" transform="translate(6 8)"/>'
-    f'<rect x="0" y="0" width="404" height="104" rx="22" fill="{LIME}" stroke="#0b1606" stroke-width="6"/>'
-    f'<text x="202" y="72" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="52" fill="#0b1006" transform="skewX(-10) translate(12 0)" letter-spacing="0.5">{"DIAMANTES" if VARIANT == "diamantes" else "ARMAS EVO"}</text>'
-    '</g>')
+if VARIANT == "diamantes":
+    add('<g transform="translate(58 70)">'
+        '<rect x="0" y="0" width="404" height="104" rx="22" fill="#0b1606" opacity="0.6" transform="translate(6 8)"/>'
+        f'<rect x="0" y="0" width="404" height="104" rx="22" fill="{LIME}" stroke="#0b1606" stroke-width="6"/>'
+        '<text x="202" y="72" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="52" fill="#0b1006" transform="skewX(-10) translate(12 0)" letter-spacing="0.5">DIAMANTES</text>'
+        '</g>')
+else:
+    # «FRAGMENTOS» y «EVO» debajo, en la misma placa lima.
+    add('<g transform="translate(58 62)">'
+        '<rect x="0" y="0" width="440" height="160" rx="24" fill="#0b1606" opacity="0.6" transform="translate(6 8)"/>'
+        f'<rect x="0" y="0" width="440" height="160" rx="24" fill="{LIME}" stroke="#0b1606" stroke-width="6"/>'
+        '<text x="220" y="74" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="54" fill="#0b1006" transform="skewX(-10) translate(14 0)" letter-spacing="0.5">FRAGMENTOS</text>'
+        '<text x="220" y="134" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="50" fill="#0b1006" transform="skewX(-10) translate(24 0)" letter-spacing="4">EVO</text>'
+        '</g>')
 add("</svg>")
 print("\n".join(out))
