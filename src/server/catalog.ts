@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { hmacSha256Hex } from "@/lib/crypto";
 import { getAuthSecret } from "@/lib/env";
 import { quotePrice, type PriceQuote } from "@/domain/pricing";
-import { PASS_INFO, passOf, type PassKind } from "@/domain/packs";
+import { PASS_INFO, passKindOf, passOf, type PassKind } from "@/domain/packs";
 import { compareRegions, DEFAULT_TOPUP_REGION, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
 import { formatNumber } from "@/lib/money";
 import { getSettings } from "./settings";
@@ -258,8 +258,10 @@ export type LivePurchase = {
   kind: "TOPUP" | "ACCOUNT";
   diamonds: number | null; // total recibido (base + bonus); null en cuentas y tarjetas
   bonus: number | null;
-  /** Nombre de la tarjeta o el pase (null en diamantes y cuentas). */
+  /** Nombre de la tarjeta, el pase o el fragmento/caja Evo (null en diamantes y cuentas). */
   title: string | null;
+  /** Fragmentos o cajas Evo (salen en el feed con su ícono; no cuentan en las cifras). */
+  evo: boolean;
   player: string | null;
   at: string; // momento de la compra (pago; ISO)
   deliverySec: number | null; // del pago a la entrega
@@ -275,6 +277,8 @@ function maskPlayerId(id: string | null): string | null {
 }
 
 type Snap = { name?: string; diamonds?: number; bonusDiamonds?: number };
+/** Pedido de fragmentos o cajas Evo (por el nombre guardado en el pedido). */
+const isEvoStockOrder = (type: string, snap: Snap) => type === "TOPUP" && !snap.diamonds && /^evo-(frag|box)-/.test(passKindOf(snap.name ?? "") ?? "");
 const DELIVERED = { status: "DELIVERED", isTest: false, deliveredAt: { not: null }, paidAt: { not: null } } as const;
 
 /**
@@ -292,7 +296,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       take,
       select: { number: true, type: true, itemSnapshot: true, playerId: true, paidAt: true, deliveredAt: true },
     }),
-    db.order.count({ where: { ...DELIVERED, paidAt: { gte: todayStart } } }),
+    db.order.findMany({ where: { ...DELIVERED, paidAt: { gte: todayStart } }, select: { type: true, itemSnapshot: true }, take: 5000 }),
     db.order.findMany({
       where: { ...DELIVERED, type: "TOPUP", paidAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
       orderBy: { paidAt: "desc" },
@@ -317,6 +321,7 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
       diamonds: topup ? snap.diamonds! + (snap.bonusDiamonds ?? 0) : null,
       bonus: topup ? (snap.bonusDiamonds ?? 0) : null,
       title: pass,
+      evo: isEvoStockOrder(r.type, snap),
       player: maskPlayerId(r.playerId),
       at: (r.paidAt ?? r.deliveredAt)!.toISOString(),
       deliverySec: secs(r.paidAt, r.deliveredAt),
@@ -326,7 +331,8 @@ export async function getLiveDeliveries(take = 10): Promise<LiveData> {
     const s = (o.itemSnapshot ?? {}) as Snap;
     return n + (s.diamonds ?? 0) + (s.bonusDiamonds ?? 0);
   }, 0);
-  return { items, stats: { today, diamonds30d } };
+  // «Entregas hoy»: sin fragmentos ni cajas Evo (salen en el feed, pero no se cuentan).
+  return { items, stats: { today: today.filter((o) => !isEvoStockOrder(o.type, (o.itemSnapshot ?? {}) as Snap)).length, diamonds30d } };
 }
 
 /**

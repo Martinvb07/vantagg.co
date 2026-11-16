@@ -8,7 +8,6 @@ import { FindPlayerId } from "@/components/store/find-player-id";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { formatMoney } from "@/lib/money";
 import { getPackages, getTopupRegions, mainTopupRegion } from "@/server/catalog";
 import { publicPaymentOptions } from "@/server/integrations/payments";
 import { activeTopUpProvider } from "@/server/integrations/topup";
@@ -39,8 +38,9 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
   const profile = user ? await db.user.findUnique({ where: { id: user.id }, select: { ffPlayerId: true, marketingOptIn: true } }) : null;
   const savedId = !id ? profile?.ffPlayerId : null;
   const paused = maintenanceNotice(settings);
-  const prices = packages.filter((p) => p.available).map((p) => p.quote.price);
-  const from = prices.length ? Math.min(...prices) : null;
+  // Datos para buscadores: solo fragmentos y cajas de la región principal (el acceso Evo de otras regiones no cuenta).
+  const stock = packages.filter((p) => p.available && /^evo-(frag|box)-/.test(p.pass ?? ""));
+  const prices = (stock.some((p) => p.region === mainRegion) ? stock.filter((p) => p.region === mainRegion) : stock).map((p) => p.quote.price);
 
   return (
     <>
@@ -81,7 +81,7 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
               </div>
               <div className="min-w-0 lg:mt-5">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Armas Evo</h1>
-                <p className="mt-1 text-[13.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID{from != null ? ` · desde ${formatMoney(from)}` : ""}</p>
+                <p className="mt-1 text-[13.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID</p>
                 <ul className="mt-3 flex flex-wrap gap-1.5 text-[12px]">
                   <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
                     <KeyRound className="size-3.5" /> Sin contraseña

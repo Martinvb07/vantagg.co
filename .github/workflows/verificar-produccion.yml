@@ -113,20 +113,6 @@ jobs:
               console.log("  Armas Evo en la tienda: "+evo.length+" · activos y a la venta: "+evo.filter(p=>p.active&&p.available&&!p.supplierOutOfStock).length+" · "+evo.map(p=>p.name+" ("+p.region+(p.active?"":", apagado")+(p.supplierOutOfStock?", agotado":"")+")").join(" · "));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
-          echo "== textos públicos con «2.499» (precios de paquetes, aviso, banners, etiquetas)"
-          node --env-file=.env -e '
-            const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
-            (async()=>{
-              const re=/2[.,]?499/;
-              const pk=await db.diamondPackage.findMany({where:{OR:[{price:{gte:2400,lte:2599}},{compareAtPrice:{gte:2400,lte:2599}}]},select:{name:true,region:true,price:true,compareAtPrice:true,label:true,active:true,available:true,supplierOutOfStock:true}});
-              for(const p of pk)console.log("  paquete: "+p.name+" ("+p.region+") $"+p.price+(p.compareAtPrice?" antes $"+p.compareAtPrice:"")+(p.label?" · etiqueta «"+p.label+"»":"")+" · "+(p.active?"activo":"apagado")+(p.available?"":" · no disponible")+(p.supplierOutOfStock?" · agotado":""));
-              const pub=["storeTagline","announcement","maintenanceMessage","storeName"];
-              for(const s of await db.setting.findMany())if(re.test(s.value))console.log("  ajuste: "+s.key+(pub.includes(s.key)?" = «"+s.value.slice(0,200)+"»":""));
-              for(const b of await db.promoBanner.findMany({select:{title:true,placement:true,active:true,href:true}}))if(re.test(b.title+" "+(b.href||"")))console.log("  banner ("+b.placement+(b.active?"":", apagado")+"): «"+b.title+"»");
-              const evo=(await db.diamondPackage.findMany({where:{active:true,available:true,supplierOutOfStock:false,diamonds:0,region:"latam"},select:{name:true,price:true}})).filter(p=>/Fragmentos de arma Evo|de fragmentos Evo/.test(p.name));
-              console.log("  «desde» de Armas Evo hoy: "+(evo.length?"$"+Math.min(...evo.map(p=>p.price)):"sin paquetes")+" · Evo activos: "+evo.map(p=>p.name+" $"+p.price).join(" · "));
-              await db.$disconnect();
-            })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== precios públicos de Latinoamérica (diamantes frente a la tienda oficial; sin costos ni márgenes por producto)"
           node --env-file=.env -e '
             const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();

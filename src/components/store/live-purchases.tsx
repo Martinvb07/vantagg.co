@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, ChevronsRight, Gem, Ticket, Users, Zap } from "lucide-react";
+import { BadgeCheck, ChevronsRight, Gem, Hexagon, Ticket, Users, Zap } from "lucide-react";
 import type { LiveData, LivePurchase } from "@/server/catalog";
 import { LogoMark } from "@/components/brand/logo";
 import { timeAgo } from "@/components/store/time-ago";
@@ -41,7 +41,7 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
         )}
       >
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-[12px] bg-white/[0.06] ring-1 ring-white/10", latest && "bg-volt-400/15 ring-volt-400/30")}>
-          {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : p.title ? <Ticket className="size-5 text-volt-300" /> : <Users className="size-5 text-violet-300" />}
+          {amount ? <Gem className={cn("size-5", gemTone(p.diamonds!))} strokeWidth={2.3} /> : p.evo ? <Hexagon className="size-5 text-teal-300" strokeWidth={2.3} /> : p.title ? <Ticket className="size-5 text-volt-300" /> : <Users className="size-5 text-violet-300" />}
         </span>
         <span className="min-w-0 flex-1">
           {p.title && !amount ? (
@@ -85,7 +85,7 @@ function FeedRow({ p, latest, fresh, now, fade, mobileHidden }: { p: LivePurchas
             </span>
           ) : p.title ? (
             <span className="flex min-w-0 items-center gap-1 font-display font-extrabold" title={p.title}>
-              <Ticket className="size-4 shrink-0 text-volt-300" /> <span className="truncate">{p.title}</span>
+              {p.evo ? <Hexagon className="size-4 shrink-0 text-teal-300" strokeWidth={2.3} /> : <Ticket className="size-4 shrink-0 text-volt-300" />} <span className="truncate">{p.title}</span>
             </span>
           ) : (
             <span className="flex shrink-0 items-center gap-1 font-display font-extrabold">
