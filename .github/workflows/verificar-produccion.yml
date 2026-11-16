@@ -66,6 +66,28 @@ jobs:
               console.log("  pedidos de premio creados (historial): "+premios);
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
+          echo "== contabilidad del mes (solo conteos: sin montos, correos ni IDs)"
+          node --env-file=.env -e '
+            const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
+            (async()=>{
+              const now=new Date(),loc=new Date(now.getTime()-5*3600e3);
+              const start=new Date(Date.UTC(loc.getUTCFullYear(),loc.getUTCMonth(),1)+5*3600e3);
+              const fx=JSON.parse((await db.setting.findUnique({where:{key:"fxRates"}}))?.value||"{}");
+              const cop=Number(fx.rates&&fx.rates.COP)||0;
+              const os=await db.order.findMany({where:{isTest:false,paymentProvider:{not:"premio"},total:{gt:0},paidAt:{gte:start},status:{in:["PAID","PROCESSING","DELIVERED","DELIVERY_FAILED","REFUND_REQUESTED","REFUNDED"]}},select:{type:true,total:true,itemSnapshot:true,packageId:true,delivery:{select:{providerRef:true,simulated:true}}}});
+              const tu=os.filter(o=>o.type==="TOPUP"),ac=os.length-tu.length;
+              const has=tu.filter(o=>typeof (o.itemSnapshot||{}).costCents==="number");
+              const ref=tu.filter(o=>o.delivery&&o.delivery.providerRef&&!o.delivery.simulated).length;
+              const pk=new Map((await db.diamondPackage.findMany({where:{id:{in:[...new Set(tu.map(o=>o.packageId).filter(Boolean))]}},select:{id:true,costCents:true}})).map(p=>[p.id,p.costCents]));
+              const b={"<50%":0,"50-80%":0,"80-100%":0,">100%":0};let distinto=0;
+              for(const o of has){const c=o.itemSnapshot.costCents;const r=cop?(c/100*cop)/o.total:0;b[r<0.5?"<50%":r<0.8?"50-80%":r<=1?"80-100%":">100%"]++;const now=pk.get(o.packageId);if(now&&Math.abs(now-c)/now>0.3)distinto++}
+              console.log("  ventas del mes: "+os.length+" · recargas: "+tu.length+" · cuentas: "+ac);
+              console.log("  recargas con costo guardado: "+has.length+" · sin costo: "+(tu.length-has.length)+" · con referencia del proveedor: "+ref);
+              console.log("  costo frente al precio (recargas con costo): "+Object.entries(b).map(([k,v])=>k+" "+v).join(" · "));
+              console.log("  costo guardado distinto (>30%) del costo actual del paquete: "+distinto+" · tasa del día guardada: "+(cop?"sí":"no"));
+              console.log("  paquetes activos sin costo: "+(await db.diamondPackage.count({where:{active:true,costCents:null}}))+" · cierres de caja: "+(await db.cashClose.count()));
+              await db.$disconnect();
+            })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== tarea programada (mantenimiento y respaldos)"
           c=$(crontab -l 2>/dev/null || true)
           # Solo cuenta la tarea de ESTA tienda (puerto 3020 / vantagg.co): en el servidor hay otras tiendas con la suya.
