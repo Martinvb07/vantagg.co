@@ -108,6 +108,8 @@ jobs:
               console.log("  productos que no son diamantes: "+nd.length+" ("+by.size+" distintos)");
               for(const [k,r] of [...by].sort().slice(0,150))console.log("   · "+k+" | regiones: "+[...r].join(","));
               const evo=await db.diamondPackage.findMany({where:{diamonds:0,OR:[{name:{contains:"Fragmentos de arma Evo"}},{name:{contains:"fragmentos Evo"}}]},select:{name:true,active:true,available:true,supplierOutOfStock:true,region:true}});
+              const cover=(await db.setting.findUnique({where:{key:"topupCoverUrl"}}))?.value;
+              console.log("  portada de diamantes en /recargas: "+(cover?"imagen subida en el panel (reemplaza la predeterminada)":"la predeterminada de la tienda"));
               console.log("  Armas Evo en la tienda: "+evo.length+" · activos y a la venta: "+evo.filter(p=>p.active&&p.available&&!p.supplierOutOfStock).length+" · "+evo.map(p=>p.name+" ("+p.region+(p.active?"":", apagado")+(p.supplierOutOfStock?", agotado":"")+")").join(" · "));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
@@ -199,7 +201,7 @@ jobs:
           cab() { curl -sI --max-time 20 -H "Accept-Encoding: gzip, br" "$B$1" | tr -d '\r' | grep -iE "^($2):" | sed -E 's/^([^:]+): */\1=/' | tr '\n' ' '; }
           echo "  HTML → $(cab / 'content-encoding')"
           for f in "$css" "$js"; do [ -n "$f" ] && echo "  ${f##*/} → $(cab "$f" 'content-encoding|cache-control')"; done
-          for f in /portadas/paquete-1.svg /promo/pasos-wide.svg /pagos/pse.webp /brand/diamantes-free-fire-256.webp; do echo "  $f → $(cab "$f" 'content-encoding|cache-control')"; done
+          for f in /portadas/paquete-1.svg /promo/pasos-wide.svg /pagos/pse.webp /brand/diamantes-vantagg-256.webp; do echo "  $f → $(cab "$f" 'content-encoding|cache-control')"; done
           # Next precarga las fuentes en la cabecera HTTP «Link» (no en el HTML).
           n=$(curl -sI --max-time 20 "$B/" | tr -d '\r' | grep -i '^link:' | grep -o 'as="font"' | wc -l || true); echo "  fuentes precargadas en el inicio: ${n:-0}"
           echo "== Top 3 del mes"

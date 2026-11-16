@@ -88,8 +88,8 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
                 ) : (
                   // En el celular se ve pequeña (96 px): se descarga la versión liviana; la grande solo en escritorio.
                   <img
-                    src="/brand/diamantes-free-fire-720.webp"
-                    srcSet="/brand/diamantes-free-fire-256.webp 256w, /brand/diamantes-free-fire-720.webp 720w"
+                    src="/brand/diamantes-vantagg-720.webp"
+                    srcSet="/brand/diamantes-vantagg-256.webp 256w, /brand/diamantes-vantagg-720.webp 720w"
                     sizes="(min-width: 1024px) 360px, (min-width: 640px) 128px, 96px"
                     alt="Diamantes Free Fire"
                     decoding="async"

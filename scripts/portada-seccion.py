@@ -1,11 +1,16 @@
 """
-Portada de la sección «Armas Evo» (mismo formato que la de diamantes: 960 × 1044): el cofre negro de VANTA con bordes
-lima y la V, abierto y lleno de fragmentos (tokens) Evo turquesa con el átomo, sobre el fondo de la marca.
+Portadas de las secciones (960 × 1044): el cofre negro de VANTA con bordes lima y la V, abierto y lleno de lo que se
+vende, sobre el fondo de la marca (V gigante, avión, paracaidista, nubes y remolino lima) y una placa con el nombre.
+  - «diamantes»: diamantes azules tallados  → public/brand/diamantes-vantagg(-720|-256).webp
+  - «evo»: fragmentos (tokens) Evo turquesa  → public/brand/armas-evo-free-fire(-720|-256).webp
 
-Genera el SVG; scripts/portada-armas-evo.cjs lo pasa a public/brand/armas-evo-free-fire(-720|-256).webp.
-    python3 scripts/portada-armas-evo.py > /tmp/armas-evo.svg
+    python3 scripts/portada-seccion.py diamantes > /tmp/portada.svg
+    node scripts/portada-seccion.cjs /tmp/portada.svg /tmp/portada.png   (luego se pasa a .webp con Pillow)
 """
 import math
+import sys
+
+VARIANT = sys.argv[1] if len(sys.argv) > 1 else "evo"
 
 W, H = 960, 1044
 LIME = "#b9f43c"
@@ -49,6 +54,47 @@ def token(cx, cy, r, rot=0.0, glow=True):
     add("<g>" + "".join(g) + "</g>")
 
 
+ICE = ["#e3f9ff", "#98e1ff", "#52bbff", "#2d84f0", "#1a52c4", "#06183f"]
+
+
+def gem(cx, cy, w, tilt=0.0, glow=True):
+    """Diamante tallado azul (centro x, centro y, ancho, giro), como en las portadas de los paquetes."""
+    c = ICE
+    h = w * 0.86
+    y0 = cy - h / 2
+    y1 = y0 + h * 0.3
+    tip = y0 + h
+    t1, t2 = cx - w * 0.27, cx + w * 0.27
+    gl, g1, g2, gr = cx - w / 2, cx - w / 6, cx + w / 6, cx + w / 2
+    f = lambda pts, fill, op=1: f'<path d="{poly(pts)}" fill="{fill}"' + (f' opacity="{op}"' if op != 1 else "") + "/>"
+    g = []
+    if glow:
+        g.append(f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{w * 0.62:.1f}" ry="{h * 0.6:.1f}" fill="#4fc3ff" opacity="0.4" filter="url(#blur18)"/>')
+    g += [
+        f([(t1, y0), (gl, y1), (g1, y1)], c[2]),
+        f([(t1, y0), (cx, y0), (g1, y1)], c[0]),
+        f([(cx, y0), (g1, y1), (g2, y1)], c[1]),
+        f([(cx, y0), (t2, y0), (g2, y1)], c[2]),
+        f([(t2, y0), (gr, y1), (g2, y1)], c[3]),
+        f([(gl, y1), (g1, y1), (cx, tip)], c[2]),
+        f([(g1, y1), (g2, y1), (cx, tip)], c[3]),
+        f([(g2, y1), (gr, y1), (cx, tip)], c[4]),
+        f([(t1 + w * 0.06, y0 + h * 0.05), (cx - w * 0.06, y0 + h * 0.05), (g1 - w * 0.03, y1 - h * 0.05)], "#fff", 0.7),
+        f([(gl + w * 0.12, y1 + h * 0.05), (g1 - w * 0.02, y1 + h * 0.05), (cx - w * 0.05, tip - h * 0.22)], "#fff", 0.25),
+        f'<path d="M{gl:.1f} {y1:.1f} H{gr:.1f}" stroke="{c[5]}" stroke-opacity="0.45" stroke-width="{max(1, w * 0.012):.1f}"/>',
+        f'<path d="M{t1:.1f} {y0:.1f} H{t2:.1f} L{gr:.1f} {y1:.1f} L{cx:.1f} {tip:.1f} L{gl:.1f} {y1:.1f}Z" fill="none" stroke="{c[5]}" stroke-width="{max(2.5, min(7, w * 0.045)):.1f}" stroke-linejoin="round"/>',
+    ]
+    add(f'<g transform="rotate({tilt:.1f} {cx:.1f} {cy:.1f})">' + "".join(g) + "</g>")
+
+
+def item(cx, cy, r, rot=0.0):
+    """Lo que llena el cofre: token Evo (radio r) o diamante (ancho ≈ 2r)."""
+    if VARIANT == "diamantes":
+        gem(cx, cy, r * 2.1, rot)
+    else:
+        token(cx, cy, r, rot)
+
+
 def star(x, y, s, op=0.9):
     add(f'<path d="M{x} {y - s} L{x + s * 0.22} {y - s * 0.22} L{x + s} {y} L{x + s * 0.22} {y + s * 0.22} L{x} {y + s} L{x - s * 0.22} {y + s * 0.22} L{x - s} {y} L{x - s * 0.22} {y - s * 0.22}Z" fill="#fff" opacity="{op}"/>')
 
@@ -58,6 +104,7 @@ add(f"""<defs>
 <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#0f2a12"/><stop offset="0.55" stop-color="#071408"/><stop offset="1" stop-color="#020603"/></linearGradient>
 <radialGradient id="glow" cx="0.5" cy="0.55" r="0.5"><stop offset="0" stop-color="{LIME}" stop-opacity="0.38"/><stop offset="0.6" stop-color="{LIME}" stop-opacity="0.08"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
 <radialGradient id="tglow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="{TEAL[2]}" stop-opacity="0.55"/><stop offset="1" stop-color="{TEAL[2]}" stop-opacity="0"/></radialGradient>
+<radialGradient id="dglow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#4fc3ff" stop-opacity="0.6"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
 <linearGradient id="vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8ff48"/><stop offset="1" stop-color="#3c8f12"/></linearGradient>
 <linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#363b3a"/><stop offset="1" stop-color="#0d1010"/></linearGradient>
 <linearGradient id="side" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d2221"/><stop offset="1" stop-color="#080a0a"/></linearGradient>
@@ -95,8 +142,8 @@ for cx, cy, r in [(40, 470, 90), (150, 520, 80), (60, 600, 70), (910, 500, 90), 
 add(f'<ellipse cx="480" cy="790" rx="430" ry="95" fill="none" stroke="{LIME}" stroke-width="30" opacity="0.4" filter="url(#blur18)" transform="rotate(-7 480 790)"/>')
 add(f'<path d="M70 800 C120 690 820 640 900 740" fill="none" stroke="url(#swirl)" stroke-width="20" stroke-linecap="round" transform="rotate(-7 480 790)"/>')
 
-# Token grande flotando a la izquierda (como el diamante de la portada de diamantes)
-token(150, 470, 80, -12)
+# Uno grande flotando a la izquierda
+item(150, 470, 80, -12)
 
 # Cofre: tapa abierta
 add(f'<path d="M296 572 L320 318 L812 342 L794 596Z" fill="{LIME}" opacity="0.35" filter="url(#blur18)"/>')
@@ -107,11 +154,11 @@ add(f'<path d="M346 360 L784 382" stroke="{LIME}" stroke-width="5" opacity="0.5"
 add(f'<path d="M520 344 L560 344 L568 372 L590 344 L630 344 L580 402 L556 402Z" fill="{LIME}" stroke="#020403" stroke-width="5" stroke-linejoin="round"/>')
 # Boca del cofre (adentro)
 add('<path d="M214 612 L290 566 L796 592 L724 632Z" fill="#06120b" stroke="#020403" stroke-width="6" stroke-linejoin="round"/>')
-add(f'<ellipse cx="510" cy="560" rx="270" ry="120" fill="url(#tglow)"/>')
+add(f'<ellipse cx="510" cy="560" rx="270" ry="120" fill="url(#{"dglow" if VARIANT == "diamantes" else "tglow"})"/>')
 
-# Tokens dentro del cofre (de atrás hacia adelante)
+# Dentro del cofre (de atrás hacia adelante)
 for cx, cy, r, rot in [(430, 500, 52, 10), (590, 488, 56, -8), (700, 548, 50, 18), (330, 560, 58, -14), (510, 530, 88, 4), (640, 590, 70, 14), (390, 612, 64, -6), (250, 616, 40, -24)]:
-    token(cx, cy, r, rot)
+    item(cx, cy, r, rot)
 
 # Cuerpo del cofre: frente y costado
 add(f'<path d="M214 612 L724 632 L716 850 L234 832Z" fill="{LIME}" opacity="0.35" filter="url(#blur18)"/>')
@@ -134,19 +181,19 @@ add(f'<path d="M60 790 C80 900 860 900 905 760" fill="none" stroke="{LIME}" stro
 add(f'<path d="M60 790 C80 900 860 900 905 760" fill="none" stroke="url(#swirl)" stroke-width="16" stroke-linecap="round" transform="rotate(-7 480 790)"/>')
 add(f'<path d="M140 860 C260 930 700 930 820 850" fill="none" stroke="{LIME}" stroke-width="6" stroke-linecap="round" opacity="0.6" transform="rotate(-7 480 790)"/>')
 
-# Tokens flotando a la derecha y destellos
-token(852, 640, 44, 16)
-token(818, 778, 30, -10)
-token(118, 690, 28, 20)
-token(196, 566, 18, -8)
+# Flotando a la derecha y destellos
+item(852, 640, 44, 16)
+item(818, 778, 30, -10)
+item(118, 690, 28, 20)
+item(196, 566, 18, -8)
 for x, y, s in [(300, 470, 22), (128, 560, 14), (880, 520, 16), (612, 420, 12), (760, 300, 10), (420, 900, 12)]:
     star(x, y, s)
 
-# Placa «ARMAS EVO» arriba a la izquierda (en la de diamantes va el nombre del juego)
+# Placa con el nombre de la sección, arriba a la izquierda
 add('<g transform="translate(58 70)">'
     '<rect x="0" y="0" width="404" height="104" rx="22" fill="#0b1606" opacity="0.6" transform="translate(6 8)"/>'
     f'<rect x="0" y="0" width="404" height="104" rx="22" fill="{LIME}" stroke="#0b1606" stroke-width="6"/>'
-    '<text x="202" y="72" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="52" fill="#0b1006" transform="skewX(-10) translate(12 0)" letter-spacing="0.5">ARMAS EVO</text>'
+    f'<text x="202" y="72" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="52" fill="#0b1006" transform="skewX(-10) translate(12 0)" letter-spacing="0.5">{"DIAMANTES" if VARIANT == "diamantes" else "ARMAS EVO"}</text>'
     '</g>')
 add("</svg>")
 print("\n".join(out))

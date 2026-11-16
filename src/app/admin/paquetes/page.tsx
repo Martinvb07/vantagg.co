@@ -71,7 +71,7 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
       <Panel title="Imagen del producto" className="mb-6">
         <div className="flex flex-wrap items-start gap-5">
           <div className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-ink-900 ring-1 ring-white/10">
-            <img src={topupCoverUrl || "/brand/diamantes-free-fire.webp"} alt="Imagen actual del producto" className="size-full object-cover" />
+            <img src={topupCoverUrl || "/brand/diamantes-vantagg.webp"} alt="Imagen actual del producto" className="size-full object-cover" />
           </div>
           <div className="min-w-0 flex-1 space-y-3">
             <ActionForm action={topupCoverAction} className="flex flex-wrap items-end gap-3">
