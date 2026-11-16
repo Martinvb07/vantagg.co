@@ -20,7 +20,7 @@ vi.mock("@/server/integrations/topup", () => ({ activeTopUpProvider: () => null,
 
 import { db } from "@/lib/db";
 import { isEvoKind, packPath, passGroup, PASS_GROUP_TITLE, PASS_INFO, passKindOf, passOf } from "@/domain/packs";
-import { floorPrice, suggestedPrice } from "@/domain/topup-regions";
+import { evoFloorPrice, floorPrice, suggestedPrice } from "@/domain/topup-regions";
 import { ensureEvoPackages } from "@/server/supplier";
 
 describe("Armas Evo en el catálogo", () => {
@@ -102,7 +102,8 @@ describe.skipIf(!cfg.enabled)("Activación automática (base de pruebas)", () =>
     ]);
     // Tasa: la del día (4.000) es más alta que la configurada (3.800). Margen general 30 %, ganancia mínima 20 %.
     const frag = pkgs[0];
-    expect(frag.price).toBe(Math.max(suggestedPrice(950, 4000, 30), floorPrice(950, 4000, 20)));
+    // Y al menos el 30 % limpio de la comisión de Bold (regla de fragmentos y cajas Evo).
+    expect(frag.price).toBe(Math.max(suggestedPrice(950, 4000, 30), floorPrice(950, 4000, 20), evoFloorPrice(950, 4000)));
     expect(frag.costCents).toBe(950);
     expect(passOf(frag)).toBe("evo-frag-100");
   });

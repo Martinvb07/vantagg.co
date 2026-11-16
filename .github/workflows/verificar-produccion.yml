@@ -113,21 +113,21 @@ jobs:
               console.log("  Armas Evo en la tienda: "+evo.length+" · activos y a la venta: "+evo.filter(p=>p.active&&p.available&&!p.supplierOutOfStock).length+" · "+evo.map(p=>p.name+" ("+p.region+(p.active?"":", apagado")+(p.supplierOutOfStock?", agotado":"")+")").join(" · "));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
-          echo "== precios de Latinoamérica frente a la tienda oficial (solo precios públicos; sin costos ni márgenes por producto)"
+          echo "== precios públicos de Latinoamérica (diamantes frente a la tienda oficial; sin costos ni márgenes por producto)"
           node --env-file=.env -e '
             const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
             (async()=>{
               const st=Object.fromEntries((await db.setting.findMany()).map(s=>[s.key,s.value]));
               let fx=null;try{fx=JSON.parse(st.fxRates||"null")}catch{}
               const rate=Math.max(Number(st.usdtCop)||3400,Number(fx&&fx.rates&&fx.rates.COP)||0);
-              const g=Number(st.minMarginPct)||0,s=Number(st.minMarginSmallPct)||0;
-              console.log("  ganancia mínima: "+g+" % (≤110 diamantes: "+(s||"la general")+") · precios de mercado aplicados: "+(st.marketPricesAt||"todavía no")+" · catálogo sincronizado hace "+(st.supplierSyncedAt?Math.round((Date.now()-new Date(st.supplierSyncedAt))/60000)+" min":"?"));
+              console.log("  catálogo sincronizado hace "+(st.supplierSyncedAt?Math.round((Date.now()-new Date(st.supplierSyncedAt))/60000)+" min":"?"));
+              // Solo fragmentos y cajas Evo: 30 % limpio (ya descontada la comisión de Bold). Los diamantes no cambian.
               const k=0.0299*1.19,f=900*1.19;
-              const floor=(c,pct)=>{const raw=((c/100)*rate+f)/(1-pct/100-k);const x=Math.max(1000,Math.ceil((raw+1)/500)*500);return x%500===0?x-1:x};
+              const floor=(c)=>{const raw=((c/100)*rate+f)/(1-0.3-k);const x=Math.max(1000,Math.ceil((raw+1)/500)*500);return x%500===0?x-1:x};
               const ps=await db.diamondPackage.findMany({where:{active:true,region:"latam"},orderBy:[{diamonds:"asc"},{sortOrder:"asc"}],select:{name:true,diamonds:true,bonusDiamonds:true,price:true,costCents:true}});
-              let under=0,nocost=0;
-              for(const p of ps){const t=p.diamonds+p.bonusDiamonds;const pct=p.diamonds>0&&t<=110&&s>0?s:g;if(p.costCents==null){nocost++;continue}if(pct>0&&p.price<floor(p.costCents,pct))under++}
-              console.log("  paquetes activos de Latinoamérica: "+ps.length+" · por debajo de la ganancia mínima: "+under+(nocost?" · sin costo: "+nocost:""));
+              const evo=ps.filter(p=>p.diamonds===0&&/Fragmentos de arma Evo|de fragmentos Evo/.test(p.name));
+              const under=evo.filter(p=>p.costCents!=null&&p.price<floor(p.costCents)).length;
+              console.log("  paquetes activos de Latinoamérica: "+ps.length+" · fragmentos y cajas Evo: "+evo.length+" · Evo por debajo del 30 % limpio: "+under+" · Evo sin costo: "+evo.filter(p=>p.costCents==null).length);
               const ref={110:4200,341:12000,572:19600,1166:38599,2398:76800,6160:182400};
               const cop=n=>"$"+n.toLocaleString("es-CO");
               for(const p of ps){const t=p.diamonds+p.bonusDiamonds;const o=p.diamonds>0?ref[t]:null;console.log("   · "+(p.diamonds>0?t+" diamantes":p.name)+": "+cop(p.price)+(o?" · oficial "+cop(o)+" ("+(p.price<=o?((o-p.price)/o*100).toFixed(1)+" % más barato":((p.price-o)/o*100).toFixed(1)+" % más caro")+")":""))}

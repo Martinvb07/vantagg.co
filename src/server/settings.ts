@@ -49,9 +49,8 @@ export const SETTING_DEFAULTS = {
   topupRegionsOff: "", // regiones apagadas a mano (p. ej. "id"): «Activar todo» no las vuelve a mostrar
   usdtCop: "3400", // pesos por 1 USDT, para calcular costos y márgenes
   topupMargin: "30", // % de margen para precios sugeridos de regiones nuevas
-  minMarginPct: "0", // ganancia mínima (% del precio de venta, ya descontados costo y comisión de Bold); 0 = sin mínimo
+  minMarginPct: "0", // ganancia mínima (% del precio de venta) de todos los paquetes; 0 = sin mínimo
   minMarginSmallPct: "0", // ganancia mínima de los paquetes de 100 diamantes o menos; 0 = la general
-  marketPricesAt: "", // versión de la tabla de precios oficiales ya aplicada (ver applyMarketPrices)
   supplierSyncedAt: "", // última sincronización del catálogo (ISO)
   // Top 3 del mes (Panel → Ranking y premios)
   rankingMode: "on", // "on": se muestra en el inicio; "off": oculto
@@ -66,7 +65,7 @@ export const SETTING_DEFAULTS = {
 } as const;
 
 /** Claves que no se editan en Ajustes (tienen su propia pantalla). */
-export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "marketPricesAt", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "fxHistoryAt", "rankingMode", "rankingMinCop", "rankingPrizes", "cashFeePct", "cashFeeFixed", "capitalCop", "capitalSince"]);
+export const MANAGED_SETTING_KEYS = new Set<string>(["topupCoverUrl", "topupRegions", "topupRegionsOff", "usdtCop", "topupMargin", "minMarginPct", "minMarginSmallPct", "supplierSyncedAt", "emailAutomationsAt", "fxRates", "fxHistoryAt", "rankingMode", "rankingMinCop", "rankingPrizes", "cashFeePct", "cashFeeFixed", "capitalCop", "capitalSince"]);
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type StoreSettings = Record<SettingKey, string>;

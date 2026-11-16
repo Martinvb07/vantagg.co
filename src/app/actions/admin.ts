@@ -26,10 +26,10 @@ import { runHealthCheck } from "@/server/integrations/status";
 import { getBrand, notifyStaffSecurity, sendEmail } from "@/server/notifications";
 import { supportReplyEmail, testEmail } from "@/server/email-templates";
 import { env } from "@/lib/env";
-import { floorPrice, minMarginFor } from "@/domain/topup-regions";
+import { EVO_MIN_MARGIN_PCT, floorPrice, minMarginFor } from "@/domain/topup-regions";
 import { parseConversionLabel, parseGoogleTagIds } from "@/domain/google-tag";
 import { parseMetaPixelId } from "@/domain/meta-pixel";
-import { supplierRate } from "@/server/supplier";
+import { evoMinPrice, supplierRate } from "@/server/supplier";
 
 export type ActionResult = { ok: boolean; message: string } | null;
 
@@ -153,10 +153,15 @@ export async function savePackageAction(_: ActionResult, form: FormData): Promis
 
   // Ganancia mínima (Panel → Proveedor): un paquete activo no se puede guardar más barato que eso.
   if (product && bool(form, "active")) {
-    const { costRate, minMargin } = await supplierRate();
+    const { usdtCop, minMargin } = await supplierRate();
     const pct = minMarginFor({ diamonds: pass ? 0 : d.diamonds, bonusDiamonds: pass ? 0 : d.bonusDiamonds }, minMargin);
-    const floor = pct > 0 ? floorPrice(product.priceCents, costRate, pct) : 0;
-    if (d.price < floor) return fail(`Con la ganancia mínima de ${pct} % (ya descontada la comisión de Bold), este paquete debe costar al menos $${floor.toLocaleString("es-CO")}. Si quieres venderlo más barato, baja la ganancia mínima en Proveedor.`);
+    const floor = pct > 0 ? floorPrice(product.priceCents, usdtCop, pct) : 0;
+    if (d.price < floor) return fail(`Con la ganancia mínima de ${pct} %, este paquete debe costar al menos $${floor.toLocaleString("es-CO")}. Si quieres venderlo más barato, baja la ganancia mínima en Proveedor.`);
+    // Fragmentos y cajas Evo: al menos el 30 % limpio, ya descontada la comisión de Bold.
+    if (pass && /^evo-(frag|box)-/.test(pass)) {
+      const evoFloor = await evoMinPrice(product.priceCents);
+      if (d.price < evoFloor) return fail(`Los fragmentos y cajas Evo dejan al menos el ${EVO_MIN_MARGIN_PCT} % limpio (ya descontada la comisión de Bold): este debe costar al menos $${evoFloor.toLocaleString("es-CO")}.`);
+    }
   }
 
   const data = {

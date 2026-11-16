@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { charmPrice, costInCop, floorPrice, isFreeFireProductKey, marginOf, marketPrice, minMarginFor, MIN_MARGIN_PCT, netMarginOf, OFFICIAL_COP, paymentFee, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
+import { charmPrice, costInCop, floorPrice, isFreeFireProductKey, marginOf, minMarginFor, MIN_MARGIN_PCT, parseRegionList, regionalPrice, sameRegion, splitBonus, suggestedPrice } from "@/domain/topup-regions";
 import { verifyStandardWebhook } from "@/server/integrations/payments/signatures";
 
 describe("precios por región", () => {
@@ -15,37 +15,19 @@ describe("precios por región", () => {
     expect(suggestedPrice(1, 3400, 0)).toBe(500); // mínimo
   });
 
-  it("ganancia mínima: queda limpio al menos ese % del precio de venta, ya descontada la comisión de Bold", () => {
+  it("ganancia mínima: el precio deja al menos ese % del precio de venta (como lo muestra el panel)", () => {
     for (const cents of [1, 67, 76, 150, 999, 3186, 3576, 25000]) {
       for (const pct of [30, 40]) {
         const p = floorPrice(cents, 3400, pct);
-        expect(netMarginOf(p, cents, 3400)!).toBeGreaterThanOrEqual(pct); // nunca por debajo del mínimo
-        expect(marginOf(p, cents, 3400)!).toBeGreaterThan(pct); // sin la comisión, el % del panel bruto es mayor
+        expect(marginOf(p, cents, 3400)!).toBeGreaterThanOrEqual(pct); // nunca por debajo del mínimo
         expect(p % 500 === 499 || p % 500 === 0).toBe(true); // redondeo a $500 terminado en 9
-        // y no sobra más de un escalón de $500: un escalón abajo ya no alcanza
-        const q = p - 500;
-        if (p > 1999) expect(q - (cents / 100) * 3400 - paymentFee(q)).toBeLessThan((q * pct) / 100 + 1);
+        // y no sobra más de un escalón de $500 (salvo el mínimo de $999)
+        if (p > 999) expect(p - 500).toBeLessThan(((cents / 100) * 3400) / (1 - pct / 100) + 1);
       }
     }
-    // 0,76 USD × 3.400 = 2.584; comisión de Bold (tarjeta, con IVA) 3,5581 % + $1.071
-    expect(floorPrice(76, 3400, 30)).toBe(5999); // (2.584 + 1.071) ÷ (1 − 0,30 − 0,0356) = 5.501 → 6.000 → 5.999
-    expect(floorPrice(76, 3400, 40)).toBe(6499); // ÷ 0,5644 = 6.476 → 6.500 → 6.499
-    expect(floorPrice(1, 3400, 30)).toBe(1999); // casi solo la comisión fija: 1.663 → 2.000 → 1.999
-  });
-
-  it("comisión de Bold que se descuenta: la de tarjeta, con IVA", () => {
-    expect(paymentFee(100000)).toBe(4629); // 100.000 × 2,99 % = 2.990 + 900 = 3.890 × 1,19
-    expect(paymentFee(0)).toBe(0);
-    expect(netMarginOf(10000, 100, 3400)).toBe(51.7); // 10.000 − 3.400 de costo − 1.427 de comisión = 5.173
-  });
-
-  it("precio de mercado: 5 % debajo de la tienda oficial en Colombia, terminado en 9", () => {
-    expect(OFFICIAL_COP[110]).toBe(4200);
-    expect(marketPrice(110)).toBe(3899); // 3.990 → 3.900 → 3.899
-    expect(marketPrice(572)).toBe(18599); // 18.620
-    expect(marketPrice(6160)).toBe(172999); // 173.280 → 173.000 → 172.999
-    expect(marketPrice(231)).toBeNull(); // sin referencia
-    for (const total of Object.keys(OFFICIAL_COP).map(Number)) expect(marketPrice(total)!).toBeLessThan(OFFICIAL_COP[total]);
+    expect(floorPrice(76, 3400, 30)).toBe(3999); // 2.584 ÷ 0,7 = 3.691 → 4.000 → 3.999
+    expect(floorPrice(76, 3400, 40)).toBe(4499); // 2.584 ÷ 0,6 = 4.307 → 4.500 → 4.499
+    expect(floorPrice(1, 3400, 30)).toBe(999); // mínimo $1.000 → $999
   });
 
   it("los paquetes de 100 diamantes (o menos) llevan su propia ganancia mínima", () => {

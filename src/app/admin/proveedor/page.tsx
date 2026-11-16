@@ -184,10 +184,10 @@ export default async function SupplierAdmin() {
               <input name="topupMargin" inputMode="decimal" defaultValue={settings.topupMargin} className="field tabular-nums" />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Ganancia mínima (%)" hint="Lo que te queda limpio del precio de venta, ya descontados el costo y la comisión de Bold (el % de Paquetes). 0 = sin mínimo.">
+              <Field label="Ganancia mínima (%)" hint="Del precio de venta, como el % que ves en Paquetes. 0 = sin mínimo.">
                 <input name="minMarginPct" inputMode="decimal" defaultValue={settings.minMarginPct} className="field tabular-nums" />
               </Field>
-              <Field label={`Ganancia mínima ≤ ${SMALL_PACK_MAX} diamantes (%)`} hint="0 = la general. La comisión fija de Bold ya se descuenta en todos.">
+              <Field label={`Ganancia mínima ≤ ${SMALL_PACK_MAX} diamantes (%)`} hint="Paquetes de 100 diamantes: la comisión fija de la pasarela pesa más. 0 = la general.">
                 <input name="minMarginSmallPct" inputMode="decimal" defaultValue={settings.minMarginSmallPct} className="field tabular-nums" />
               </Field>
             </div>
