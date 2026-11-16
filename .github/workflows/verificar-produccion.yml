@@ -118,7 +118,7 @@ jobs:
             const {PrismaClient}=require("@prisma/client");const db=new PrismaClient();
             (async()=>{
               const re=/2[.,]?499/;
-              const pk=await db.diamondPackage.findMany({where:{OR:[{price:{gte:2400,lte:2599}},{compareAtPrice:{gte:2400,lte:2599}},{label:{contains:"499"}}]},select:{name:true,region:true,price:true,compareAtPrice:true,label:true,active:true,available:true,supplierOutOfStock:true}});
+              const pk=await db.diamondPackage.findMany({where:{OR:[{price:{gte:2400,lte:2599}},{compareAtPrice:{gte:2400,lte:2599}}]},select:{name:true,region:true,price:true,compareAtPrice:true,label:true,active:true,available:true,supplierOutOfStock:true}});
               for(const p of pk)console.log("  paquete: "+p.name+" ("+p.region+") $"+p.price+(p.compareAtPrice?" antes $"+p.compareAtPrice:"")+(p.label?" · etiqueta «"+p.label+"»":"")+" · "+(p.active?"activo":"apagado")+(p.available?"":" · no disponible")+(p.supplierOutOfStock?" · agotado":""));
               const pub=["storeTagline","announcement","maintenanceMessage","storeName"];
               for(const s of await db.setting.findMany())if(re.test(s.value))console.log("  ajuste: "+s.key+(pub.includes(s.key)?" = «"+s.value.slice(0,200)+"»":""));
