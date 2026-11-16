@@ -3,6 +3,8 @@
  * El slug es el del proveedor ("latam", "brazil"…); el nombre que se muestra va en español.
  */
 
+import { BOLD_FEES } from "./cash";
+
 export const DEFAULT_TOPUP_REGION = "latam";
 
 const REGION_META: Record<string, { label: string; flag?: string }> = {
@@ -94,12 +96,23 @@ export function suggestedPrice(costCents: number, usdtCop: number, marginPct: nu
 }
 
 /**
- * Precio mínimo para ganar al menos `marginPct` % del precio de venta (la misma cuenta que muestra el panel):
- * costo ÷ (1 − margen), redondeado hacia arriba a $500 y terminado en 9 (ej. $3.499), nunca por debajo del margen.
+ * Comisión de la pasarela que se descuenta antes de medir la ganancia: la de Bold más alta (tarjeta 2,99 % + $900,
+ * más IVA). Con PSE, Nequi o Daviplata es un poco menor, así que la ganancia real queda igual o mejor.
+ */
+const FEE_PCT = (BOLD_FEES.card / 100) * (1 + BOLD_FEES.iva);
+const FEE_FIXED = BOLD_FEES.fixed * (1 + BOLD_FEES.iva);
+export function paymentFee(priceCop: number): number {
+  return priceCop > 0 ? Math.round(priceCop * FEE_PCT + FEE_FIXED) : 0;
+}
+
+/**
+ * Precio mínimo para que quede limpio al menos `marginPct` % del precio de venta, ya descontados el costo del
+ * proveedor y la comisión de Bold: (costo + comisión fija) ÷ (1 − margen − comisión %), redondeado hacia arriba a
+ * $500 y terminado en 9 (ej. $3.499), nunca por debajo del margen.
  */
 export function floorPrice(costCents: number, usdtCop: number, marginPct: number): number {
   const pct = Math.min(Math.max(marginPct, 0), 90) / 100;
-  const raw = ((costCents / 100) * usdtCop) / (1 - pct);
+  const raw = ((costCents / 100) * usdtCop + FEE_FIXED) / (1 - pct - FEE_PCT);
   return charmPrice(Math.max(1000, Math.ceil((raw + 1) / 500) * 500));
 }
 
@@ -122,6 +135,28 @@ export function minMarginFor(p: { diamonds: number; bonusDiamonds: number }, rul
 export function marginOf(priceCop: number, costCents: number | null | undefined, usdtCop: number): number | null {
   if (costCents == null || !priceCop) return null;
   return Math.round(((priceCop - costInCop(costCents, usdtCop)) / priceCop) * 1000) / 10;
+}
+
+/** Lo que queda limpio (después del costo y de la comisión de Bold), en % del precio de venta. null sin costo. */
+export function netMarginOf(priceCop: number, costCents: number | null | undefined, usdtCop: number): number | null {
+  if (costCents == null || !priceCop) return null;
+  return Math.round(((priceCop - costInCop(costCents, usdtCop) - paymentFee(priceCop)) / priceCop) * 1000) / 10;
+}
+
+/**
+ * Precios oficiales de Free Fire en Colombia (Codashop y PagoStore, noviembre de 2026), por total de diamantes de
+ * LATAM. Sirven de techo: la tienda se queda un 5 % por debajo de la tienda oficial.
+ */
+export const OFFICIAL_COP: Readonly<Record<number, number>> = { 110: 4200, 341: 12000, 572: 19600, 1166: 38599, 2398: 76800, 6160: 182400 };
+export const MARKET_DISCOUNT_PCT = 5;
+
+/** Precio de mercado para un paquete de LATAM: 5 % debajo del oficial, terminado en 9 (ej. $3.899). null si no hay referencia. */
+export function marketPrice(totalDiamonds: number): number | null {
+  const ref = OFFICIAL_COP[totalDiamonds];
+  if (!ref) return null;
+  const raw = ref * (1 - MARKET_DISCOUNT_PCT / 100);
+  const step = raw < 20_000 ? 100 : 500;
+  return Math.floor(raw / step) * step - 1;
 }
 
 export function parseRegionList(value: string | null | undefined): string[] {

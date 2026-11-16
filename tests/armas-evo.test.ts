@@ -74,8 +74,10 @@ describe.skipIf(!cfg.enabled)("Activación automática (base de pruebas)", () =>
   const rows = [
     row("100 Fragmentos de arma Evo", 950),
     row("5 Cajas de fragmentos Evo", 420, "latam", { outOfStock: true }),
-    row("10 Fragmentos de arma Evo", 120, "brazil"), // región no visible en la tienda
-    row("1 Caja de fragmentos Evo", 90, "latam", { delivery: "pin" }), // no se entrega con el ID
+    row("50 Fragmentos de arma Evo", 520, "brazil"), // región no visible en la tienda
+    row("50 Cajas de fragmentos Evo", 4000, "latam", { delivery: "pin" }), // no se entrega con el ID
+    row("10 Fragmentos de arma Evo", 120), // la tienda ya no vende los 10 fragmentos
+    row("1 Caja de fragmentos Evo", 90), // ni la caja de 1
     row("Tarjeta Semanal de Free Fire", 200), // no es Arma Evo: la activación de tarjetas va aparte
   ];
 

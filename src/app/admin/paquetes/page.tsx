@@ -11,10 +11,10 @@ import { formatMoney, formatNumber } from "@/lib/money";
 import { applyBonusAllAction, deletePackageAction, savePackageAction, topupCoverAction } from "@/app/actions/admin";
 import { importPassesAction } from "@/app/actions/supplier";
 import { PASS_INFO, passOf } from "@/domain/packs";
-import { supplierPasses } from "@/server/supplier";
+import { supplierPasses, supplierRate } from "@/server/supplier";
 import { getSettings } from "@/server/settings";
 import { activeWholesale } from "@/server/integrations/topup";
-import { costInCop, marginOf, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
+import { costInCop, netMarginOf, parseRegionList, regionFlag, regionLabel } from "@/domain/topup-regions";
 import { TopupRegionFlag } from "@/components/brand/topup-region-flag";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -24,8 +24,7 @@ export const metadata = { title: "Diamantes y precios" };
 
 export default async function PackagesAdmin({ searchParams }: { searchParams: Promise<{ region?: string }> }) {
   await requireAdmin();
-  const { topupCoverUrl, usdtCop: rateStr, topupRegions, topupRegionsOff } = await getSettings();
-  const usdtCop = Number(rateStr) > 0 ? Number(rateStr) : 3400;
+  const [{ topupCoverUrl, topupRegions, topupRegionsOff }, { costRate: usdtCop }] = await Promise.all([getSettings(), supplierRate()]);
   const enabled = parseRegionList(topupRegions);
   const groups = await db.diamondPackage.groupBy({ by: ["region"], _count: { _all: true } });
   // Las regiones quitadas a mano (Europa, Indonesia…) no se muestran.
@@ -173,10 +172,10 @@ export default async function PackagesAdmin({ searchParams }: { searchParams: Pr
   );
 }
 
-/** Costo del proveedor y margen real del precio de venta. */
+/** Costo del proveedor y lo que queda limpio del precio de venta (ya descontada la comisión de Bold). */
 function MarginTag({ price, costCents, usdtCop, linked }: { price: number; costCents: number | null; usdtCop: number; linked: boolean }) {
   if (!linked) return <span className="w-36 text-[12px] text-warn-400">Sin producto del proveedor</span>;
-  const m = marginOf(price, costCents, usdtCop);
+  const m = netMarginOf(price, costCents, usdtCop);
   if (m == null || costCents == null) return <span className="w-36 text-[12px] text-fg-subtle">Costo sin sincronizar</span>;
   return (
     <span className="w-36 text-[12px] tabular-nums text-fg-muted">

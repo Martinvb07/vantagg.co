@@ -32,7 +32,7 @@ vi.mock("@/server/integrations/topup", () => {
 });
 
 import { db } from "@/lib/db";
-import { floorPrice, marginOf } from "@/domain/topup-regions";
+import { floorPrice, netMarginOf } from "@/domain/topup-regions";
 import { targetPayloadFor } from "@/server/integrations/topup/centralone-core";
 import { activateAllFreeFire, copyLatamCardsTo, globalDeliveredToLatam, globalNameCoversLatam, listSupplierRegions, moveGlobalCardsToLatam, purgeRemovedPackages, syncSupplierCatalog, turnOffRegions } from "@/server/supplier";
 
@@ -78,7 +78,7 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     await syncSupplierCatalog();
     const pkg = (slug: string, data: Record<string, unknown>) => db.diamondPackage.create({ data: { slug: `gc-${RUN}-${slug}`, region: "latam", diamonds: 0, bonusDiamonds: 0, price: 1000, active: true, ...data } as never });
     weeklyId = (await pkg("lsem", { name: "Tarjeta Semanal", price: 13999, compareAtPrice: 12999, providerSku: key("lsem"), costCents: 200 })).id;
-    monthlyId = (await pkg("lmes", { name: "Tarjeta Mensual", price: 14999, providerSku: key("lmes"), costCents: 240 })).id;
+    monthlyId = (await pkg("lmes", { name: "Tarjeta Mensual", price: 16999, providerSku: key("lmes"), costCents: 240 })).id;
     await pkg("l110", { name: "110", diamonds: 100, bonusDiamonds: 10, price: 4999, providerSku: key("l110"), costCents: 76 });
     await pkg("gsem", { name: "Tarjeta Semanal", region: "global", price: 9999, providerSku: key("gsem"), costCents: 150 });
     await pkg("i110", { name: "110 ID", region: "id", diamonds: 100, bonusDiamonds: 10, price: 4999, providerSku: key("i110"), costCents: 70 });
@@ -133,7 +133,8 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     const { moves, accounts } = await moveGlobalCardsToLatam({ dryRun: true });
     expect(accounts).toBe(3);
     const by = Object.fromEntries(moves.map((m) => [m.card, m]));
-    expect(by["Tarjeta Semanal"]).toMatchObject({ action: "moved", priceFrom: 13999, priceTo: 9999 });
+    // $9.999 de Global sube a $10.999: 30 % limpio, ya descontada la comisión de Bold.
+    expect(by["Tarjeta Semanal"]).toMatchObject({ action: "moved", priceFrom: 13999, priceTo: 10999 });
     expect(by["Tarjeta Semanal"].reason).toContain("excepto VN/TH/ID/Medio Oriente");
     expect(by["Tarjeta Mensual"]).toMatchObject({ action: "kept" }); // la de Latinoamérica es más barata
     // Sin verificación y su ficha no dice dónde sirve: no se mueve.
@@ -149,9 +150,9 @@ describe.skipIf(!cfg.enabled)("Tarjetas de Global en Latinoamérica e Indonesia 
     // Se comprobó con cuentas reales de Latinoamérica, con el producto de Global y el nombre de región de Latinoamérica.
     expect(state.validate).toHaveBeenCalledWith(PLAYERS[0], { productKey: key("gsem"), region: "LATAM" });
     const weekly = await db.diamondPackage.findUniqueOrThrow({ where: { id: weeklyId } });
-    expect(weekly).toMatchObject({ region: "latam", providerSku: key("gsem"), costCents: 150, price: 9999, compareAtPrice: null, active: true });
-    expect(marginOf(weekly.price, weekly.costCents, 4000)!).toBeGreaterThanOrEqual(30);
-    expect(await db.diamondPackage.findUniqueOrThrow({ where: { id: monthlyId } })).toMatchObject({ providerSku: key("lmes"), price: 14999 });
+    expect(weekly).toMatchObject({ region: "latam", providerSku: key("gsem"), costCents: 150, price: 10999, compareAtPrice: null, active: true });
+    expect(netMarginOf(weekly.price, weekly.costCents, 4000)!).toBeGreaterThanOrEqual(30);
+    expect(await db.diamondPackage.findUniqueOrThrow({ where: { id: monthlyId } })).toMatchObject({ providerSku: key("lmes"), price: 16999 });
     expect(await db.diamondPackage.count({ where: { region: "latam", name: "Tarjeta Semanal Básica" } })).toBe(0);
     expect(await db.auditLog.count({ where: { action: "supplier.global_cards_latam", createdAt: { gte: new Date(Date.now() - 60_000) } } })).toBeGreaterThanOrEqual(1);
 
