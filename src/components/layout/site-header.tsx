@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, Radar, Search, ShoppingBag, Users, X } from "lucide-react";
+import { ChevronRight, Gem, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, Radar, Search, ShoppingBag, Swords, Users, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { useCart } from "@/components/cart/cart-context";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { logoutAction } from "@/app/actions/auth";
 
 const NAV = [
   { href: "/recargas", label: "Diamantes", icon: Gem },
+  { href: "/armas-evo", label: "Armas Evo", icon: Swords },
   { href: "/cuentas", label: "Cuentas", icon: Users },
   { href: "/pedido", label: "Seguimiento", icon: Radar },
   { href: "/ayuda", label: "Ayuda", icon: LifeBuoy },

@@ -5,6 +5,9 @@
 /** Niveles de los paquetes de nivel y días del acceso Evo que vende el proveedor. */
 export const PASS_LEVELS = [6, 10, 15, 20, 25, 30] as const;
 export const EVO_DAYS = [3, 7, 30] as const;
+/** Armas Evo: fragmentos de arma y cajas de fragmentos que vende el proveedor (cantidades). */
+export const EVO_FRAGMENTS = [10, 50, 100, 500] as const;
+export const EVO_BOXES = [1, 5, 10, 50] as const;
 
 export type PassKind =
   | "weekly-lite"
@@ -15,10 +18,12 @@ export type PassKind =
   | "booyah-plus"
   | "bp-card"
   | `evo-${(typeof EVO_DAYS)[number]}`
+  | `evo-frag-${(typeof EVO_FRAGMENTS)[number]}`
+  | `evo-box-${(typeof EVO_BOXES)[number]}`
   | `level-${(typeof PASS_LEVELS)[number]}`;
 
 /** Arte de la portada (public/portadas/pase-<arte>.svg): varios productos comparten dibujo. */
-export type PassArt = "weekly-lite" | "weekly" | "monthly" | "booyah" | "booyah-basic" | "booyah-plus" | "evo" | "level";
+export type PassArt = "weekly-lite" | "weekly" | "monthly" | "booyah" | "booyah-basic" | "booyah-plus" | "evo" | "evo-frag" | "evo-box" | "level";
 
 type PassInfo = { title: string; headline: string; caption: string; short: string; detail: string; sort: number; art: PassArt };
 
@@ -37,6 +42,34 @@ export const PASS_INFO: Record<PassKind, PassInfo> = {
     ]),
   ) as Record<`evo-${(typeof EVO_DAYS)[number]}`, PassInfo>),
   ...(Object.fromEntries(
+    EVO_FRAGMENTS.map((n, i) => [
+      `evo-frag-${n}`,
+      {
+        title: `${n} Fragmentos de arma Evo`,
+        headline: `×${n}`,
+        caption: "Fragmentos Evo",
+        short: `${n} fragmentos para tus armas Evo`,
+        detail: `${n} fragmentos de arma Evo de Free Fire: sirven para mejorar las armas evolutivas. Se entregan con el ID del jugador.`,
+        sort: 40 + i,
+        art: "evo-frag",
+      },
+    ]),
+  ) as Record<`evo-frag-${(typeof EVO_FRAGMENTS)[number]}`, PassInfo>),
+  ...(Object.fromEntries(
+    EVO_BOXES.map((n, i) => [
+      `evo-box-${n}`,
+      {
+        title: `${n} ${n === 1 ? "Caja" : "Cajas"} de fragmentos Evo`,
+        headline: `×${n}`,
+        caption: n === 1 ? "Caja Evo" : "Cajas Evo",
+        short: n === 1 ? "Caja con fragmentos de arma Evo" : `${n} cajas con fragmentos de arma Evo`,
+        detail: `${n === 1 ? "Una caja" : `${n} cajas`} de fragmentos Evo de Free Fire: al abrirlas recibes fragmentos para tus armas evolutivas. Se entregan con el ID del jugador.`,
+        sort: 50 + i,
+        art: "evo-box",
+      },
+    ]),
+  ) as Record<`evo-box-${(typeof EVO_BOXES)[number]}`, PassInfo>),
+  ...(Object.fromEntries(
     PASS_LEVELS.map((l, i) => [
       `level-${l}`,
       { title: `Paquete de Nivel ${l}`, headline: `NIVEL ${l}`, caption: "Paquete de nivel", short: `Recompensa del nivel ${l}`, detail: `Paquete de nivel ${l} de Free Fire: se entrega con el ID del jugador.`, sort: 20 + i, art: "level" },
@@ -50,6 +83,11 @@ const plain = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\
 export function passKindOf(name: string): PassKind | null {
   const n = plain(name);
   if (/\bpin\b/.test(n)) return null; // los códigos PIN no se entregan con el ID
+  // Armas Evo: «1 Caja de fragmentos Evo», «10 Cajas de fragmentos Evo», «100 Fragmentos de arma Evo».
+  const box = /(\d{1,3})\s*cajas?\s+de\s+fragmentos?\s+evo\b/.exec(n);
+  if (box) return (EVO_BOXES as readonly number[]).includes(Number(box[1])) ? (`evo-box-${box[1]}` as PassKind) : null;
+  const frag = /(\d{1,4})\s*fragmentos?\s+de\s+armas?\s+evo\b/.exec(n);
+  if (frag) return (EVO_FRAGMENTS as readonly number[]).includes(Number(frag[1])) ? (`evo-frag-${frag[1]}` as PassKind) : null;
   if (/semanal\s+b.{0,3}sica/.test(n)) return "weekly-lite"; // tolera tildes mal codificadas («BÃ¡sica»)
   if (/semanal/.test(n)) return "weekly";
   if (/mensual/.test(n)) return "monthly";
@@ -77,4 +115,30 @@ export function packTitle(p: PackLike, diamondsTitle: (diamonds: number, bonus: 
 /** Línea corta de detalle: «Recibes 110 diamantes» o «Membresía de 7 días». */
 export function packDetail(p: PackLike, format: (n: number) => string): string {
   return p.pass ? PASS_INFO[p.pass].short : `Recibes ${format(p.diamonds + p.bonusDiamonds)} diamantes`;
+}
+
+/** Categorías de la tienda para lo que no son diamantes. «evo»: Armas Evo (fragmentos, cajas y acceso Evo). */
+export type PassGroup = "evo-frag" | "evo-box" | "evo-access" | "pass";
+
+export function passGroup(kind: PassKind): PassGroup {
+  if (kind.startsWith("evo-frag-")) return "evo-frag";
+  if (kind.startsWith("evo-box-")) return "evo-box";
+  if (/^evo-\d+$/.test(kind)) return "evo-access";
+  return "pass";
+}
+
+/** ¿Va en «Armas Evo»? (fragmentos, cajas de fragmentos y acceso Evo). */
+export const isEvoKind = (kind: PassKind | null | undefined): boolean => !!kind && passGroup(kind) !== "pass";
+
+/** Subtítulo de cada grupo en la lista de compra. */
+export const PASS_GROUP_TITLE: Record<PassGroup, string> = {
+  "evo-frag": "Fragmentos de arma Evo",
+  "evo-box": "Cajas de fragmentos Evo",
+  "evo-access": "Acceso Evo",
+  pass: "Tarjetas, pases y más",
+};
+
+/** Página donde se compra un paquete: las Armas Evo en /armas-evo, lo demás en /recargas. */
+export function packPath(p: { slug: string; pass: PassKind | null }): string {
+  return `${isEvoKind(p.pass) ? "/armas-evo" : "/recargas"}?paquete=${p.slug}`;
 }

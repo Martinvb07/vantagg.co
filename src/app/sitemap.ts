@@ -13,6 +13,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const statics: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${base}/recargas`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: `${base}/armas-evo`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     ...(withAccounts ? [{ url: `${base}/cuentas`, lastModified: now, changeFrequency: "daily" as const, priority: 0.9 }] : []),
     { url: `${base}/ayuda`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${base}/medios-de-pago`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },

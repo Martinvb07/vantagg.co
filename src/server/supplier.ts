@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { compareRegions, DEFAULT_TOPUP_REGION, floorPrice, MIN_DIAMOND_PACK, minMarginFor, type MinMarginRule, parseRegionList, regionalPrice, regionLabel, splitBonus, suggestedPrice } from "@/domain/topup-regions";
-import { PASS_INFO, passKindOf, type PassKind } from "@/domain/packs";
+import { isEvoKind, PASS_INFO, passKindOf, type PassKind } from "@/domain/packs";
+import { currentUsdCop } from "./fx";
 import { audit } from "@/lib/audit";
 import { activeTopUpProvider, activeWholesale } from "./integrations/topup";
 import { SupplierError } from "./integrations/topup/rechargegame";
@@ -64,7 +65,7 @@ export async function enforceMinimumMargins(): Promise<PriceChange[]> {
 }
 
 let syncing: Promise<SyncSummary> | null = null;
-export type SyncSummary = { products: number; regions: number; linked: number; updated: number; repriced: number };
+export type SyncSummary = { products: number; regions: number; linked: number; updated: number; repriced: number; evoCreated: number };
 
 /** Descarga el catálogo de Free Fire y actualiza costo/agotado de los paquetes vinculados. */
 export function syncSupplierCatalog(): Promise<SyncSummary> {
@@ -131,12 +132,65 @@ async function doSync(): Promise<SyncSummary> {
     }
   }
   await saveSettings({ supplierSyncedAt: now.toISOString() });
+  // Armas Evo (fragmentos y cajas): se activan solas en cuanto el proveedor las vende.
+  const evo = await ensureEvoPackages(rows).catch((e) => {
+    console.error("[proveedor] no se pudieron activar las Armas Evo:", (e as Error).message);
+    return [] as string[];
+  });
   // Costos nuevos: ningún paquete queda por debajo de la ganancia mínima.
   const repriced = await enforceMinimumMargins().catch((e) => {
     console.error("[proveedor] no se pudo aplicar la ganancia mínima:", (e as Error).message);
     return [] as PriceChange[];
   });
-  return { products: rows.length, regions: groups.length, linked, updated, repriced: repriced.length };
+  return { products: rows.length, regions: groups.length, linked, updated, repriced: repriced.length, evoCreated: evo.length };
+}
+
+/**
+ * Armas Evo: crea en la tienda los fragmentos de arma y las cajas de fragmentos Evo que el proveedor vende con el ID,
+ * en las regiones visibles de la tienda. Solo crea los que faltan: nunca cambia un precio ni reactiva uno que se
+ * apagó a mano. Precio inicial: costo × tasa + margen general (como las tarjetas), con la ganancia mínima y la tasa
+ * más alta entre la configurada y la del día (para no vender por debajo del costo real); luego se ajusta en Paquetes.
+ */
+export async function ensureEvoPackages(rows: Array<{ productKey: string; regionSlug: string; name: string; amount: number | null; priceCents: number; outOfStock: boolean; delivery: string }>): Promise<string[]> {
+  const evo = rows
+    .filter((r) => r.delivery === "player_id" && !r.amount)
+    .map((r) => ({ row: r, kind: passKindOf(r.name) }))
+    .filter((x): x is { row: (typeof rows)[number]; kind: PassKind } => !!x.kind && isEvoKind(x.kind) && x.kind.startsWith("evo-") && !/^evo-\d+$/.test(x.kind));
+  if (!evo.length) return [];
+  const { usdtCop, margin, minMargin, regions } = await supplierRate();
+  const visible = new Set(regions.length ? regions : [DEFAULT_TOPUP_REGION]);
+  const wanted = evo.filter((x) => visible.has(x.row.regionSlug));
+  if (!wanted.length) return [];
+  const existing = await db.diamondPackage.findMany({ where: { OR: [{ providerSku: { in: wanted.map((x) => x.row.productKey) } }, { region: { in: [...visible] }, diamonds: 0, name: { in: wanted.map((x) => PASS_INFO[x.kind].title) } }] }, select: { providerSku: true, name: true, region: true } });
+  const have = new Set(existing.flatMap((p) => [p.providerSku ?? "", `${p.region}|${p.name}`]));
+  const market = await currentUsdCop().then((r) => (r.source === "mercado" ? Math.round(r.rate) : 0), () => 0);
+  const rate = Math.max(usdtCop, market);
+  const created: string[] = [];
+  for (const { row, kind } of wanted) {
+    const title = PASS_INFO[kind].title;
+    if (have.has(row.productKey) || have.has(`${row.regionSlug}|${title}`)) continue;
+    const slug = await freeSlug(passSlug(kind, row.regionSlug));
+    await db.diamondPackage.create({
+      data: {
+        slug,
+        name: title,
+        diamonds: 0,
+        bonusDiamonds: 0,
+        price: withFloor(suggestedPrice(row.priceCents, rate, margin), row.priceCents, rate, minMargin.general),
+        region: row.regionSlug,
+        providerSku: row.productKey,
+        costCents: row.priceCents,
+        supplierOutOfStock: row.outOfStock,
+        sortOrder: 100 + PASS_INFO[kind].sort,
+        active: true,
+        available: true,
+      },
+    });
+    have.add(`${row.regionSlug}|${title}`);
+    created.push(`${title} (${row.regionSlug})`);
+  }
+  if (created.length) await audit({ actorId: null, action: "package.evo_activated", entity: "DiamondPackage", data: { created } });
+  return created;
 }
 
 /** Sincroniza si la copia local está vieja (Central One: 15 min; RechargeGame: 3 h). Nunca lanza error. */

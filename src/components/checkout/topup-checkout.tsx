@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BadgeCheck, Check, CircleAlert, Clock, Info, Lock, MapPin, ShieldCheck } from "lucide-react";
 import { DELIVERY_TIME } from "@/domain/delivery-time";
 import { PackCover } from "@/components/brand/covers";
-import { PASS_INFO, packDetail } from "@/domain/packs";
+import { PASS_GROUP_TITLE, PASS_INFO, packDetail, passGroup } from "@/domain/packs";
 import { trackInitiateCheckout } from "@/lib/ads";
 import { PriceHint, useMarket, useUsdCharge } from "@/components/store/market";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,10 @@ function Block({ id, title, aside, children }: { id: string; title: string; asid
   );
 }
 
-/** Antes de la primera tarjeta o pase va un subtítulo que ocupa toda la fila. */
+/** Subtítulo del grupo de un paquete: nada en los diamantes; «Fragmentos de arma Evo», «Tarjetas, pases y más»… */
+const groupTitle = (p: PackageView) => (p.pass ? PASS_GROUP_TITLE[passGroup(p.pass)] : null);
+
+/** Antes del primer paquete de cada grupo (tarjetas, fragmentos, cajas…) va un subtítulo que ocupa toda la fila. */
 function PackGroup({ title, children }: { title: string | null; children: ReactNode }) {
   if (!title) return <>{children}</>;
   return (
@@ -335,7 +338,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
       >
         <div role="radiogroup" aria-label="Cantidad de diamantes o tarjeta" className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
           {packages.map((p, i) => (
-            <PackGroup key={p.id} title={p.pass && !packages[i - 1]?.pass ? "Tarjetas, pases y más" : null}>
+            <PackGroup key={p.id} title={groupTitle(p) !== (i > 0 ? groupTitle(packages[i - 1]) : null) ? groupTitle(p) : null}>
               <PackageOption
                 p={p}
                 selected={p.id === pkgId}

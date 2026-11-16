@@ -14,6 +14,10 @@ import { publicPaymentOptions } from "@/server/integrations/payments";
 import { activeTopUpProvider } from "@/server/integrations/topup";
 import { getSettings } from "@/server/settings";
 import { BannerSlot } from "@/components/store/banner-slot";
+import { FindPlayerId } from "@/components/store/find-player-id";
+import { EvoCover } from "@/components/store/evo-cover";
+import { redirect } from "next/navigation";
+import { isEvoKind } from "@/domain/packs";
 import { parsePaymentMethods } from "@/domain/payment-methods";
 import { maintenanceNotice } from "@/domain/maintenance";
 import { regionForCountry } from "@/domain/market";
@@ -32,7 +36,13 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
   const { paquete, id, region } = await searchParams;
   const [regions, mainRegion, user, settings] = await Promise.all([getTopupRegions(), mainTopupRegion(), getCurrentUser(), getSettings()]);
   // Todas las regiones activas (el cliente elige); si no hay ninguna configurada, la principal.
-  const packages = await getPackages({ regions: regions.length ? regions.map((r) => r.slug) : [mainRegion] });
+  const all = await getPackages({ regions: regions.length ? regions.map((r) => r.slug) : [mainRegion] });
+  // Las Armas Evo (fragmentos, cajas y acceso Evo) tienen su propia página: los enlaces viejos a uno de ellos llevan allá.
+  if (paquete && all.some((p) => p.slug === paquete && isEvoKind(p.pass))) {
+    redirect(`/armas-evo?${new URLSearchParams(Object.entries({ paquete, id, region }).filter(([, v]) => v) as [string, string][]).toString()}`);
+  }
+  const packages = all.filter((p) => !isEvoKind(p.pass));
+  const hasEvo = all.some((p) => isEvoKind(p.pass) && p.available);
   // Región: la del enlace; si no, la que corresponde al país del visitante (Brasil → Brasil, España → Europa…); si no, la principal.
   const { country } = await visitorCountry();
   const byCountry = regionForCountry(country, regions.map((r) => r.slug));
@@ -107,26 +117,18 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
               </div>
             </div>
 
-            <details className="group rounded-[12px] max-lg:order-2 lg:mt-5 bg-ink-850 ring-1 ring-white/[0.07] [&_summary::-webkit-details-marker]:hidden" open>
-              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[14px] font-semibold">
-                ¿Dónde está mi ID?
-                <ChevronRight className="size-4 text-fg-subtle transition-transform group-open:rotate-90" />
-              </summary>
-              <ol className="space-y-2.5 px-4 pb-4 text-[13px] text-fg-muted">
-                <li className="flex gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[11px] font-semibold text-fg">1</span>
-                  Abre Free Fire y toca tu avatar arriba a la izquierda.
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[11px] font-semibold text-fg">2</span>
-                  Copia el número que aparece debajo de tu nombre.
-                </li>
-                <li className="flex gap-2.5">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[11px] font-semibold text-fg">3</span>
-                  Pégalo aquí: verificamos la cuenta y su región antes de que pagues.
-                </li>
-              </ol>
-            </details>
+            <FindPlayerId className="max-lg:order-2 lg:mt-5" />
+
+            {hasEvo && (
+              <Link href="/armas-evo" className="group flex items-center gap-3 rounded-[12px] bg-ink-850 p-2.5 pr-4 ring-1 ring-white/[0.07] transition hover:ring-volt-400/40 max-lg:order-3 lg:mt-5">
+                <EvoCover title={false} className="size-14 shrink-0 rounded-[10px]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-semibold">Armas Evo</span>
+                  <span className="block text-[12.5px] text-fg-muted">Fragmentos y cajas Evo a tu ID</span>
+                </span>
+                <ChevronRight className="size-4 text-fg-subtle transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            )}
 
             <BannerSlot slot="TOPUP_SIDE" variant="stack" label="Recordatorio" className="max-lg:order-3 lg:mt-5" />
 

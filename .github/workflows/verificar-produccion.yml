@@ -107,6 +107,8 @@ jobs:
               const by=new Map();for(const p of nd){const k=p.name+" | unidad="+(p.unit||"-")+" cant="+(p.amount??"-")+" | "+p.delivery;const r=by.get(k)||new Set();r.add(p.regionSlug+(p.outOfStock?"(agotado)":""));by.set(k,r)}
               console.log("  productos que no son diamantes: "+nd.length+" ("+by.size+" distintos)");
               for(const [k,r] of [...by].sort().slice(0,150))console.log("   · "+k+" | regiones: "+[...r].join(","));
+              const evo=await db.diamondPackage.findMany({where:{diamonds:0,OR:[{name:{contains:"Fragmentos de arma Evo"}},{name:{contains:"fragmentos Evo"}}]},select:{name:true,active:true,available:true,supplierOutOfStock:true,region:true}});
+              console.log("  Armas Evo en la tienda: "+evo.length+" · activos y a la venta: "+evo.filter(p=>p.active&&p.available&&!p.supplierOutOfStock).length+" · "+evo.map(p=>p.name+" ("+p.region+(p.active?"":", apagado")+(p.supplierOutOfStock?", agotado":"")+")").join(" · "));
               await db.$disconnect();
             })().catch(e=>{console.log("  ✖ "+e.message);process.exit(0)})' || true
           echo "== tarea programada (mantenimiento y respaldos)"

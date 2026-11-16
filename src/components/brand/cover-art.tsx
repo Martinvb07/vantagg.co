@@ -293,6 +293,38 @@ function Star({ x, y, r, fill }: { x: number; y: number; r: number; fill: string
   return <path d={`M${pts.join(" L")}Z`} fill={fill} stroke="#3b2203" strokeWidth="2.2" strokeLinejoin="round" />;
 }
 
+/** Fragmento de arma Evo: cristal violeta tallado (centro x, punta superior y, ancho, alto, giro). */
+const EVO = ["#f6ecff", "#d9b0ff", "#ad6dff", "#7f3cf2", "#4f1abb", "#1d0649"];
+function Shard({ cx, top, w, h, tilt = 0, edge = true }: { cx: number; top: number; w: number; h: number; tilt?: number; edge?: boolean }) {
+  const y1 = top + h * 0.26;
+  const y2 = top + h * 0.78;
+  const bot = top + h;
+  const [l, r] = [cx - w / 2, cx + w / 2];
+  const [l2, r2] = [cx - w * 0.36, cx + w * 0.36];
+  return (
+    <g transform={`rotate(${tilt} ${cx} ${top + h / 2})`} strokeLinejoin="round">
+      <path d={`M${cx} ${top} L${l} ${y1} L${l2} ${y2} L${cx} ${bot}Z`} fill={EVO[2]} />
+      <path d={`M${cx} ${top} L${r} ${y1} L${r2} ${y2} L${cx} ${bot}Z`} fill={EVO[4]} />
+      <path d={`M${cx} ${top} L${cx - w * 0.14} ${y1 + h * 0.06} L${cx} ${bot} L${cx + w * 0.12} ${y1 + h * 0.08}Z`} fill={EVO[1]} />
+      <path d={`M${cx} ${top} L${l} ${y1} L${cx - w * 0.14} ${y1 + h * 0.06}Z`} fill={EVO[0]} />
+      <path d={`M${r} ${y1} L${r2} ${y2} L${cx + w * 0.12} ${y1 + h * 0.08}Z`} fill={EVO[3]} />
+      <path d={`M${cx} ${top} L${r} ${y1} L${r2} ${y2} L${cx} ${bot} L${l2} ${y2} L${l} ${y1}Z`} fill="none" stroke={INK} strokeWidth={Math.max(1.6, w * 0.07)} />
+      {/* Grieta de energía lima: lo que la hace «Evo» */}
+      {edge && <path d={`M${cx - w * 0.22} ${y1 + h * 0.16} L${cx + w * 0.04} ${top + h * 0.5} L${cx - w * 0.06} ${top + h * 0.58} L${cx + w * 0.2} ${y2 - h * 0.04}`} fill="none" stroke={LIME_SOFT} strokeWidth={Math.max(1.2, w * 0.05)} strokeLinecap="round" strokeLinejoin="round" />}
+    </g>
+  );
+}
+
+/** Rayo de Evo (el mismo del acceso Evo), centrado en x, y con escala s. */
+function EvoBolt({ x, y, s = 1, u }: { x: number; y: number; s?: number; u: (n: string) => string }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s}) translate(-101 -89)`}>
+      <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME} filter={u("soft")} opacity="0.7" />
+      <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME_SOFT} stroke={INK} strokeWidth="2.4" strokeLinejoin="round" />
+    </g>
+  );
+}
+
 /** Escena de las tarjetas y el pase. */
 function PassScene({ kind, u }: { kind: PassArt; u: (n: string) => string }): ReactNode {
   switch (kind) {
@@ -381,6 +413,56 @@ function PassScene({ kind, u }: { kind: PassArt; u: (n: string) => string }): Re
           <path d="M108 56 L80 94 H98 L90 122 L122 80 H103Z" fill={LIME_SOFT} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
           <Gems list={[[40, 64, 16, -16], [160, 58, 18, 16]]} />
           <RingFront cx={100} cy={136} rx={58} ry={12} u={u} />
+        </>
+      );
+    // Fragmentos de arma Evo: un cristal grande con dos más pequeños y astillas alrededor
+    case "evo-frag":
+      return (
+        <>
+          <RingBack cx={100} cy={136} rx={60} ry={12} />
+          <circle cx="100" cy="84" r="52" fill={EVO[3]} opacity="0.16" />
+          <circle cx="100" cy="84" r="34" fill={EVO[2]} opacity="0.2" />
+          <Shard cx={54} top={66} w={24} h={46} tilt={-30} />
+          <Shard cx={148} top={56} w={26} h={50} tilt={26} />
+          <Shard cx={100} top={26} w={46} h={104} tilt={6} />
+          <Shard cx={70} top={34} w={10} h={18} tilt={-18} edge={false} />
+          <Shard cx={138} top={114} w={11} h={19} tilt={34} edge={false} />
+          <Shard cx={40} top={112} w={9} h={15} tilt={-40} edge={false} />
+          <RingFront cx={100} cy={136} rx={60} ry={12} u={u} />
+        </>
+      );
+    // Cajas de fragmentos Evo: cofre negro con bordes lima, tapa abierta y fragmentos saliendo con luz violeta
+    case "evo-box":
+      return (
+        <>
+          <RingBack cx={100} cy={138} rx={64} ry={12} />
+          <circle cx="100" cy="74" r="50" fill={EVO[3]} opacity="0.16" />
+          {/* Luz que sale de la caja */}
+          <path d="M64 84 L44 28 H160 L134 84Z" fill={EVO[2]} opacity="0.16" />
+          <path d="M74 84 L64 36 H140 L124 84Z" fill={EVO[1]} opacity="0.14" />
+          {/* Fragmentos saliendo */}
+          <Shard cx={78} top={42} w={16} h={30} tilt={-22} />
+          <Shard cx={124} top={38} w={18} h={34} tilt={20} />
+          <Shard cx={101} top={26} w={22} h={42} tilt={4} />
+          {/* Tapa abierta, inclinada hacia atrás */}
+          <path d="M50 76 L74 54 L150 56 L126 80Z" fill={u("lid")} stroke={INK} strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M57 75 L76 58 L143 60 L124 77Z" fill="none" stroke={LIME} strokeWidth="1.8" strokeLinejoin="round" />
+          {/* Boca de la caja (adentro, violeta) */}
+          <path d="M56 86 L78 76 L146 76 L124 86Z" fill={EVO[5]} stroke={INK} strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M66 85 L82 79 L136 79 L120 85Z" fill={EVO[3]} opacity="0.9" />
+          {/* Cuerpo: frente y costado */}
+          <path d="M124 86 L146 76 V122 L124 136Z" fill="#141a17" stroke={INK} strokeWidth="2.8" strokeLinejoin="round" />
+          <rect x="56" y="86" width="68" height="50" rx="3" fill={u("dark")} stroke={INK} strokeWidth="2.8" />
+          <rect x="61" y="91" width="58" height="40" rx="2.5" fill="none" stroke={LIME} strokeWidth="1.8" />
+          <path d="M129 89 L141 83.5 V119 L129 126Z" fill="none" stroke={LIME} strokeWidth="1.5" strokeOpacity="0.55" strokeLinejoin="round" />
+          {/* Esquinas metálicas */}
+          {[[56, 86], [124, 86], [56, 136], [124, 136]].map(([x, y], i) => (
+            <rect key={i} x={x - 4} y={y - 4} width="8" height="8" rx="1.5" fill={LIME} stroke={INK} strokeWidth="1.6" />
+          ))}
+          {/* Emblema Evo al frente */}
+          <path d="M90 96 L104 104 V120 L90 128 L76 120 V104Z" fill="#0c100e" stroke={LIME} strokeWidth="1.6" strokeLinejoin="round" />
+          <EvoBolt x={90} y={112} s={0.42} u={u} />
+          <RingFront cx={100} cy={138} rx={64} ry={12} u={u} />
         </>
       );
     // Paquete de nivel: escudo con flechas hacia arriba
@@ -473,7 +555,9 @@ export function CoverSvg({ art, bare = false, id = "c" }: { art: CoverArtKey; ba
 /** Todas las portadas que se generan como archivo. */
 export const COVER_FILES: Array<{ art: CoverArtKey; bare: boolean }> = [
   ...[1, 2, 3, 4, 5, 6].map((t) => ({ art: t, bare: false })),
-  ...(["weekly-lite", "weekly", "monthly", "booyah", "booyah-basic", "booyah-plus", "evo", "level"] as const).map((k) => ({ art: k, bare: false })),
+  ...(["weekly-lite", "weekly", "monthly", "booyah", "booyah-basic", "booyah-plus", "evo", "evo-frag", "evo-box", "level"] as const).map((k) => ({ art: k, bare: false })),
+  // Armas Evo sin fondo: para la portada de la sección (armada en HTML).
+  ...(["evo-frag", "evo-box"] as const).map((k) => ({ art: k, bare: true })),
   // Solo el objeto (sin fondo): banners armados en HTML y premios del «Top 3 del mes».
   ...[1, 2, 3, 4, 5, 6].map((t) => ({ art: t, bare: true })),
 ];

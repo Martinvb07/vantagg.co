@@ -4,7 +4,7 @@ import { formatMoney, formatNumber, packageTitle } from "@/lib/money";
 import { FAQ } from "@/content/faq";
 import { FF_RANKS, FF_REGIONS, rankLabel, regionInfo } from "@/domain/freefire";
 import { quotePrice } from "@/domain/pricing";
-import { PASS_INFO, packDetail, packTitle } from "@/domain/packs";
+import { PASS_INFO, packDetail, packPath, packTitle } from "@/domain/packs";
 import { accountsVisible, buyableAccountsWhere, listingAvailability, getPackages } from "./catalog";
 
 /**
@@ -54,6 +54,7 @@ const tokenHits = (token: string, ws: string[]) => ws.some((w) => w.startsWith(t
 
 const SECTIONS: Array<{ title: string; subtitle: string; href: string; icon: SearchIcon; kw: string[] }> = [
   { title: "Recargar diamantes", subtitle: "Directo a tu ID · bonus en todos los paquetes", href: "/recargas", icon: "gem", kw: ["diamantes", "diamante", "recarga", "recargar", "recargas", "dimas", "paquete", "paquetes", "bonus"] },
+  { title: "Armas Evo", subtitle: "Fragmentos y cajas Evo directo a tu ID", href: "/armas-evo", icon: "sparkles", kw: ["evo", "armas", "arma", "fragmentos", "fragmento", "cajas", "caja", "evolutivas", "evolutiva", "evolutivo"] },
   { title: "Cuentas Free Fire", subtitle: "Rango, nivel y skins a la vista", href: "/cuentas", icon: "users", kw: ["cuentas", "cuenta", "perfil", "perfiles", "skins", "nivel", "rango", "rangos"] },
   { title: "Rastrear pedido", subtitle: "Estado del pago y la entrega", href: "/pedido", icon: "radar", kw: ["rastrear", "rastreo", "seguimiento", "pedido", "pedidos", "orden", "estado", "entrega", "llego"] },
   { title: "Mis pedidos", subtitle: "Historial de compras con tu sesión", href: "/cuenta", icon: "list", kw: ["historial", "compras", "pedidos", "sesion"] },
@@ -65,7 +66,7 @@ const SECTIONS: Array<{ title: string; subtitle: string; href: string; icon: Sea
 
 const PACKAGE_KW = ["diamantes", "diamante", "recarga", "recargar", "paquete", "paquetes", "dimas", "bonus"];
 /** Palabras de las tarjetas y el pase («semanal», «mensual», «booyah»…). */
-const PASS_KW = ["tarjeta", "tarjetas", "semanal", "mensual", "membresia", "membresias", "pase", "pases", "booyah", "basica", "nivel", "niveles", "evo", "plus", "bp"];
+const PASS_KW = ["tarjeta", "tarjetas", "semanal", "mensual", "membresia", "membresias", "pase", "pases", "booyah", "basica", "nivel", "niveles", "evo", "plus", "bp", "fragmentos", "fragmento", "cajas", "caja", "arma", "armas", "evolutivas", "evolutiva"];
 const ACCOUNT_KW = ["cuentas", "cuenta", "perfil", "perfiles"];
 
 export async function smartSearch(raw: string): Promise<SearchResult> {
@@ -115,8 +116,8 @@ export async function smartSearch(raw: string): Promise<SearchResult> {
         key: `p:${p.slug}`,
         title: packTitle(p, packageTitle),
         subtitle: packDetail(p, formatNumber),
-        href: `/recargas?paquete=${p.slug}`,
-        icon: "gem",
+        href: packPath(p),
+        icon: p.pass && p.pass.startsWith("evo") ? "sparkles" : "gem",
         price: formatMoney(p.quote.price, p.currency),
         badge: p.label === "RECOMMENDED" ? "Recomendado" : p.label === "BEST_SELLER" ? "Más vendido" : undefined,
         demo: p.isDemo,

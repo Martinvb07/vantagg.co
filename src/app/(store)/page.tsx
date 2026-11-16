@@ -4,7 +4,9 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
 import { isHalloween } from "@/domain/season";
-import { packDetail, packTitle } from "@/domain/packs";
+import { isEvoKind, packDetail, packPath, packTitle } from "@/domain/packs";
+import { EvoBanner } from "@/components/store/evo-cover";
+import { formatMoney } from "@/lib/money";
 import { ProductTile } from "@/components/store/product-tile";
 import { formatNumber, packageTitle } from "@/lib/money";
 import { db } from "@/lib/db";
@@ -30,7 +32,7 @@ function PackGrid({ packs }: { packs: Awaited<ReturnType<typeof getPackages>> })
       {packs.map((p) => (
         <ProductTile
           key={p.id}
-          href={`/recargas?paquete=${p.slug}`}
+          href={packPath(p)}
           cover={<PackCover p={p} />}
           title={packTitle(p, packageTitle)}
           meta={packDetail(p, formatNumber)}
@@ -80,7 +82,9 @@ export default async function HomePage() {
     : heroBanners;
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
-  const passes = packages.filter((p) => p.pass);
+  const passes = packages.filter((p) => p.pass && !isEvoKind(p.pass));
+  const evoPacks = packages.filter((p) => isEvoKind(p.pass));
+  const evoPrices = evoPacks.filter((p) => p.available).map((p) => p.quote.price);
   const bonusPct = diamondPacks[0]?.diamonds ? Math.round((diamondPacks[0].bonusDiamonds / diamondPacks[0].diamonds) * 100) : 0;
 
   return (
@@ -138,6 +142,14 @@ export default async function HomePage() {
           <section id="tarjetas" className="scroll-mt-24">
             <RowHead title="Tarjetas y pases" sub="Membresías y pase Booyah · directo a tu ID" href="/recargas" cta="Ver todo" />
             <PackGrid packs={passes} />
+          </section>
+        )}
+
+        {/* Armas Evo: fragmentos y cajas Evo (servicio propio, con su página) */}
+        {evoPacks.length > 0 && (
+          <section id="armas-evo" className="scroll-mt-24 space-y-5">
+            <EvoBanner href="/armas-evo" from={evoPrices.length ? formatMoney(Math.min(...evoPrices)) : null} />
+            <PackGrid packs={evoPacks} />
           </section>
         )}
 
