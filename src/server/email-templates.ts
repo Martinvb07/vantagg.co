@@ -282,7 +282,7 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 
 export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery" | "delay_apology" | "ranking_prize";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean; /** Premio del Top 3 del mes (p. ej. «puesto #1 del Top 3 de noviembre»): pedido sin cobro. */ prize?: string };
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean; /** Premio del Top 3 del mes (p. ej. «puesto #1 del Top 3 de noviembre»): pedido sin cobro. */ prize?: string; /** Tokens Evo: pasó el plazo y quedó registrada la solicitud de reembolso (la aprueba el equipo). */ refundRequested?: boolean };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";

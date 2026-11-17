@@ -55,10 +55,14 @@ describe("tokens Evo (fragmentos y cajas): aparte de los diamantes", () => {
     }
   });
 
-  it("aviso al equipo: solo existe el de plazo vencido, con las horas y sin cancelar el pedido", () => {
+  it("plazo vencido: aviso al equipo de reembolso por aprobar y correo al cliente con la solicitud registrada", () => {
     const e = staffTokenOverdueEmail(brand, { number: "VX-1", item: tokenOrder.item, hours: 13, state: "en proceso con el proveedor", lastError: "caído", adminLink: "https://tienda.test/admin/pedidos/1" });
     expect(e.subject).toContain("24 horas");
     expect(e.text).toContain("13 h");
-    expect(e.text).toContain("no se canceló");
+    expect(e.text).toContain("Reembolso solicitado");
+    expect(e.text).toContain("La tienda no devuelve dinero sola");
+    const c = tokenOrderEmail(brand, "delivery_failed", { ...tokenOrder, refundRequested: true });
+    expect(c.subject).toContain("Solicitud de reembolso registrada");
+    expect(c.text).toMatch(/plazo máximo de 24 horas.*al aprobarla, te devolvemos el dinero/);
   });
 });

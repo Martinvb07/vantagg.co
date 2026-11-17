@@ -71,7 +71,21 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
     },
     // Sale cuando ya pasó el plazo de 24 horas (antes de eso, una entrega lenta es normal y no se avisa), o si el
     // proveedor no puede entregarla y el equipo tiene que revisarla.
-    delivery_failed: {
+    delivery_failed: o.refundRequested
+      ? {
+          subject: `Solicitud de reembolso registrada · ${o.number}`,
+          block: {
+            badge: "Reembolso solicitado",
+            tone: "warning",
+            steps: steps(2, true),
+            title: "Registramos tu solicitud de reembolso",
+            intro: `Tu ${o.item} no se entregó dentro del plazo máximo de ${TOKEN_DELIVERY_MAX}, así que registramos la solicitud de reembolso por ti. Nuestro equipo la revisa y, al aprobarla, te devolvemos el dinero por el mismo medio de pago. Si la entrega alcanza a completarse antes, te avisamos.`,
+            preheader: "Tu pago está seguro",
+            cta: view,
+            note: test ?? "No tienes que hacer nada. Te escribimos apenas el equipo apruebe el reembolso.",
+          },
+        }
+      : {
       subject: `Estamos revisando tu compra Evo · ${o.number}`,
       block: { badge: "En revisión", tone: "warning", steps: steps(2, true), title: "Estamos revisando tu compra Evo", intro: TOKEN_DELIVERY_TIME.delayed, preheader: "Tu pago está seguro", cta: view, note: test },
     },
@@ -126,17 +140,17 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
  * de demora de estos pedidos (dentro del plazo la tienda espera y reintenta sola, sin correos).
  */
 export function staffTokenOverdueEmail(b: Brand, p: { number: string; item: string; hours: number; state: string; lastError?: string | null; adminLink: string }): Email {
-  return build(b, `Tokens Evo sin entregar tras ${TOKEN_DELIVERY_MAX} · ${p.number}`, {
+  return build(b, `Reembolso por aprobar: tokens Evo sin entregar tras ${TOKEN_DELIVERY_MAX} · ${p.number}`, {
     internal: true,
     badge: "Tokens Evo · plazo vencido",
     tone: "danger",
     tag: p.number,
-    title: "Un pedido de fragmentos o cajas Evo pasó su plazo",
+    title: "Reembolso por aprobar: un pedido Evo pasó su plazo",
     intro: `El cliente pagó hace ${p.hours} h y la entrega todavía no se completa (${p.state}). El plazo prometido es de ${TOKEN_DELIVERY_MAX}.`,
     preheader: `${p.item} · ${p.hours} h sin entregar`,
     rows: [["Pedido", p.number], ["Producto", p.item]],
     ...(p.lastError ? { quote: p.lastError.slice(0, 500) } : {}),
     cta: { label: "Abrir el pedido", url: p.adminLink },
-    note: "El pedido no se canceló. Verifícalo en el proveedor: si allá figura completado, márcalo entregado; si no, reintenta la entrega o reembolsa.",
+    note: "El pedido quedó en «Reembolso solicitado». La tienda no devuelve dinero sola: revisa en el proveedor y, si no se entregó, aprueba el reembolso (devuélvelo en la pasarela y marca el pedido como Reembolsado). Si el proveedor lo completa antes, el pedido pasa solo a Entregado.",
   });
 }

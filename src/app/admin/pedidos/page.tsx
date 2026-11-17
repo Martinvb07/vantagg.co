@@ -178,7 +178,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <OrderStatusBadge status={o.status} simulated={o.delivery?.simulated} />
                 {/* Fragmentos y cajas Evo pagados y sin entregar: cuánto queda de su plazo de 24 h. */}
                 {(() => {
-                  if (!o.paidAt || !["PAID", "PROCESSING", "DELIVERY_FAILED"].includes(o.status) || !isTokenItem(o.itemSnapshot)) return null;
+                  if (!o.paidAt || !["PAID", "PROCESSING", "DELIVERY_FAILED", "REFUND_REQUESTED"].includes(o.status) || !isTokenItem(o.itemSnapshot)) return null;
                   const w = tokenWindow(o.paidAt);
                   return <span className={cn("mt-1 block whitespace-nowrap text-[11.5px]", w.overdue ? "font-semibold text-bad-400" : "text-fg-muted")}>{w.label}</span>;
                 })()}

@@ -658,10 +658,14 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
       data: { status: "SUCCESS", providerRef: r.providerRef ?? undefined, lastError: null, lockedAt: null, ...(r.costCents && !r.simulated ? { costCents: r.costCents, costCheckedAt: new Date() } : {}) },
     });
     if (updated.count === 0) return;
+    // Tokens Evo con solicitud de reembolso automática (plazo vencido) que el equipo aún no aprobó: si el proveedor
+    // alcanza a entregar, el pedido queda Entregado y la solicitud sin efecto (no se reembolsa algo ya entregado).
+    const autoRefund = order.status === "REFUND_REQUESTED" && (await db.orderEvent.count({ where: { orderId: order.id, type: "REFUND_AUTO_REQUESTED" } })) > 0;
     await db.order.updateMany({
-      where: { id: order.id, status: { in: ["PAID", "PROCESSING", "DELIVERY_FAILED"] } },
+      where: { id: order.id, status: { in: ["PAID", "PROCESSING", "DELIVERY_FAILED", ...(autoRefund ? (["REFUND_REQUESTED"] as const) : [])] } },
       data: { status: "DELIVERED", deliveredAt: new Date() },
     });
+    if (autoRefund) await addEvent(order.id, "REFUND_REQUEST_VOIDED", "El proveedor completó la entrega después del plazo: la solicitud de reembolso automática quedó sin efecto.", actor);
     const snap = order.itemSnapshot as { name?: string; diamonds: number; bonusDiamonds?: number };
     const total = snap.diamonds + (snap.bonusDiamonds ?? 0);
     const what = total > 0 ? `${formatNumber(total)} diamantes` : (snap.name ?? "la recarga");
@@ -681,6 +685,11 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
     if (tokenWaiting(order) && !isHardFailure(r.message)) {
       await db.order.updateMany({ where: { id: order.id, status: "PAID" }, data: { status: "PROCESSING" } });
       await addEvent(order.id, "DELIVERY_WAITING", `${r.message ?? "El proveedor no completó la entrega."} Está dentro del plazo de ${TOKEN_DELIVERY_MAX} de los fragmentos y cajas Evo: se reintenta sola, sin avisos.`, actor, { data: { providerRef: r.providerRef } });
+      return;
+    }
+    // Con el reembolso ya solicitado o hecho no se repiten avisos: queda anotado que el proveedor no entregó.
+    if (order.status === "REFUND_REQUESTED" || order.status === "REFUNDED") {
+      await addEvent(order.id, "DELIVERY_FAILED", `${r.message ?? "El proveedor no pudo completar la entrega."} (El pedido ya está en «${ORDER_STATUS_META[order.status].label}».)`, actor, { data: { providerRef: r.providerRef } });
       return;
     }
     await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "DELIVERY_FAILED" } });

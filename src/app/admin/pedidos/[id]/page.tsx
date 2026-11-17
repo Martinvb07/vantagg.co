@@ -48,7 +48,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
   const item = order.itemSnapshot as { name: string; diamonds?: number; bonusDiamonds?: number; sku?: string | null; region?: string; regionName?: string | null; costCents?: number | null };
   const transitions = MANUAL_TRANSITIONS[order.status] ?? [];
   // Fragmentos y cajas Evo pagados y aún sin entregar: su plazo de 24 h.
-  const tokenPlazo = order.type === "TOPUP" && order.paidAt && ["PAID", "PROCESSING", "DELIVERY_FAILED"].includes(order.status) && isTokenItem(order.itemSnapshot) ? tokenWindow(order.paidAt) : null;
+  const tokenPlazo = order.type === "TOPUP" && order.paidAt && ["PAID", "PROCESSING", "DELIVERY_FAILED", "REFUND_REQUESTED"].includes(order.status) && isTokenItem(order.itemSnapshot) ? tokenWindow(order.paidAt) : null;
   const state = chatState(order);
   const [settings, chatMessages, reminder] = await Promise.all([getSettings(), state === "hidden" ? [] : listMessages(order.id), reminderState(order.id)]);
   if (state !== "hidden") await markRead(order.id, "staff");
@@ -134,7 +134,9 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                 <Row k="Estado del plazo" v={<strong className={tokenPlazo.overdue ? "text-bad-400" : "text-ok-400"}>{tokenPlazo.label}</strong>} />
               </dl>
               <Alert tone={tokenPlazo.overdue ? "danger" : "info"} className="mt-3">
-                {tokenPlazo.overdue
+                {order.status === "REFUND_REQUESTED"
+                  ? "El plazo venció y la tienda registró la solicitud de reembolso. El reembolso solo se hace si lo apruebas: revisa en el proveedor que no se haya entregado, devuelve el dinero desde la pasarela y cambia el estado a «Reembolsado». Si el proveedor lo completa antes, el pedido pasa solo a Entregado."
+                  : tokenPlazo.overdue
                   ? "El plazo prometido al cliente ya venció. Verifica el pedido en el proveedor: si allá figura completado, márcalo como entregado; si no, reintenta la entrega o reembolsa."
                   : "Este pedido no es instantáneo como los diamantes: es normal que siga «en proceso». Dentro del plazo la tienda consulta y reintenta sola con el proveedor, sin marcar error ni enviar correos de demora. Cuando el proveedor lo complete pasa solo a Entregado; también puedes verificarlo o marcarlo como entregado desde aquí."}
               </Alert>

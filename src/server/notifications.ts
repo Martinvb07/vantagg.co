@@ -160,6 +160,7 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     expiresAt: new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit", timeZone: "America/Bogota" }).format(order.expiresAt),
     isPass: order.type === "TOPUP" && (order.itemSnapshot as { diamonds?: number }).diamonds === 0,
     buyAgainUrl: extra.buyAgainUrl,
+    refundRequested: order.status === "REFUND_REQUESTED",
   };
   const brand = await getBrand();
   const email = tokenTemplate ? tokenOrderEmail(brand, tokenTemplate, data) : orderEmail(brand, template, data);

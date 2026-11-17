@@ -65,7 +65,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, pollCancelledPayments, recheckCancelledPayment, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, retryWaitingTokenDeliveries, sendPaymentReminders } from "@/server/orders";
+import { applyDeliveryResult, transitionOrder, applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, pollCancelledPayments, recheckCancelledPayment, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, retryWaitingTokenDeliveries, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { canonicalEmail } from "@/server/order-limits";
@@ -813,14 +813,28 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     expect(await db.orderEvent.count({ where: { orderId: waiting.id, type: "DELIVERY_ISSUE" } })).toBe(0);
     expect(await statusOf(waiting.id)).toBe("PROCESSING");
 
-    // 25 h: aviso propio de tokens (no el de «pago sin entregar» de diamantes) y correo al cliente; el pedido no se cancela.
+    // 25 h: el pedido pasa a «Reembolso solicitado» (lo aprueba el equipo; no se reembolsa ni cancela solo), con el
+    // aviso propio de tokens (no el de «pago sin entregar» de diamantes) y correo al cliente.
     expect(fakes.notify.notifyStaffTokenOverdue).toHaveBeenCalledWith(overdue.id, expect.objectContaining({ hours: 25 }));
     expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(overdue.id, "stuck", expect.anything(), expect.anything(), expect.anything());
     expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(overdue.id, "delivery_failed");
-    expect(await db.orderEvent.count({ where: { orderId: overdue.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
-    expect(await statusOf(overdue.id)).toBe("PROCESSING");
-    // Con el último intento fallido pasa a «Entrega fallida» para que el equipo la vea y la reintente.
-    expect(await statusOf(overdueFailed.id)).toBe("DELIVERY_FAILED");
+    expect(await statusOf(overdue.id)).toBe("REFUND_REQUESTED");
+    expect(await statusOf(overdueFailed.id)).toBe("REFUND_REQUESTED");
+    expect(await db.orderEvent.count({ where: { orderId: overdue.id, type: "REFUND_AUTO_REQUESTED" } })).toBe(1);
+    expect((await db.order.findUniqueOrThrow({ where: { id: overdue.id } })).refundedAt).toBeNull();
+    // No se repite en la siguiente revisión.
+    await watchdogTick(Date.now() + 2 * 61_000);
+    expect(fakes.notify.notifyStaffTokenOverdue).toHaveBeenCalledTimes(2);
+    expect(await db.orderEvent.count({ where: { orderId: overdue.id, type: "REFUND_AUTO_REQUESTED" } })).toBe(1);
+
+    // El equipo aprueba: solo así queda Reembolsado.
+    expect((await transitionOrder(overdueFailed.id, "REFUNDED", "ADMIN:equipo", "Devuelto en la pasarela.")).ok).toBe(true);
+    expect(await statusOf(overdueFailed.id)).toBe("REFUNDED");
+    // Si el proveedor alcanza a entregar antes de que el equipo apruebe, queda Entregado y la solicitud sin efecto.
+    const d = await db.delivery.create({ data: { orderId: overdue.id, provider: "fake", idempotencyKey: `topup-${overdue.id}`, status: "PROCESSING", providerRef: `co-${RUN}-late`, attempts: 1 } });
+    await applyDeliveryResult(d.id, { status: "SUCCESS", providerRef: `co-${RUN}-late`, simulated: false }, "POLL:fake");
+    expect(await statusOf(overdue.id)).toBe("DELIVERED");
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(overdue.id, "delivered");
     expect(await retryWaitingTokenDeliveries()).toBe(0);
   });
 
@@ -838,15 +852,15 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     await db.order.update({ where: { id: fresh.order.id }, data: { status: "PAID", paidAt: new Date() } });
     await db.orderEvent.create({ data: { orderId: fresh.order.id, type: "PAYMENT_CONFIRMED", message: "La pasarela confirmó el pago.", actor: "POLL:bold" } });
     // La revisión de entregas trabadas corre una vez por minuto: se simula que pasó el minuto desde la anterior
-    // (la prueba de los tokens Evo ya usó el primer minuto).
-    await watchdogTick(Date.now() + 2 * 61_000);
-    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringMatching(/lleva 1[0-2] min sin entregarse/), expect.any(String));
+    // (la prueba de los tokens Evo ya usó los dos primeros).
+    await watchdogTick(Date.now() + 3 * 61_000);
+    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringMatching(/lleva 1[0-3] min sin entregarse/), expect.any(String));
     expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(fresh.order.id, "stuck", expect.anything(), expect.anything(), expect.anything());
     // El cliente también se entera (una vez): «tu recarga se está demorando, tu pago está seguro».
     expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(order.id, "delivery_failed");
     expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(fresh.order.id, "delivery_failed");
     expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
-    await watchdogTick(Date.now() + 3 * 61_000);
+    await watchdogTick(Date.now() + 4 * 61_000);
     expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
     expect(fakes.notify.notifyStaffSystemAlert).not.toHaveBeenCalled();
     // 7 min sin que la tarea programada llame: la tienda corre el mantenimiento por su cuenta y avisa.
