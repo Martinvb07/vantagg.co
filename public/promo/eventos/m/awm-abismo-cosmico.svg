@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c0a3e"/><stop offset=".55" stop-color="#21146b"/><stop offset="1" stop-color="#0a1440"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9f43c" stop-opacity=".22"/><stop offset="1" stop-color="#b9f43c" stop-opacity=".02"/></linearGradient>
+<radialGradient id="glow" cx="0.55" cy="0.3" r="0.5"><stop offset="0" stop-color="#9b6bff" stop-opacity=".45"/><stop offset="1" stop-color="#9b6bff" stop-opacity="0"/></radialGradient>
+<radialGradient id="vortexglow"><stop offset="0" stop-color="#b48cff" stop-opacity=".55"/><stop offset="1" stop-color="#b48cff" stop-opacity="0"/></radialGradient>
+<radialGradient id="hole"><stop offset=".55" stop-color="#000"/><stop offset="1" stop-color="#4b22c9"/></radialGradient>
+<linearGradient id="ring" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7fb8ff"/><stop offset=".5" stop-color="#f3e9ff"/><stop offset="1" stop-color="#a77bff"/></linearGradient>
+<linearGradient id="gun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2f5c"/><stop offset="1" stop-color="#0f0b1e"/></linearGradient>
+<linearGradient id="fist" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#b892ff"/><stop offset=".55" stop-color="#6d3df2"/><stop offset="1" stop-color="#2d1680"/></linearGradient>
+<linearGradient id="trail" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9bcff" stop-opacity=".75"/><stop offset="1" stop-color="#3f7bff" stop-opacity="0"/></linearGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+
+</defs>
+<rect width="800" height="600" fill="url(#bg)"/>
+<path d="M440.00000000000006 180L-149.9149724329963  -360.37054444092075L-93.02081702385914 -416.5641697413762Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L496.5897613341624  -617.9959892832436L575.9737143201929 -608.3597839907682Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L1100.2684919277428  -271.71397871602824L1142.0660495122984 -203.5404308833622Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L1204.2691913004849  416.4161653290719L1176.848795202308 491.53467384692067Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L729.8862035813388  925.6312687737811L653.9990628996698 950.8465483337544Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L36.12311632011398  870.567493319099L-30.800893804276598 826.797123055672Z" fill="#3f7bff" opacity=".07"/><path d="M440.00000000000006 180L-351.9939972803564  292.8960064478934L-359.3081202186235 213.26452994663202Z" fill="#3f7bff" opacity=".07"/><g fill="#fff"><circle cx="41" cy="17" r="1" opacity="0.30"/><circle cx="378" cy="228" r="1.6" opacity="0.45"/><circle cx="715" cy="439" r="2.2" opacity="0.60"/><circle cx="252" cy="50" r="1" opacity="0.75"/><circle cx="589" cy="261" r="1.6" opacity="0.30"/><circle cx="126" cy="472" r="2.2" opacity="0.45"/><circle cx="463" cy="83" r="1" opacity="0.60"/><circle cx="0" cy="294" r="1.6" opacity="0.75"/><circle cx="337" cy="505" r="2.2" opacity="0.30"/><circle cx="674" cy="116" r="1" opacity="0.45"/><circle cx="211" cy="327" r="1.6" opacity="0.60"/><circle cx="548" cy="538" r="2.2" opacity="0.75"/><circle cx="85" cy="149" r="1" opacity="0.30"/><circle cx="422" cy="360" r="1.6" opacity="0.45"/><circle cx="759" cy="571" r="2.2" opacity="0.60"/><circle cx="296" cy="182" r="1" opacity="0.75"/><circle cx="633" cy="393" r="1.6" opacity="0.30"/><circle cx="170" cy="4" r="2.2" opacity="0.45"/><circle cx="507" cy="215" r="1" opacity="0.60"/><circle cx="44" cy="426" r="1.6" opacity="0.75"/><circle cx="381" cy="37" r="2.2" opacity="0.30"/><circle cx="718" cy="248" r="1" opacity="0.45"/><circle cx="255" cy="459" r="1.6" opacity="0.60"/><circle cx="592" cy="70" r="2.2" opacity="0.75"/><circle cx="129" cy="281" r="1" opacity="0.30"/><circle cx="466" cy="492" r="1.6" opacity="0.45"/><circle cx="3" cy="103" r="2.2" opacity="0.60"/></g>
+<path d="M400 -10H473.6L560 163.68L646.4 -10H720L572.8 264H547.2Z" fill="url(#v)"/>
+<rect width="800" height="600" fill="url(#glow)"/>
+
+<g transform="translate(420 190) rotate(-11) scale(0.98)"><g>
+<path d="M66 70L84 20M104 70L88 20" stroke="#120d22" stroke-width="7" stroke-linecap="round"/>
+<path d="M-170 -22L-300 -32Q-334 -30 -334 -8V32Q-332 50 -300 48L-232 38L-204 22L-170 24Z" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-292 -10H-238V18H-292Z" fill="#0b0816" opacity=".85"/>
+<path d="M-172 -28H-30L-14 -16V20L-40 26H-172Z" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-148 22L-124 22L-112 76Q-118 84 -128 82L-140 80Z" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-100 24H-66V62H-100Z" fill="#1d1533" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-118 24Q-118 46 -96 46" fill="none" stroke="#030504" stroke-width="4"/>
+<path d="M-16 -18H96L104 -10V12L96 18H-16Z" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<rect x="96" y="-8" width="232" height="15" rx="6" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<rect x="318" y="-14" width="40" height="27" rx="5" fill="#2a1f4a" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M326 -14V13M340 -14V13" stroke="#030504" stroke-width="3"/>
+<rect x="-140" y="-70" width="160" height="30" rx="14" fill="url(#gun)" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<ellipse cx="22" cy="-55" rx="8" ry="16" fill="#a77bff" stroke="#030504" stroke-width="4" stroke-linejoin="round"/><ellipse cx="-142" cy="-55" rx="6" ry="13" fill="#1d1533" stroke="#030504" stroke-width="4" stroke-linejoin="round"/>
+<path d="M-112 -40V-28M-8 -40V-28" stroke="#030504" stroke-width="7"/>
+<path d="M-166 -24H-34M-12 -14H92M100 -5H322M-134 -64H12" fill="none" stroke="#d9bcff" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+<g transform="translate(-92 -2)"><circle r="72" fill="url(#vortexglow)"/><ellipse rx="63" ry="18.6" fill="none" stroke="url(#ring)" stroke-width="9.6" transform="rotate(-14)"/>
+<circle r="30" fill="url(#hole)" stroke="#d9bcff" stroke-width="2.5"/><path d="M-63 0A63 18.6 0 0 0 63 0" fill="none" stroke="url(#ring)" stroke-width="9.6" transform="rotate(-14)"/></g>
+</g></g>
+<path d="M120.0 290.0L147.8 274.0L166.7 286.3L193.1 265.0L227.8 267.7" fill="none" stroke="#7fb8ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity=".3"/><path d="M120.0 290.0L147.8 274.0L166.7 286.3L193.1 265.0L227.8 267.7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><use href="#spark" transform="translate(720 300) scale(1.1)" opacity=".9"/>
+<g transform="translate(46 46)"><path d="M0 0H274.32L265.32 28.8H0Z" fill="#b9f43c"/>
+<text x="9" y="20.736" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="18" fill="#030504" letter-spacing="1">NUEVO EN FREE FIRE</text></g>
+<text x="40" y="372" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="48" fill="#b9f43c">EVO AWM</text><text x="40" y="429.12" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="56" fill="#fff">ABISMO CÓSMICO</text>
+<text x="46" y="484" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#c9d3cc" text-anchor="start">Recarga tus diamantes · directo a tu ID</text>
+<g transform="translate(44 506)"><rect width="179.18" height="39.099999999999994" rx="19.549999999999997" fill="#b9f43c" filter="url(#soft)" opacity=".55"/>
+<rect width="179.18" height="39.099999999999994" rx="19.549999999999997" fill="#b9f43c" stroke="#030504" stroke-width="2"/>
+<text x="89.59" y="25.805999999999997" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="17" fill="#030504" text-anchor="middle" letter-spacing="1">RECARGAR  →</text></g>
+</svg>

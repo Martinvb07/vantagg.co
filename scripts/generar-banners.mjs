@@ -234,7 +234,7 @@ function heading(x, y, lines, gap = 1.02) {
   return lines
     .map(([t, c, s], i) => {
       if (i > 0) yy += s * gap;
-      const fill = c === "l" ? LIME : c === "o" ? ORANGE : c === "r" ? XRED : "#fff";
+      const fill = c === "l" ? LIME : c === "o" ? ORANGE : c === "r" ? XRED : c === "p" ? "#d9bcff" : "#fff";
       return `<text x="${x}" y="${yy}" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="${s}" fill="${fill}">${esc(t)}</text>`;
     })
     .join("");
@@ -816,47 +816,120 @@ ${Array.from({ length: 22 }, (_, i) => `<circle cx="${(i * 79 + 30) % W}" cy="${
 
 // ---------------------------------------------------------------- eventos de Free Fire (src/content/event-banners.ts)
 
-/** Calendario de la semana con el día de eventos marcado (centrado en 0,0; ~300 de ancho). */
-function calendarArt() {
-  const cells = [];
-  for (let r = 0; r < 2; r++) {
-    for (let c = 0; c < 7; c++) {
-      const x = -129 + c * 37;
-      const y = -30 + r * 40;
-      const hot = r === 0 && c === 1;
-      cells.push(`<rect x="${x}" y="${y}" width="30" height="32" rx="6" fill="${hot ? LIME : "#1c2420"}" stroke="${hot ? INK : "#2f3b35"}" stroke-width="${hot ? 2.5 : 1.5}"/>`);
-      if (hot) cells.push(gem(x + 15, y + 6, 20));
-    }
-  }
-  return `<circle cx="0" cy="0" r="190" fill="url(#gemglow)"/>${ringBack(0, 140, 170, 24)}
-<rect x="-150" y="-104" width="300" height="236" rx="18" fill="url(#dark)" stroke="${INK}" stroke-width="5"/>
-<path d="M-150 -86Q-150 -104 -132 -104H132Q150 -104 150 -86V-50H-150Z" fill="${XMAS ? XRED : LIME}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
-${XMAS ? `<path d="M-146 -98Q-110 -114 -70 -100Q-30 -114 10 -100Q50 -114 90 -100Q120 -112 146 -98V-92H-146Z" fill="#f4fbff"/>` : ""}
-${[-80, 80].map((x) => `<rect x="${x - 7}" y="-118" width="14" height="30" rx="6" fill="#26302b" stroke="${LIME}" stroke-width="3"/>`).join("")}
-<text x="0" y="-62" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="28" fill="${XMAS ? "#fff" : INK}" text-anchor="middle" letter-spacing="2">EVENTOS</text>
-${["L", "M", "M", "J", "V", "S", "D"].map((d, i) => `<text x="${-114 + i * 37}" y="-36" font-family="${BODY}" font-weight="700" font-size="13" fill="#9aa59e" text-anchor="middle">${d}</text>`).join("")}
-${cells.join("")}
-<rect x="-129" y="58" width="252" height="10" rx="5" fill="#2f3b35"/><rect x="-129" y="58" width="150" height="10" rx="5" fill="${LIME}"/>
-<text x="0" y="104" font-family="${HEAD}" font-weight="900" font-size="20" fill="${LIME}" text-anchor="middle">NUEVOS CADA SEMANA</text>
-${XMAS ? `${gift(-180, 150, 56, 44, XRED, XGOLD)}${gift(180, 148, 46, 36, XGOLD, XRED)}` : ""}
-${gems([[-200, -60, 30, -16], [206, -40, 26, 14], [196, 40, 18, 10, true]])}
-${ringFront(0, 140, 170, 24)}`;
+// Arte propio (no se usa arte de Garena): francotirador con agujero negro y puño de energía, en morado y azul cósmico.
+const COSMIC = ["#f3e9ff", "#d9bcff", "#a77bff", "#7b46ff", "#4b22c9", "#1a0b4a"];
+
+/** Rayo en zigzag (desde x, y; largo, ángulo en grados). */
+function bolt(x, y, len, ang, w = 3) {
+  const r = (ang * Math.PI) / 180;
+  const pts = [[0, 0], [len * 0.28, -len * 0.08], [len * 0.42, len * 0.07], [len * 0.7, -len * 0.06], [len, len * 0.04]];
+  const d = pts.map(([px, py], i) => `${i ? "L" : "M"}${(x + px * Math.cos(r) - py * Math.sin(r)).toFixed(1)} ${(y + px * Math.sin(r) + py * Math.cos(r)).toFixed(1)}`).join("");
+  return `<path d="${d}" fill="none" stroke="#7fb8ff" stroke-width="${w * 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".3"/><path d="${d}" fill="none" stroke="#fff" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+/** Agujero negro con su anillo (centro 0,0). */
+const blackHole = (r = 34) =>
+  `<circle r="${r * 2.4}" fill="url(#vortexglow)"/><ellipse rx="${r * 2.1}" ry="${r * 0.62}" fill="none" stroke="url(#ring)" stroke-width="${r * 0.32}" transform="rotate(-14)"/>
+<circle r="${r}" fill="url(#hole)" stroke="${COSMIC[1]}" stroke-width="2.5"/><path d="M${-r * 2.1} 0A${r * 2.1} ${r * 0.62} 0 0 0 ${r * 2.1} 0" fill="none" stroke="url(#ring)" stroke-width="${r * 0.32}" transform="rotate(-14)"/>`;
+
+/** Rifle de francotirador (mira a la derecha, centrado en 0,0; ~660 de largo) con el agujero negro en el cuerpo. */
+function sniper() {
+  const o = `stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
+  return `<g>
+<path d="M66 70L84 20M104 70L88 20" stroke="#120d22" stroke-width="7" stroke-linecap="round"/>
+<path d="M-170 -22L-300 -32Q-334 -30 -334 -8V32Q-332 50 -300 48L-232 38L-204 22L-170 24Z" fill="url(#gun)" ${o}/>
+<path d="M-292 -10H-238V18H-292Z" fill="#0b0816" opacity=".85"/>
+<path d="M-172 -28H-30L-14 -16V20L-40 26H-172Z" fill="url(#gun)" ${o}/>
+<path d="M-148 22L-124 22L-112 76Q-118 84 -128 82L-140 80Z" fill="url(#gun)" ${o}/>
+<path d="M-100 24H-66V62H-100Z" fill="#1d1533" ${o}/>
+<path d="M-118 24Q-118 46 -96 46" fill="none" stroke="${INK}" stroke-width="4"/>
+<path d="M-16 -18H96L104 -10V12L96 18H-16Z" fill="url(#gun)" ${o}/>
+<rect x="96" y="-8" width="232" height="15" rx="6" fill="url(#gun)" ${o}/>
+<rect x="318" y="-14" width="40" height="27" rx="5" fill="#2a1f4a" ${o}/>
+<path d="M326 -14V13M340 -14V13" stroke="${INK}" stroke-width="3"/>
+<rect x="-140" y="-70" width="160" height="30" rx="14" fill="url(#gun)" ${o}/>
+<ellipse cx="22" cy="-55" rx="8" ry="16" fill="${COSMIC[2]}" ${o}/><ellipse cx="-142" cy="-55" rx="6" ry="13" fill="#1d1533" ${o}/>
+<path d="M-112 -40V-28M-8 -40V-28" stroke="${INK}" stroke-width="7"/>
+<path d="M-166 -24H-34M-12 -14H92M100 -5H322M-134 -64H12" fill="none" stroke="${COSMIC[1]}" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+<g transform="translate(-92 -2)">${blackHole(30)}</g>
+</g>`;
+}
+
+/** Puño de energía cósmica de frente (nudillos), con su estela de cometa (centrado en 0,0; ~200 de ancho). */
+function cosmicFist() {
+  const o = `stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
+  const finger = (x, h) => `<rect x="${x}" y="${-62 + (40 - h) / 2}" width="42" height="${h + 14}" rx="19" fill="url(#fist)" ${o}/><path d="M${x + 10} ${-54 + (40 - h) / 2}Q${x + 21} ${-62 + (40 - h) / 2} ${x + 32} ${-54 + (40 - h) / 2}" fill="none" stroke="${COSMIC[0]}" stroke-width="3" stroke-linecap="round" opacity=".7"/>`;
+  return `<path d="M30 60C120 140 260 200 420 250L380 300C230 230 90 170 10 100Z" fill="url(#trail)"/>
+<path d="M50 70C150 150 270 200 400 240" fill="none" stroke="${COSMIC[0]}" stroke-width="3" opacity=".5"/>
+<circle r="150" fill="url(#vortexglow)"/>
+<rect x="-58" y="60" width="116" height="96" rx="22" fill="url(#fist)" ${o}/>
+<rect x="-92" y="-30" width="184" height="118" rx="34" fill="url(#fist)" ${o}/>
+${finger(-88, 40)}${finger(-44, 46)}${finger(0, 46)}${finger(44, 40)}
+<path d="M-96 6C-96 -6 -76 -10 -60 -4L26 20C42 26 40 50 22 52L-60 50C-86 48 -98 30 -96 6Z" fill="url(#fist)" ${o}/>
+<path d="M-70 10L14 30" stroke="${COSMIC[0]}" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+${bolt(-60, -10, 120, 64, 2.6)}${bolt(40, -50, 90, 110, 2.2)}`;
+}
+
+/** Fondo cósmico (morado y azul, estrellas y rayos) para los banners de estos eventos; en Navidad, con luces y nieve. */
+function svgCosmic(w, h, { glowX = 0.74, glowY = 0.5, vx, vs = 1 }, body) {
+  const vw = 400 * vs;
+  const vh = 330 * vs;
+  const v = `M${vx - vw / 2} -10H${vx - vw / 2 + 92 * vs}L${vx} ${vh * 0.62}L${vx + vw / 2 - 92 * vs} -10H${vx + vw / 2}L${vx + 16 * vs} ${vh}H${vx - 16 * vs}Z`;
+  const stars = `<g fill="#fff">${Array.from({ length: Math.round(w / 30) }, (_, i) => `<circle cx="${(i * 337 + 41) % w}" cy="${(i * 211 + 17) % h}" r="${[1, 1.6, 2.2][i % 3]}" opacity="${(0.3 + (i % 4) * 0.15).toFixed(2)}"/>`).join("")}</g>`;
+  const rays = Array.from({ length: 7 }, (_, i) => `<path d="M${w * glowX} ${h * glowY}L${w * glowX + Math.cos(i * 0.9 - 2.4) * w}  ${h * glowY + Math.sin(i * 0.9 - 2.4) * w}L${w * glowX + Math.cos(i * 0.9 - 2.3) * w} ${h * glowY + Math.sin(i * 0.9 - 2.3) * w}Z" fill="#3f7bff" opacity=".07"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c0a3e"/><stop offset=".55" stop-color="#21146b"/><stop offset="1" stop-color="#0a1440"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${LIME}" stop-opacity=".22"/><stop offset="1" stop-color="${LIME}" stop-opacity=".02"/></linearGradient>
+<radialGradient id="glow" cx="${glowX}" cy="${glowY}" r="0.5"><stop offset="0" stop-color="#9b6bff" stop-opacity=".45"/><stop offset="1" stop-color="#9b6bff" stop-opacity="0"/></radialGradient>
+<radialGradient id="vortexglow"><stop offset="0" stop-color="#b48cff" stop-opacity=".55"/><stop offset="1" stop-color="#b48cff" stop-opacity="0"/></radialGradient>
+<radialGradient id="hole"><stop offset=".55" stop-color="#000"/><stop offset="1" stop-color="#4b22c9"/></radialGradient>
+<linearGradient id="ring" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7fb8ff"/><stop offset=".5" stop-color="#f3e9ff"/><stop offset="1" stop-color="#a77bff"/></linearGradient>
+<linearGradient id="gun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2f5c"/><stop offset="1" stop-color="#0f0b1e"/></linearGradient>
+<linearGradient id="fist" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#b892ff"/><stop offset=".55" stop-color="#6d3df2"/><stop offset="1" stop-color="#2d1680"/></linearGradient>
+<linearGradient id="trail" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9bcff" stop-opacity=".75"/><stop offset="1" stop-color="#3f7bff" stop-opacity="0"/></linearGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+${XMAS ? xmasDefs() : ""}
+</defs>
+<rect width="${w}" height="${h}" fill="url(#bg)"/>
+${rays}${stars}
+<path d="${v}" fill="url(#v)"/>
+<rect width="${w}" height="${h}" fill="url(#glow)"/>
+${XMAS ? xmasBack(w, h) : ""}
+${body}${XMAS ? `\n${xmasFront(w, h)}` : ""}
+</svg>
+`;
 }
 
 /** Banners de eventos de Free Fire (src/content/event-banners.ts): en la pasada navideña salen con luces y nieve. */
 function eventBanners() {
-  add("eventos/agenda-semanal.svg", svg(HERO.w, HERO.h, { vx: 1250, vs: 1.2, glowX: 0.78, glowY: 0.5 }, `${place(calendarArt(), 1230, 236, 1.12)}
-${spark(1500, 110, 1.4)}${spark(980, 90, 1.1)}
-${tag(96, 70, "AGENDA SEMANAL", 22, XMAS ? XGOLD : LIME)}
-${heading(90, 190, [["EVENTOS", "w", 76], ["NUEVOS", XMAS ? "r" : "l", 104]])}
-${sub(96, 336, "Ten tus diamantes listos · directo a tu ID", 26)}
-${cta(94, 368, "RECARGAR  →", 20)}`));
-  add("eventos/m/agenda-semanal.svg", svg(MOB.w, MOB.h, { vx: 560, vs: 0.85, glowX: 0.7, glowY: 0.34 }, `${place(calendarArt(), 520, 196, 0.82)}
-${spark(740, 70, 1.1)}
-${tag(46, 54, "AGENDA SEMANAL", 18, XMAS ? XGOLD : LIME)}
-${heading(40, 404, [["EVENTOS", "w", 58], ["NUEVOS", XMAS ? "r" : "l", 82]])}
-${sub(46, 520, "Ten tus diamantes listos · directo a tu ID", 22)}
-${cta(44, 534, "RECARGAR  →", 17)}`));
+  // Evo AWM «Abismo Cósmico» (salió el 17 de noviembre de 2026, Free Fire Latinoamérica).
+  add("eventos/awm-abismo-cosmico.svg", svgCosmic(HERO.w, HERO.h, { vx: 1180, vs: 1.15 }, `<g transform="translate(1170 250) rotate(-11) scale(1.08)">${sniper()}</g>
+${bolt(860, 120, 150, 20)}${bolt(1420, 370, 140, -30)}${spark(1500, 110, 1.4)}${spark(930, 380, 1.1)}${spark(1270, 90, 0.9)}
+${tag(96, 58, "NUEVO EN FREE FIRE", 22, LIME)}
+${heading(90, 152, [["EVO AWM", "l", 64], ["ABISMO", "w", 88], ["CÓSMICO", "p", 88]], 0.98)}
+${sub(96, 366, "Llegó la nueva Evo AWM · recarga tus diamantes", 24)}
+${cta(94, 388, "RECARGAR  →", 20)}`));
+  add("eventos/m/awm-abismo-cosmico.svg", svgCosmic(MOB.w, MOB.h, { vx: 560, vs: 0.8, glowX: 0.55, glowY: 0.3 }, `<g transform="translate(420 190) rotate(-11) scale(0.98)">${sniper()}</g>
+${bolt(120, 290, 110, -14)}${spark(720, 300, 1.1)}
+${tag(46, 46, "NUEVO EN FREE FIRE", 18, LIME)}
+${heading(40, 372, [["EVO AWM", "l", 48], ["ABISMO CÓSMICO", "w", 56]])}
+${sub(46, 484, "Recarga tus diamantes · directo a tu ID", 22)}
+${cta(44, 506, "RECARGAR  →", 17)}`));
+  // Puños «Cometa Cósmico» (salieron el 17 de noviembre de 2026, Free Fire Latinoamérica).
+  add("eventos/punos-cometa-cosmico.svg", svgCosmic(HERO.w, HERO.h, { vx: 1200, vs: 1.15, glowX: 0.76, glowY: 0.46 }, `<g transform="translate(1230 220) rotate(-14) scale(1.18)">${cosmicFist()}</g>
+${bolt(900, 90, 140, 24)}${bolt(1480, 330, 120, -40)}${spark(1510, 100, 1.4)}${spark(960, 380, 1.1)}
+${tag(96, 58, "NUEVO EN FREE FIRE", 22, LIME)}
+${heading(90, 152, [["PUÑOS", "l", 64], ["COMETA", "w", 88], ["CÓSMICO", "p", 88]], 0.98)}
+${sub(96, 366, "Consíguelos con diamantes · directo a tu ID", 24)}
+${cta(94, 388, "RECARGAR  →", 20)}`));
+  add("eventos/m/punos-cometa-cosmico.svg", svgCosmic(MOB.w, MOB.h, { vx: 560, vs: 0.8, glowX: 0.62, glowY: 0.3 }, `<g transform="translate(470 170) rotate(-14) scale(0.95)">${cosmicFist()}</g>
+${bolt(110, 250, 110, -14)}${spark(730, 80, 1.1)}
+${tag(46, 46, "NUEVO EN FREE FIRE", 18, LIME)}
+${heading(40, 372, [["PUÑOS", "l", 48], ["COMETA CÓSMICO", "w", 56]])}
+${sub(46, 484, "Consíguelos con diamantes · directo a tu ID", 22)}
+${cta(44, 506, "RECARGAR  →", 17)}`));
 }
 
 eventBanners();

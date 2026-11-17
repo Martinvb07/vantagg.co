@@ -15,17 +15,25 @@ export type EventBanner = {
 };
 
 export const EVENT_BANNERS: EventBanner[] = [
-  // Genérico (no depende de un evento puntual): Free Fire LATAM publica su agenda de eventos cada semana.
-  // Semana del 17 de noviembre de 2026: no hubo un evento de recarga confirmado para Latinoamérica (las fuentes
-  // encontradas eran de Brasil o sin confirmar), así que no se publica ninguno con fechas o premios específicos.
+  // Semana del 17 de noviembre de 2026 (agenda de Free Fire Latinoamérica, pestaña «Obténlo ahora» del juego).
+  // No se sabe aún cuándo terminan: se dejan una semana y se extienden si siguen. Arte propio, no de Garena.
   {
-    id: "agenda-semanal",
-    title: "Eventos nuevos cada semana: ten tus diamantes listos",
-    imageUrl: "/promo/eventos/agenda-semanal.svg",
-    imageMobileUrl: "/promo/eventos/m/agenda-semanal.svg",
+    id: "evo-awm-abismo-cosmico",
+    title: "Nueva Evo AWM Abismo Cósmico en Free Fire: recarga tus diamantes",
+    imageUrl: "/promo/eventos/awm-abismo-cosmico.svg",
+    imageMobileUrl: "/promo/eventos/m/awm-abismo-cosmico.svg",
     href: "/recargas",
     from: "2026-11-17",
-    to: "2026-12-31",
+    to: "2026-11-23",
+  },
+  {
+    id: "punos-cometa-cosmico",
+    title: "Nuevos Puños Cometa Cósmico en Free Fire: consíguelos con diamantes",
+    imageUrl: "/promo/eventos/punos-cometa-cosmico.svg",
+    imageMobileUrl: "/promo/eventos/m/punos-cometa-cosmico.svg",
+    href: "/recargas",
+    from: "2026-11-17",
+    to: "2026-11-23",
   },
 ];
 

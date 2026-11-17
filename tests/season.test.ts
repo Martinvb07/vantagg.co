@@ -99,8 +99,8 @@ describe("banners en Navidad", () => {
     expect(seasonalBanner(b, "navidad")).toMatchObject({ imageUrl: "/promo/navidad/hero-bonus.svg", imageMobileUrl: "/promo/navidad/m/hero-bonus.svg" });
     expect(seasonalBanner(b, null)).toBe(b);
     expect(seasonalBanner(b, "halloween")).toBe(b);
-    const ev = { id: "e", title: "Agenda", imageUrl: "/promo/eventos/agenda-semanal.svg", imageMobileUrl: "/promo/eventos/m/agenda-semanal.svg", href: "/recargas" };
-    expect(seasonalBanner(ev, "navidad")).toMatchObject({ imageUrl: "/promo/navidad/eventos/agenda-semanal.svg", imageMobileUrl: "/promo/navidad/eventos/m/agenda-semanal.svg" });
+    const ev = { id: "e", title: "AWM", imageUrl: "/promo/eventos/awm-abismo-cosmico.svg", imageMobileUrl: "/promo/eventos/m/awm-abismo-cosmico.svg", href: "/recargas" };
+    expect(seasonalBanner(ev, "navidad")).toMatchObject({ imageUrl: "/promo/navidad/eventos/awm-abismo-cosmico.svg", imageMobileUrl: "/promo/navidad/eventos/m/awm-abismo-cosmico.svg" });
     const own = { ...b, imageUrl: "/api/uploads/banner-propio.webp", imageMobileUrl: null };
     expect(seasonalBanner(own, "navidad")).toMatchObject({ imageUrl: "/api/uploads/banner-propio.webp", imageMobileUrl: null });
   });
@@ -114,16 +114,17 @@ describe("banners en Navidad", () => {
 
   it("las imágenes de temporada no llevan nieve extra en el borde; las propias sí", () => {
     expect(isSeasonalImage("/promo/navidad/hero-bonus.svg")).toBe(true);
-    expect(isSeasonalImage("/promo/navidad/eventos/agenda-semanal.svg")).toBe(true);
-    expect(isSeasonalImage("/promo/eventos/agenda-semanal.svg")).toBe(false); // en Navidad se cambia por la navideña
+    expect(isSeasonalImage("/promo/navidad/eventos/punos-cometa-cosmico.svg")).toBe(true);
+    expect(isSeasonalImage("/promo/eventos/punos-cometa-cosmico.svg")).toBe(false); // en Navidad se cambia por la navideña
     expect(isSeasonalImage("/promo/hero-navidad.svg")).toBe(true);
     expect(isSeasonalImage("/promo/hero-bonus.svg")).toBe(false);
     expect(isSeasonalImage("/api/uploads/x.webp")).toBe(false);
   });
 
-  it("el banner de eventos de la semana existe y sale en su rango de fechas", () => {
-    expect(activeEventBanners(co("2026-11-20")).map((e) => e.id)).toContain("agenda-semanal");
-    expect(activeEventBanners(co("2027-01-02")).map((e) => e.id)).not.toContain("agenda-semanal");
+  it("los banners de los eventos de la semana existen, tienen versión navideña y salen en su rango de fechas", () => {
+    expect(activeEventBanners(co("2026-11-20")).map((e) => e.id)).toEqual(["evo-awm-abismo-cosmico", "punos-cometa-cosmico"]);
+    expect(activeEventBanners(co("2026-11-24"))).toEqual([]);
+    for (const e of EVENT_BANNERS) expect(NAVIDAD_BANNERS.has(e.imageUrl), e.id).toBe(true);
     for (const e of EVENT_BANNERS) {
       for (const u of [e.imageUrl, e.imageMobileUrl]) expect(existsSync(join(process.cwd(), "public", u)), u).toBe(true);
     }

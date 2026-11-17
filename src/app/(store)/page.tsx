@@ -76,12 +76,13 @@ const SHORTCUTS = [
 export default async function HomePage() {
   const [packages, recent, settings, heroBanners, ranking] = await Promise.all([getPackages(), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => []), getPublicRanking().catch(() => null)]);
   const showAccounts = await accountsVisible();
-  // Carrusel: el banner de la temporada (Halloween o Navidad) de primero, luego los eventos de Free Fire vigentes
-  // (src/content/event-banners.ts, se apagan solos) y detrás los del panel, igual que siempre.
+  // Carrusel: los eventos de Free Fire vigentes (src/content/event-banners.ts, se apagan solos), el banner de la
+  // temporada (Halloween o Navidad) y detrás los del panel, igual que siempre.
   // En Navidad, los banners del panel se ven en su versión navideña (sin tocar lo guardado).
   const seasonNow = currentSeason(settings.seasonTheme);
   const season = seasonBanner(seasonNow);
-  const banners = [...(season ? [season] : []), ...[...activeEventBanners(), ...heroBanners].map((b) => seasonalBanner(b, seasonNow))];
+  // Orden: eventos de Free Fire vigentes (lo nuevo vende), luego el de la temporada y detrás los del panel.
+  const banners = [...activeEventBanners().map((b) => seasonalBanner(b, seasonNow)), ...(season ? [season] : []), ...heroBanners.map((b) => seasonalBanner(b, seasonNow))];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
   const passes = packages.filter((p) => p.pass && !isEvoKind(p.pass));
