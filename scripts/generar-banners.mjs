@@ -549,29 +549,6 @@ ${pumpkin()}
 
 const BULBS = [XRED, XGOLD, LIME, "#62dcea", "#ff8fd0"];
 
-/** Bombillo de una instalación de luces (centro arriba en x, y; color c). */
-const bulb = (x, y, c, r = 0) =>
-  `<g transform="translate(${x} ${y}) rotate(${r})"><circle cx="0" cy="14" r="16" fill="${c}" opacity=".28" filter="url(#soft)"/>
-<rect x="-4" y="-2" width="8" height="8" rx="2" fill="#26302b" stroke="${INK}" stroke-width="1.5"/><ellipse cx="0" cy="15" rx="7" ry="10" fill="${c}" stroke="${INK}" stroke-width="1.5"/>
-<ellipse cx="-2.4" cy="11" rx="2" ry="3.6" fill="#fff" opacity=".55"/></g>`;
-
-/** Cable de luces de lado a lado (arriba del banner): curvas que cuelgan entre ganchos cada `step`. */
-function lights(w, y = 6, step = 160, sag = 34) {
-  let d = `M-20 ${y}`;
-  let bulbs = "";
-  let k = 0;
-  for (let x = -20; x < w + 20; x += step) {
-    d += `Q${x + step / 2} ${y + sag * 2} ${x + step} ${y}`;
-    for (const t of [0.22, 0.5, 0.78]) {
-      // Punto de la curva (Bézier cuadrática) para colgar el bombillo.
-      const bx = x + step * t;
-      const by = (1 - t) * (1 - t) * y + 2 * (1 - t) * t * (y + sag * 2) + t * t * y;
-      bulbs += bulb(bx.toFixed(1), by.toFixed(1), BULBS[k++ % BULBS.length], (t - 0.5) * 40);
-    }
-  }
-  return `<path d="${d}" fill="none" stroke="#1d2622" stroke-width="3"/>${bulbs}`;
-}
-
 /** Bola de árbol (adorno) roja, dorada o lima con brillo. */
 const ball = (x, y, r, c) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${INK}" stroke-width="2.5"/><circle cx="${x - r * 0.35}" cy="${y - r * 0.35}" r="${r * 0.3}" fill="#fff" opacity=".6"/>`;
 
@@ -582,7 +559,7 @@ function star5(x, y, r) {
     const rr = i % 2 ? r * 0.45 : r;
     return `${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)}`;
   });
-  return `<circle cx="${x}" cy="${y}" r="${r * 1.7}" fill="${XGOLD}" opacity=".35" filter="url(#soft)"/><path d="M${pts.join("L")}Z" fill="url(#goldstar)" stroke="#5a3a05" stroke-width="3" stroke-linejoin="round"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${r * 2}" fill="url(#starglow)"/><path d="M${pts.join("L")}Z" fill="url(#goldstar)" stroke="#5a3a05" stroke-width="3" stroke-linejoin="round"/>`;
 }
 
 /** Regalo: caja (color c) con cinta (color r) y moño. Centro abajo en (x, y). */
@@ -618,7 +595,7 @@ function svgXmas(w, h, { vx, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
   const vw = 400 * vs;
   const vh = 330 * vs;
   const v = `M${vx - vw / 2} -10H${vx - vw / 2 + 92 * vs}L${vx} ${vh * 0.62}L${vx + vw / 2 - 92 * vs} -10H${vx + vw / 2}L${vx + 16 * vs} ${vh}H${vx - 16 * vs}Z`;
-  const snow = Array.from({ length: 70 }, (_, i) => `<circle cx="${(i * 397 + 53) % w}" cy="${(i * 173 + 29) % h}" r="${[1.4, 2.2, 3, 1.8][i % 4]}" fill="#fff" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`).join("");
+  const snow = Array.from({ length: 40 }, (_, i) => `<circle cx="${(i * 397 + 53) % w}" cy="${(i * 173 + 29) % h}" r="${[1.4, 2.2, 3, 1.8][i % 4]}" fill="#fff" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`).join("");
   // Nieve en el suelo: suave a la izquierda (debajo del texto) y blanca y brillante a la derecha (debajo del árbol).
   const mounds = [0.06, 0.2].map((p, i) => `<ellipse cx="${w * p}" cy="${h + 6}" rx="${h * [0.34, 0.26][i]}" ry="${h * [0.12, 0.09][i]}" fill="#e9f6f3" opacity=".14"/>`).join("") +
     `<path d="M${w * 0.52} ${h}C${w * 0.6} ${h * 0.9} ${w * 0.7} ${h * 0.86} ${w * 0.78} ${h * 0.89}S${w * 0.92} ${h * 0.84} ${w} ${h * 0.87}V${h}Z" fill="url(#snowground)"/>
@@ -633,6 +610,8 @@ ${[0.64, 0.71, 0.86, 0.93].map((p, i) => `<use href="#spark" transform="translat
 <linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#2c3a31"/><stop offset="1" stop-color="#0a110d"/></linearGradient>
 <linearGradient id="goldstar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".6" stop-color="${XGOLD}"/><stop offset="1" stop-color="#d48a12"/></linearGradient>
 <linearGradient id="snowground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4fbff"/><stop offset="1" stop-color="#b9d6e6"/></linearGradient>
+${BULBS.map((c, i) => `<radialGradient id="bulbglow${i}"><stop offset="0" stop-color="${c}" stop-opacity=".45"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`).join("")}
+<radialGradient id="starglow"><stop offset="0" stop-color="${XGOLD}" stop-opacity=".55"/><stop offset="1" stop-color="${XGOLD}" stop-opacity="0"/></radialGradient>
 <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
 <path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
 </defs>
@@ -641,7 +620,6 @@ ${[0.64, 0.71, 0.86, 0.93].map((p, i) => `<use href="#spark" transform="translat
 <rect width="${w}" height="${h}" fill="url(#glow)"/>
 ${snow}${mounds}
 ${body}
-${lights(w)}
 </svg>
 `;
 }
@@ -675,6 +653,55 @@ add("../temporada/regalo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
 ${gift(0, 46, 84, 70, XRED, XGOLD)}
 </svg>
 `);
+
+// Guirnalda de pino con nieve (mosaico de 480 × 54 que se repite a lo ancho) y sus luces en 3 capas que titilan por
+// turnos: cada capa es una imagen aparte que la tienda prende y apaga con opacidad (la mueve la tarjeta gráfica, sin
+// trabajo para el procesador).
+{
+  const TW = 480;
+  const BAND = 20;
+  const wave = (x) => BAND + 2.5 * Math.sin((2 * Math.PI * x) / TW);
+  const greens = ["#0e3b22", "#17572f", "#1f7040"];
+  const needles = [-160, -140, -118, -96, -74, -52, -30, 20, 42, 64, 86, 108, 130, 152, 172, 0]
+    .map((a, i) => {
+      const len = 11 + ((i * 7) % 7);
+      const r = (a * Math.PI) / 180;
+      return `<path d="M0 0L${(Math.cos(r) * len).toFixed(1)} ${(Math.sin(r) * len * 0.62).toFixed(1)}" stroke="${greens[i % 3]}" stroke-width="2.6" stroke-linecap="round"/>`;
+    })
+    .join("");
+  const clusters = Array.from({ length: TW / 32 + 1 }, (_, i) => ({ x: i * 32, y: wave(i * 32), r: (((i % (TW / 32)) * 47) % 50) - 25, k: i % (TW / 32) }));
+  const bulbsAt = Array.from({ length: 8 }, (_, k) => ({ x: 30 + k * 60, y: wave(30 + k * 60) + 9, c: BULBS[k % BULBS.length], phase: k % 3 }));
+  const head = (extra = "") => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TW} 54" width="${TW}" height="54">${extra}`;
+  const base = `${head(`<defs><g id="p"><ellipse cx="0" cy="0" rx="17" ry="7" fill="#0b2e1a"/>${needles}</g></defs>`)}
+${clusters.map((c) => `<use href="#p" transform="translate(${c.x} ${c.y.toFixed(1)}) rotate(${c.r})"/>`).join("")}
+${clusters.map((c) => `<ellipse cx="${c.x + ((c.k * 5) % 9) - 2}" cy="${(c.y - 5.5 - ((c.k * 3) % 3) * 0.8).toFixed(1)}" rx="${7 + ((c.k * 7) % 6)}" ry="${(2.6 + ((c.k * 3) % 3) * 0.5).toFixed(1)}" fill="${c.k % 4 ? "#f4fbff" : "#dcebf3"}"/>`).join("")}
+${[[120, XGOLD], [360, "#e0293f"]].map(([x, c]) => `<path d="M${x} ${BAND}V${BAND + 10}" stroke="#c8a476" stroke-width="1"/><circle cx="${x}" cy="${BAND + 17}" r="6.5" fill="${c}" stroke="#2a0a10" stroke-width="1.2"/><circle cx="${x - 2.2}" cy="${BAND + 14.8}" r="1.8" fill="#fff" opacity=".65"/>`).join("")}
+${bulbsAt.map((b) => `<rect x="${b.x - 2.2}" y="${(b.y - 1).toFixed(1)}" width="4.4" height="4.4" rx="1" fill="#26302b"/><ellipse cx="${b.x}" cy="${(b.y + 9).toFixed(1)}" rx="3.8" ry="5.6" fill="${b.c}" opacity=".42"/>`).join("")}
+<g transform="translate(240 ${BAND})" stroke="#5a0a14" stroke-width="1.2" stroke-linejoin="round"><path d="M-2 2L-9 22L-4 19L-1 24Z M2 2L9 22L4 19L1 24Z" fill="#c81d33"/><path d="M0 0C-6 -9 -18 -8 -16 1C-14 8 -5 4 0 0ZM0 0C6 -9 18 -8 16 1C14 8 5 4 0 0Z" fill="#e0293f"/><circle cx="0" cy="0" r="3.4" fill="#b3132b"/></g>
+</svg>
+`;
+  add("../temporada/guirnalda.svg", base);
+  for (const phase of [0, 1, 2]) {
+    const lit = bulbsAt.filter((b) => b.phase === phase);
+    add(`../temporada/luces-${phase + 1}.svg`, `${head(`<defs>${BULBS.map((c, i) => `<radialGradient id="g${i}"><stop offset="0" stop-color="${c}" stop-opacity=".65"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`).join("")}</defs>`)}
+${lit.map((b) => `<circle cx="${b.x}" cy="${(b.y + 9).toFixed(1)}" r="12" fill="url(#g${BULBS.indexOf(b.c)})"/><ellipse cx="${b.x}" cy="${(b.y + 9).toFixed(1)}" rx="3.8" ry="5.6" fill="${b.c}"/><ellipse cx="${b.x - 1.2}" cy="${(b.y + 7).toFixed(1)}" rx="1" ry="1.8" fill="#fff" opacity=".6"/>`).join("")}
+</svg>
+`);
+  }
+  // Nieve que cae: dos mosaicos que se repiten (la tienda los baja de a un mosaico: el ciclo no se nota).
+  const crystal = (x, y, s, o) => `<g transform="translate(${x} ${y}) scale(${s}) rotate(${(x * 7) % 60})" opacity="${o}"><path d="M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5M0 -6L-2 -8M0 -6L2 -8M0 6L-2 8M0 6L2 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/></g>`;
+  const dot = (x, y, r, o) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${o}"/>`;
+  add("../temporada/nieve-a.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 560" width="560" height="560">
+${[[40, 60, 2.2, 0.7], [300, 130, 1.8, 0.6], [470, 330, 2.4, 0.65], [150, 450, 2, 0.6]].map((d) => dot(...d)).join("")}
+${[[200, 250, 0.7, 0.7], [430, 520, 0.6, 0.6]].map((c) => crystal(...c)).join("")}
+</svg>
+`);
+  add("../temporada/nieve-b.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+${[[120, 160, 1.1, 0.75], [560, 420, 1.2, 0.7], [300, 690, 1, 0.65]].map((c) => crystal(...c)).join("")}
+${[[680, 90, 2.8, 0.65]].map((d) => dot(...d)).join("")}
+</svg>
+`);
+}
 
 // Nieve acumulada en el borde de arriba de las portadas (200 × 26, con gotas que cuelgan).
 {
@@ -751,7 +778,7 @@ ${gift(150, 58, 30, 26, XRED, XGOLD)}${gift(176, 60, 24, 22, "#1f8a45", XGOLD)}
 <rect x="-34" y="-36" width="68" height="36" fill="${wall}" stroke="#140c0a" stroke-width="2.5"/>
 <path d="M-42 -34L0 -66L42 -34Z" fill="#5a2a28" stroke="#140c0a" stroke-width="2.5" stroke-linejoin="round"/>
 <path d="M-44 -33L0 -67L44 -33L36 -30Q22 -40 12 -36Q0 -44 -12 -36Q-24 -40 -36 -30Z" fill="#f4fbff"/>
-${[-20, 10].map((wx) => `<rect x="${wx}" y="-28" width="12" height="12" rx="1.5" fill="#ffd56b" stroke="#140c0a" stroke-width="1.6"/><rect x="${wx - 6}" y="-34" width="24" height="24" fill="#ffd56b" opacity=".18" filter="url(#soft)"/>`).join("")}
+${[-20, 10].map((wx) => `<rect x="${wx}" y="-28" width="12" height="12" rx="1.5" fill="#ffd56b" stroke="#140c0a" stroke-width="1.6"/><circle cx="${wx + 6}" cy="-22" r="14" fill="url(#win)"/>`).join("")}
 <rect x="-6" y="-18" width="10" height="18" fill="#3b2a1e" stroke="#140c0a" stroke-width="1.6"/>
 <path d="M-34 -36H34" stroke="${XRED}" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round"/></g>`;
   const pines = [[60, 150, 0.9], [140, 156, 1.2], [230, 152, 0.8], [520, 154, 1.1], [600, 158, 0.75], [1000, 156, 1.05], [1080, 152, 0.8], [1350, 158, 1.25], [1440, 150, 0.85], [1540, 156, 1.1]];
@@ -762,7 +789,8 @@ ${star5(0, -116, 14)}</g>`;
 <defs><linearGradient id="h1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe3ee"/><stop offset="1" stop-color="#8fb3c7"/></linearGradient>
 <linearGradient id="h2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe2ec"/></linearGradient>
 <linearGradient id="goldstar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".6" stop-color="${XGOLD}"/><stop offset="1" stop-color="#d48a12"/></linearGradient>
-<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+<radialGradient id="starglow"><stop offset="0" stop-color="${XGOLD}" stop-opacity=".55"/><stop offset="1" stop-color="${XGOLD}" stop-opacity="0"/></radialGradient>
+<radialGradient id="win"><stop offset="0" stop-color="#ffd56b" stop-opacity=".35"/><stop offset="1" stop-color="#ffd56b" stop-opacity="0"/></radialGradient></defs>
 <path d="M0 132C180 104 340 120 520 112S880 96 1060 114S1400 104 1600 120V170H0Z" fill="url(#h1)" opacity=".55"/>
 ${pines.slice(0, 5).map(([x, y, s]) => pine(x, y - 12, s * 0.8, "#123d26")).join("")}
 ${house(330, 154, 0.95, "#7a2f2b")}${house(690, 158, 0.8, "#2f4a63")}${house(1200, 156, 1, "#6b4a2a")}

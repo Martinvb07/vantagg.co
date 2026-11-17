@@ -21,9 +21,8 @@ export function Logo({ name, logoUrl, className }: { name: string; logoUrl?: str
       {/* Celulares de menos de 360 px (iPhone SE): un poco más chico para que quepan los botones del encabezado. */}
       <span className="relative shrink-0">
         <LogoMark className="size-9 drop-shadow-[0_0_10px_rgb(200_240_79/0.25)] min-[360px]:size-10 sm:size-11" />
-        {/* Navidad: gorro sobre la V (solo en temporada, ver globals.css). */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/temporada/gorro.svg" alt="" aria-hidden decoding="async" draggable={false} className="navidad-only pointer-events-none absolute -left-[14%] -top-[14%] w-[62%] -rotate-[20deg]" />
+        {/* Navidad: gorro sobre la V (fondo de globals.css, solo en temporada; fuera de ella no se descarga). */}
+        <span aria-hidden className="season-hat pointer-events-none absolute -left-[14%] -top-[14%] aspect-[6/5] w-[62%] -rotate-[20deg]" />
       </span>
       <Image src="/brand/vantagg.png" alt={name} width={358} height={57} priority className="h-[17px] w-auto min-[360px]:h-[20px] sm:h-[23px]" />
     </span>

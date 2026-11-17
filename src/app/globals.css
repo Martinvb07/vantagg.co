@@ -346,8 +346,6 @@
    Temporada de Halloween (src/domain/season.ts): solo con data-season="halloween" en el contenedor de la
    tienda. Fuera de temporada estas piezas no se muestran y el diseño queda como siempre.
 --------------------------------------------------------------------------------------------------- */
-.halloween-only { display: none; }
-[data-season="halloween"] .halloween-only { display: block; }
 
 @keyframes halloween-bat {
   0% { transform: translate(0, 0) rotate(-4deg); }
@@ -372,12 +370,39 @@
 }
 
 /* ---------------------------------------------------------------------------------------------------
-   Temporada de Navidad (Panel → Ajustes → Temporada): solo con data-season="navidad". Luces que titilan, nieve
-   suave, gorro en el logo y regalo en las portadas. En «Normal» nada de esto se ve.
+   Temporada de Navidad (Panel → Ajustes → Temporada): solo con data-season="navidad". En «Normal» nada de esto se
+   ve ni se descarga: las imágenes van como fondos que solo existen dentro de [data-season="navidad"].
+   Rendimiento: solo se animan transform y opacity (los mueve la tarjeta gráfica, sin trabajo del procesador).
 --------------------------------------------------------------------------------------------------- */
-.navidad-only, .navidad-inline { display: none; }
-[data-season="navidad"] .navidad-only { display: block; }
-[data-season="navidad"] .navidad-inline { display: inline-block; }
+
+/* Piezas que dependen de la temporada (vacías fuera de ella): portada de paquetes, gorro del logo, nieve de borde. */
+.season-cap { position: absolute; inset-inline: 0; top: 0; height: 13px; pointer-events: none; z-index: 2; }
+[data-season="navidad"] .season-cap { background: url("/temporada/nieve-borde.svg") 50% 0 / 100% 100% no-repeat; }
+[data-season="navidad"] .season-cover {
+  background:
+    url("/temporada/nieve-borde.svg") 50% 0 / 100% auto no-repeat,
+    url("/temporada/regalo.svg") right 4% bottom 4% / 22% auto no-repeat;
+}
+[data-season="navidad"] .season-hat { background: url("/temporada/gorro.svg") center / contain no-repeat; }
+
+/* Nieve en el borde de arriba de las tarjetas principales de todas las páginas (sin elementos nuevos). */
+[data-season="navidad"] main :is([class~="rounded-[14px]"], [class~="rounded-[16px]"], [class~="rounded-[18px]"], [class~="rounded-[20px]"], [class~="rounded-[22px]"]):is([class~="bg-ink-850"], [class~="bg-ink-900"]):is([class~="ring-1"], [class~="border"]) {
+  background-image: url("/temporada/nieve-borde.svg");
+  background-repeat: no-repeat;
+  background-position: 50% 0;
+  background-size: 100% 12px;
+}
+
+/* Ramita de acebo antes del título principal de cada página y de los títulos de sección del inicio. */
+[data-season="navidad"] main :is(h1:not(.sr-only), .xmas-title)::before {
+  content: "";
+  display: inline-block;
+  width: 1.25em;
+  height: 1em;
+  margin-right: 0.3em;
+  vertical-align: -0.14em;
+  background: url("/temporada/acebo.svg") center / contain no-repeat;
+}
 
 /* Brillo navideño de fondo: rojo arriba a la izquierda, verde arriba a la derecha y dorado abajo. */
 .xmas-glow {
@@ -386,8 +411,26 @@
     radial-gradient(900px 520px at 100% 6%, rgb(30 160 80 / 0.13), transparent 62%),
     radial-gradient(700px 420px at 50% 100%, rgb(255 198 58 / 0.07), transparent 62%);
 }
-@keyframes xmas-spin { to { transform: rotate(360deg); } }
-.xmas-spin { animation: xmas-spin 8s linear infinite; }
+
+/* Guirnalda de pino (mosaico que se repite) y sus 3 capas de luces que titilan por turnos (solo opacidad). */
+.xmas-garland { background: url("/temporada/guirnalda.svg") 50% 0 / auto 100% repeat-x; }
+.xmas-lights { position: absolute; inset: 0; background-position: 50% 0; background-size: auto 100%; background-repeat: repeat-x; animation: xmas-blink 3.6s linear infinite; will-change: opacity; }
+.xmas-lights-1 { background-image: url("/temporada/luces-1.svg"); }
+.xmas-lights-2 { background-image: url("/temporada/luces-2.svg"); animation-delay: -1.2s; }
+.xmas-lights-3 { background-image: url("/temporada/luces-3.svg"); animation-delay: -2.4s; }
+/* Prende y apaga (sin fundido): el valor solo cambia dos veces por ciclo. */
+@keyframes xmas-blink {
+  0%, 49.9% { opacity: 1; }
+  50%, 100% { opacity: 0.12; }
+}
+
+/* Nieve: dos capas con un mosaico de copos que bajan exactamente un mosaico por ciclo (no se nota el salto). Solo
+   transform: la tarjeta gráfica las mueve sin redibujar. */
+.xmas-snow-a, .xmas-snow-b { position: absolute; inset-inline: 0; bottom: 0; background-repeat: repeat; will-change: transform; }
+.xmas-snow-a { top: -560px; background-image: url("/temporada/nieve-a.svg"); background-size: 560px 560px; animation: xmas-snow-a 22s linear infinite; }
+.xmas-snow-b { top: -800px; background-image: url("/temporada/nieve-b.svg"); background-size: 800px 800px; animation: xmas-snow-b 40s linear infinite; opacity: 0.85; }
+@keyframes xmas-snow-a { to { transform: translate3d(0, 560px, 0); } }
+@keyframes xmas-snow-b { to { transform: translate3d(0, 800px, 0); } }
 
 /* Trineo: cruza la pantalla en ~13 s y desaparece; vuelve cada ~40 s. Fuera de la pantalla mientras espera. */
 @keyframes xmas-sleigh {
@@ -395,27 +438,13 @@
   33% { transform: translate3d(115vw, -26px, 0); }
   100% { transform: translate3d(115vw, -26px, 0); }
 }
-.xmas-sleigh { transform: translate3d(-40vw, 34px, 0); animation: xmas-sleigh 40s linear 5s infinite; filter: drop-shadow(0 0 10px rgb(255 198 58 / 0.35)); }
+.xmas-sleigh { transform: translate3d(-40vw, 34px, 0); animation: xmas-sleigh 45s linear 5s infinite; will-change: transform; }
 
-@keyframes xmas-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.xmas-bulb { animation: xmas-blink 2.4s ease-in-out infinite; }
-
-@keyframes xmas-fall {
-  from { transform: translate3d(0, -12vh, 0); }
-  to { transform: translate3d(var(--xmas-drift, 0), 112vh, 0); }
-}
-.xmas-flake {
-  position: absolute;
-  top: 0;
-  animation-name: xmas-fall;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform;
-}
 @media (prefers-reduced-motion: reduce) {
-  .xmas-bulb, .xmas-spin { animation: none; }
+  .xmas-lights { animation: none; }
   .xmas-snow, .xmas-sleigh { display: none; }
 }
+
+/* Halloween: calabaza de las portadas y telaraña del pie de página (solo se descargan en su temporada). */
+[data-season="halloween"] .season-cover { background: url("/temporada/calabaza.svg") right 4% bottom 4% / 24% auto no-repeat; filter: drop-shadow(0 4px 10px rgba(255, 138, 31, 0.45)); }
+[data-season="halloween"] .season-web { background: url("/temporada/telarana.svg") 0 0 / contain no-repeat; }

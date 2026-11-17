@@ -44,6 +44,7 @@ export function TopMonth({ data }: { data: PublicRanking }) {
   const [first, ...rest] = data.podium;
   return (
     <section aria-labelledby="top-del-mes" className="relative overflow-hidden rounded-[22px] bg-ink-900 ring-1 ring-white/[0.07]">
+      <span aria-hidden className="season-cap" />
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(200,240,79,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(200,240,79,0.045)_1px,transparent_1px)] bg-[size:34px_34px] [mask-image:radial-gradient(80%_80%_at_70%_40%,black,transparent)]" />
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(45%_60%_at_72%_32%,rgba(200,240,79,0.13),transparent_70%)]" />
       <HudCorners />

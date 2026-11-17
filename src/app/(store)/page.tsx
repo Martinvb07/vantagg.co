@@ -51,12 +51,8 @@ function RowHead({ title, sub, href, cta }: { title: string; sub?: string; href?
   return (
     <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
       <div>
-        <h2 className="text-[20px] font-extrabold leading-tight tracking-tight sm:text-[26px]">
-          {/* Navidad: ramita de acebo antes del título (solo en temporada) */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/temporada/acebo.svg" alt="" aria-hidden decoding="async" className="navidad-inline mr-1.5 h-[1em] w-auto align-[-0.14em]" />
-          {title}
-        </h2>
+        {/* xmas-title: ramita de acebo antes del título en Navidad (globals.css) */}
+        <h2 className="xmas-title text-[20px] font-extrabold leading-tight tracking-tight sm:text-[26px]">{title}</h2>
         {sub && <p className="mt-0.5 text-[13px] text-fg-subtle">{sub}</p>}
       </div>
       {href && (
@@ -122,8 +118,9 @@ export default async function HomePage() {
               <Link
                 key={label}
                 href={href}
-                className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-2 text-center sm:w-auto sm:justify-center sm:rounded-[14px] sm:bg-ink-850 sm:px-2 sm:py-4 sm:ring-1 sm:ring-white/[0.06] sm:transition sm:hover:bg-ink-800 sm:hover:ring-white/15"
+                className="group flex w-[76px] shrink-0 snap-start flex-col items-center gap-2 text-center sm:relative sm:w-auto sm:justify-center sm:overflow-hidden sm:rounded-[14px] sm:bg-ink-850 sm:px-2 sm:py-4 sm:ring-1 sm:ring-white/[0.06] sm:transition sm:hover:bg-ink-800 sm:hover:ring-white/15"
               >
+                <span aria-hidden className="season-cap max-sm:hidden" />
                 <span className="grid size-14 place-items-center rounded-[18px] bg-gradient-to-b from-ink-750 to-ink-850 shadow-[0_1px_0_0_rgb(255_255_255/0.06)_inset] ring-1 ring-white/[0.07] transition active:scale-95 sm:size-auto sm:bg-none sm:shadow-none sm:ring-0">
                   <Icon className="size-6 text-volt-300 transition-transform group-hover:-translate-y-0.5" strokeWidth={2.2} />
                 </span>

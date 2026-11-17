@@ -41,16 +41,10 @@ export function DiamondCover({
     <div className={cn("relative aspect-square overflow-hidden bg-[#060a07]", className)} style={{ containerType: "inline-size" }} aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={coverFile(art ?? Math.max(1, Math.min(tier, 6)))} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full" />
-      {/* Halloween: calabaza abajo a la derecha (solo se ve en temporada, ver globals.css). Sin loading="lazy": oculta
-          nunca terminaría de cargar y React (19.2) espera las imágenes nuevas antes de mostrar un cambio de página
-          dentro de la misma zona de carga: la navegación se quedaba pegada (pestañas de Mi cuenta, Rastrear pedido). */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/temporada/calabaza.svg" alt="" decoding="async" draggable={false} className="halloween-only absolute bottom-[4%] right-[4%] w-[24%] drop-shadow-[0_4px_10px_rgba(255,138,31,0.45)]" />
-      {/* Navidad: regalo abajo a la derecha (solo en temporada). Sin loading="lazy", por lo mismo que la calabaza. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/temporada/regalo.svg" alt="" decoding="async" draggable={false} className="navidad-only absolute bottom-[4%] right-[4%] w-[22%] drop-shadow-[0_4px_10px_rgba(255,77,94,0.45)]" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/temporada/nieve-borde.svg" alt="" decoding="async" draggable={false} className="navidad-only absolute inset-x-0 top-0 w-full" />
+      {/* Temporada: calabaza (Halloween) o nieve arriba y regalo abajo (Navidad), como fondos de globals.css: fuera de
+          temporada no se descargan. Sin <img>: una imagen oculta con loading="lazy" nunca terminaba de cargar y React
+          (19.2) esperaba por ella antes de mostrar un cambio de página (pestañas de Mi cuenta, Rastrear pedido). */}
+      <span aria-hidden className="season-cover pointer-events-none absolute inset-0" />
 
       {/* Bonus: etiqueta verde de la marca, arriba a la izquierda */}
       {!plain && bonus > 0 && (

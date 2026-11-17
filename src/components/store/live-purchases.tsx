@@ -285,6 +285,7 @@ export function LivePurchases({ initial }: { initial: LiveData }) {
       aria-labelledby="entregas-en-vivo"
       className="relative overflow-hidden rounded-[22px] bg-ink-900 ring-1 ring-white/[0.07]"
     >
+      <span aria-hidden className="season-cap" />
       <MapBackdrop items={items} />
       {/* Oscurece debajo del texto para que se lea sobre el mapa */}
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/40 to-transparent max-lg:bg-gradient-to-b max-lg:from-ink-950/80 max-lg:via-ink-950/50 max-lg:to-ink-950/70" />

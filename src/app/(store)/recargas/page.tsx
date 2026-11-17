@@ -83,6 +83,7 @@ export default async function RecargasPage({ searchParams }: { searchParams: Pro
           <div className="contents lg:sticky lg:top-24 lg:block lg:self-start">
             <div className="flex gap-4 lg:block">
               <div className="relative aspect-square w-24 shrink-0 self-start overflow-hidden rounded-[14px] bg-[#0b0f14] ring-1 ring-white/[0.08] sm:w-32 lg:w-full">
+                <span aria-hidden className="season-cap" />
                 {settings.topupCoverUrl ? (
                   <img src={settings.topupCoverUrl} alt="Diamantes Free Fire" decoding="async" className="absolute inset-0 size-full object-cover" />
                 ) : (
