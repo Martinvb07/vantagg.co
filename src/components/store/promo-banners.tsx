@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isSeasonalImage } from "@/domain/season";
 
 export type Banner = { id: string; title: string; imageUrl: string; imageMobileUrl?: string | null; href: string | null };
 
@@ -18,17 +19,28 @@ export const allMobile = (banners: Banner[]) => banners.length > 0 && banners.ev
  * así el texto del banner se lee en pantallas pequeñas.
  */
 export function BannerPicture({ b, sizes, priority, mobile, className }: { b: Banner; sizes: string; priority?: boolean; mobile: boolean; className?: string }) {
+  // Navidad: los banners propios (subidos al panel) llevan nieve en el borde; los de la marca ya tienen su versión
+  // navideña. Fuera de temporada season-cap no se ve ni descarga nada (globals.css).
+  const cap = !isSeasonalImage(b.imageUrl) && <span aria-hidden className="season-cap" />;
   if (!mobile || !b.imageMobileUrl) {
-    return <Image src={b.imageUrl} alt={b.title} fill priority={priority} sizes={sizes} unoptimized={isSvg(b.imageUrl)} className={className} />;
+    return (
+      <>
+        <Image src={b.imageUrl} alt={b.title} fill priority={priority} sizes={sizes} unoptimized={isSvg(b.imageUrl)} className={className} />
+        {cap}
+      </>
+    );
   }
   const desk = getImageProps({ src: b.imageUrl, alt: "", fill: true, sizes, unoptimized: isSvg(b.imageUrl) }).props;
   const { props: mob } = getImageProps({ src: b.imageMobileUrl, alt: b.title, fill: true, sizes: "100vw", priority, unoptimized: isSvg(b.imageMobileUrl) });
   return (
-    <picture>
-      <source media="(min-width: 640px)" srcSet={desk.srcSet ?? desk.src} sizes={desk.srcSet ? desk.sizes : undefined} />
-      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
-      <img {...mob} className={className} />
-    </picture>
+    <>
+      <picture>
+        <source media="(min-width: 640px)" srcSet={desk.srcSet ?? desk.src} sizes={desk.srcSet ? desk.sizes : undefined} />
+        {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+        <img {...mob} className={className} />
+      </picture>
+      {cap}
+    </>
   );
 }
 

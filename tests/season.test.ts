@@ -3,8 +3,11 @@
  *   npx vitest run tests/season.test.ts
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { christmasMessage, christmasOver, currentSeason, isHalloween, seasonBanner } from "@/domain/season";
-import { activeEventBanners, type EventBanner } from "@/content/event-banners";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { christmasMessage, christmasOver, currentSeason, isHalloween, isSeasonalImage, seasonalBanner, seasonBanner } from "@/domain/season";
+import { NAVIDAD_BANNERS } from "@/content/navidad-banners";
+import { activeEventBanners, EVENT_BANNERS, type EventBanner } from "@/content/event-banners";
 
 // Mediodía en Colombia (UTC−5) del día indicado.
 const co = (ymd: string) => new Date(`${ymd}T17:00:00Z`);
@@ -87,5 +90,42 @@ describe("banners de eventos de Free Fire", () => {
     expect(activeEventBanners(new Date("2026-11-27T04:00:00Z"), list).map((b) => b.id)).toEqual(["recarga-acumulada"]);
     expect(activeEventBanners(co("2026-11-27"), list)).toEqual([]);
     expect(activeEventBanners(co("2026-12-03"), list)[0]).toEqual({ id: "otro", title: "Otro", imageUrl: "/promo/eventos/b.svg", imageMobileUrl: "/promo/eventos/m/b.svg", href: "/recargas" });
+  });
+});
+
+describe("banners en Navidad", () => {
+  it("los banners de la marca se cambian por su versión navideña solo en Navidad; los propios no", () => {
+    const b = { id: "1", title: "Bonus", imageUrl: "/promo/hero-bonus.svg", imageMobileUrl: "/promo/m/hero-bonus.svg", href: "/recargas" };
+    expect(seasonalBanner(b, "navidad")).toMatchObject({ imageUrl: "/promo/navidad/hero-bonus.svg", imageMobileUrl: "/promo/navidad/m/hero-bonus.svg" });
+    expect(seasonalBanner(b, null)).toBe(b);
+    expect(seasonalBanner(b, "halloween")).toBe(b);
+    const ev = { id: "e", title: "Agenda", imageUrl: "/promo/eventos/agenda-semanal.svg", imageMobileUrl: "/promo/eventos/m/agenda-semanal.svg", href: "/recargas" };
+    expect(seasonalBanner(ev, "navidad")).toMatchObject({ imageUrl: "/promo/navidad/eventos/agenda-semanal.svg", imageMobileUrl: "/promo/navidad/eventos/m/agenda-semanal.svg" });
+    const own = { ...b, imageUrl: "/api/uploads/banner-propio.webp", imageMobileUrl: null };
+    expect(seasonalBanner(own, "navidad")).toMatchObject({ imageUrl: "/api/uploads/banner-propio.webp", imageMobileUrl: null });
+  });
+
+  it("cada banner de la marca listado tiene su archivo navideño", () => {
+    for (const url of NAVIDAD_BANNERS) {
+      expect(existsSync(join(process.cwd(), "public", url.replace("/promo/", "promo/navidad/"))), url).toBe(true);
+    }
+    expect(NAVIDAD_BANNERS.has("/promo/hero-bonus.svg")).toBe(true);
+  });
+
+  it("las imágenes de temporada no llevan nieve extra en el borde; las propias sí", () => {
+    expect(isSeasonalImage("/promo/navidad/hero-bonus.svg")).toBe(true);
+    expect(isSeasonalImage("/promo/navidad/eventos/agenda-semanal.svg")).toBe(true);
+    expect(isSeasonalImage("/promo/eventos/agenda-semanal.svg")).toBe(false); // en Navidad se cambia por la navideña
+    expect(isSeasonalImage("/promo/hero-navidad.svg")).toBe(true);
+    expect(isSeasonalImage("/promo/hero-bonus.svg")).toBe(false);
+    expect(isSeasonalImage("/api/uploads/x.webp")).toBe(false);
+  });
+
+  it("el banner de eventos de la semana existe y sale en su rango de fechas", () => {
+    expect(activeEventBanners(co("2026-11-20")).map((e) => e.id)).toContain("agenda-semanal");
+    expect(activeEventBanners(co("2027-01-02")).map((e) => e.id)).not.toContain("agenda-semanal");
+    for (const e of EVENT_BANNERS) {
+      for (const u of [e.imageUrl, e.imageMobileUrl]) expect(existsSync(join(process.cwd(), "public", u)), u).toBe(true);
+    }
   });
 });

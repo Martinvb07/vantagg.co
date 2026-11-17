@@ -3,7 +3,7 @@ import { ChevronRight, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Rada
 import { JsonLd } from "@/components/seo/json-ld";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
-import { currentSeason, seasonBanner } from "@/domain/season";
+import { currentSeason, seasonalBanner, seasonBanner } from "@/domain/season";
 import { activeEventBanners } from "@/content/event-banners";
 import { isEvoKind, packDetail, packPath, packTitle, passGroup } from "@/domain/packs";
 import { ProductTile } from "@/components/store/product-tile";
@@ -78,8 +78,10 @@ export default async function HomePage() {
   const showAccounts = await accountsVisible();
   // Carrusel: el banner de la temporada (Halloween o Navidad) de primero, luego los eventos de Free Fire vigentes
   // (src/content/event-banners.ts, se apagan solos) y detrás los del panel, igual que siempre.
-  const season = seasonBanner(currentSeason(settings.seasonTheme));
-  const banners = [...(season ? [season] : []), ...activeEventBanners(), ...heroBanners];
+  // En Navidad, los banners del panel se ven en su versión navideña (sin tocar lo guardado).
+  const seasonNow = currentSeason(settings.seasonTheme);
+  const season = seasonBanner(seasonNow);
+  const banners = [...(season ? [season] : []), ...[...activeEventBanners(), ...heroBanners].map((b) => seasonalBanner(b, seasonNow))];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
   const passes = packages.filter((p) => p.pass && !isEvoKind(p.pass));

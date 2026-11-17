@@ -14,7 +14,20 @@ export type EventBanner = {
   to: string; // «2026-11-26»
 };
 
-export const EVENT_BANNERS: EventBanner[] = [];
+export const EVENT_BANNERS: EventBanner[] = [
+  // Genérico (no depende de un evento puntual): Free Fire LATAM publica su agenda de eventos cada semana.
+  // Semana del 17 de noviembre de 2026: no hubo un evento de recarga confirmado para Latinoamérica (las fuentes
+  // encontradas eran de Brasil o sin confirmar), así que no se publica ninguno con fechas o premios específicos.
+  {
+    id: "agenda-semanal",
+    title: "Eventos nuevos cada semana: ten tus diamantes listos",
+    imageUrl: "/promo/eventos/agenda-semanal.svg",
+    imageMobileUrl: "/promo/eventos/m/agenda-semanal.svg",
+    href: "/recargas",
+    from: "2026-11-17",
+    to: "2026-12-31",
+  },
+];
 
 /** Los que están vigentes hoy (hora de Colombia), en el orden de la lista. */
 export function activeEventBanners(now = new Date(), list: EventBanner[] = EVENT_BANNERS) {

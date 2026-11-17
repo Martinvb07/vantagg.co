@@ -6,6 +6,8 @@
  *    se apaga sola (ver christmasOver y el mantenimiento).
  * SEASON=halloween, SEASON=navidad u SEASON=off en el .env la fuerza a mano (por ejemplo, para apagarla antes).
  */
+import { NAVIDAD_BANNERS } from "@/content/navidad-banners";
+
 export type Season = "halloween" | "navidad";
 
 export function isHalloween(now = new Date()): boolean {
@@ -53,6 +55,20 @@ export function christmasMessage(now = new Date()): string {
   const left = days === 1 ? "Falta 1 día para Navidad" : `Faltan ${days} días para Navidad`;
   return m === 11 && d >= 16 ? `Novena de Aguinaldos · ${left.charAt(0).toLowerCase()}${left.slice(1)}` : left;
 }
+
+/**
+ * Banners en temporada: en Navidad, los banners de la marca (public/promo) se cambian solos por su versión navideña
+ * (public/promo/navidad, ver scripts/generar-banners.mjs). Lo guardado en el panel no cambia: fuera de temporada se
+ * ven los de siempre. Los banners propios subidos al panel llevan nieve en el borde (season-cap en BannerPicture).
+ */
+export function seasonalBanner<T extends { imageUrl: string; imageMobileUrl?: string | null }>(b: T, season: Season | null): T {
+  if (season !== "navidad") return b;
+  const swap = (u: string | null | undefined) => (u && NAVIDAD_BANNERS.has(u) ? u.replace("/promo/", "/promo/navidad/") : u);
+  return { ...b, imageUrl: swap(b.imageUrl) ?? b.imageUrl, imageMobileUrl: swap(b.imageMobileUrl) };
+}
+
+/** ¿La imagen ya es de temporada (versión navideña o banner de temporada)? Esas no llevan nieve en el borde. */
+export const isSeasonalImage = (url: string) => /^\/promo\/navidad\/|^\/promo\/(m\/)?hero-(navidad|halloween)\.svg$/.test(url);
 
 /** Banner de la temporada para el carrusel del inicio (va de primero; los del panel siguen igual detrás). */
 export function seasonBanner(season: Season | null) {

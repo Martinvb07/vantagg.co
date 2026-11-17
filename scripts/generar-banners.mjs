@@ -252,6 +252,42 @@ function cta(x, y, text, size = 22) {
 
 // ---------------------------------------------------------------- lienzo
 
+/**
+ * Versión navideña de los banners de la marca (public/promo/navidad): mismo texto y dibujo, sobre noche de pino, con
+ * nieve, luces arriba, nieve en el suelo y regalos. Solo degradados (sin desenfoques) para que pesen poco.
+ */
+let XMAS = false;
+const XCOLORS = [XRED, XGOLD, LIME, "#62dcea", "#ff8fd0"];
+const xmasDefs = () =>
+  `${XCOLORS.map((c, i) => `<g id="xb${i}"><circle cx="0" cy="12" r="12" fill="${c}" opacity=".22"/><rect x="-3.5" y="-1.5" width="7" height="7" rx="1.6" fill="#26302b" stroke="${INK}" stroke-width="1.2"/><ellipse cx="0" cy="12" rx="6" ry="8.5" fill="${c}" stroke="${INK}" stroke-width="1.2"/><ellipse cx="-2" cy="9" rx="1.6" ry="3" fill="#fff" opacity=".55"/></g>`).join("")}
+<linearGradient id="xsnow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4fbff"/><stop offset="1" stop-color="#b9d6e6"/></linearGradient>`;
+function xmasBack(w, h) {
+  return `<g fill="#fff">${Array.from({ length: Math.round(w / 40) }, (_, i) => `<circle cx="${(i * 397 + 53) % w}" cy="${(i * 173 + 29) % h}" r="${[1.4, 2.2, 3, 1.8][i % 4]}" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`).join("")}</g>`;
+}
+function xmasFront(w, h) {
+  // Luces de lado a lado (cable que cuelga entre ganchos y bombillos con su brillo).
+  const step = 160;
+  const y = 4;
+  const sag = 14;
+  let wire = `M-20 ${y}`;
+  let bulbs = "";
+  let k = 0;
+  for (let x = -20; x < w + 20; x += step) {
+    wire += `Q${x + step / 2} ${y + sag * 2} ${x + step} ${y}`;
+    for (const t of [0.22, 0.5, 0.78]) {
+      const bx = x + step * t;
+      const by = y + 2 * (1 - t) * t * sag * 2;
+      const c = k++ % XCOLORS.length;
+      bulbs += `<use href="#xb${c}" transform="translate(${bx.toFixed(0)} ${by.toFixed(0)}) rotate(${((t - 0.5) * 36).toFixed(0)})"/>`;
+    }
+  }
+  // Nieve en el suelo: suave a la izquierda (debajo del texto) y blanca a la derecha (debajo del dibujo); regalos.
+  const ground = `<path d="M${w * 0.55} ${h}C${w * 0.64} ${h * 0.93} ${w * 0.74} ${h * 0.9} ${w * 0.82} ${h * 0.92}S${w * 0.94} ${h * 0.88} ${w} ${h * 0.9}V${h}Z" fill="url(#xsnow)"/>
+<path d="M${w * 0.62} ${h}C${w * 0.72} ${h * 0.95} ${w * 0.84} ${h * 0.95} ${w} ${h * 0.96}V${h}Z" fill="#fff" opacity=".9"/>`;
+  const gifts = `${gift(w - 64, h - 6, 50, 40, XRED, XGOLD)}${gift(w - 118, h - 4, 38, 30, "url(#dark)", LIME)}`;
+  return `${ground}${gifts}<path d="${wire}" fill="none" stroke="#1d2622" stroke-width="2.4"/>${bulbs}`;
+}
+
 function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
   const vw = 400 * vs;
   const vh = 330 * vs;
@@ -263,10 +299,10 @@ function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
   ]
     .map(([x, y, k], i) => `<path d="M${x} ${y}L${x + 70 * k} ${y - 56 * k}L${x + 64 * k} ${y - 40 * k}L${x + 6 * k} ${y + 8 * k}Z" fill="${LIME}" opacity="${[0.55, 0.3, 0.4][i]}"/>`)
     .join("");
-  const clouds = [0.04, 0.16, 0.86, 0.98].map((p, i) => `<circle cx="${w * p}" cy="${h + 10}" r="${h * [0.22, 0.18, 0.2, 0.24][i]}" fill="#0d200f" opacity=".9"/>`).join("");
+  const clouds = [0.04, 0.16, 0.86, 0.98].map((p, i) => `<circle cx="${w * p}" cy="${h + 10}" r="${h * [0.22, 0.18, 0.2, 0.24][i]}" fill="${XMAS ? "#e9f6f3" : "#0d200f"}" opacity="${XMAS ? (i < 2 ? ".12" : ".2") : ".9"}"/>`).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
 <defs>
-<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#0c180c"/><stop offset="1" stop-color="#030604"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="${XMAS ? "#0c1d17" : "#0c180c"}"/><stop offset="1" stop-color="${XMAS ? "#020604" : "#030604"}"/></linearGradient>${XMAS ? xmasDefs() : ""}
 <linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${LIME}" stop-opacity=".4"/><stop offset="1" stop-color="${LIME}" stop-opacity=".03"/></linearGradient>
 <radialGradient id="glow" cx="${glowX}" cy="${glowY}" r="0.55"><stop offset="0" stop-color="${LIME}" stop-opacity=".24"/><stop offset=".55" stop-color="${LIME}" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
 <radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".5"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
@@ -278,8 +314,8 @@ function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
 <rect width="${w}" height="${h}" fill="url(#bg)"/>
 <path d="${v}" fill="url(#v)"/>
 <rect width="${w}" height="${h}" fill="url(#glow)"/>
-${slashes}${clouds}
-${body}
+${XMAS ? xmasBack(w, h) : ""}${slashes}${clouds}
+${body}${XMAS ? `\n${xmasFront(w, h)}` : ""}
 </svg>
 `;
 }
@@ -289,11 +325,18 @@ const place = (art, x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"
 // ---------------------------------------------------------------- banners
 
 const files = {};
-const add = (name, content) => (files[name] = content);
+let PREFIX = "";
+const add = (name, content) => (files[PREFIX + name] = content);
 
 // Carrusel principal 1600×480 y su versión de celular 800×600
 const HERO = { w: 1600, h: 480 };
 const MOB = { w: 800, h: 600 };
+const WIDE = { w: 1600, h: 400 };
+const MW = { w: 800, h: 520 };
+const SIDE = { w: 1200, h: 630 };
+
+/** Banners de la marca (los del panel). Se generan dos veces: normales y en versión navideña (public/promo/navidad). */
+function brandBanners() {
 
 add("hero-bonus.svg", svg(HERO.w, HERO.h, { vx: 1250, vs: 1.25, glowX: 0.78 }, `${place(chest(), 1250, 240, 2.9)}${spark(1490, 120, 1.6)}${spark(1020, 110, 1.2)}
 ${tag(96, 70, "FREE FIRE")}
@@ -345,8 +388,6 @@ ${payChips(400, 380, 1.18)}
 ${sub(46, 540, "Débito, crédito y Botón Bancolombia", 20)}`));
 
 // Franjas anchas 1600×400 y celular 800×520
-const WIDE = { w: 1600, h: 400 };
-const MW = { w: 800, h: 520 };
 
 add("garantia-wide.svg", svg(WIDE.w, WIDE.h, { vx: 1340, vs: 1.05, glowX: 0.84 }, `${place(refund(), 1340, 200, 1.6)}
 ${heading(90, 150, [["SI LA ENTREGA FALLA,", "w", 52], ["TE DEVOLVEMOS TU DINERO", "l", 56]], 1.25)}
@@ -378,7 +419,6 @@ ${heading(94, 210, [["RANGO · NIVEL · SKINS A LA VISTA", "l", 32]])}
 ${cta(94, 250, "VER CATÁLOGO  →", 20)}`));
 
 // Laterales 1200×630
-const SIDE = { w: 1200, h: 630 };
 const side = (name, art, ax, ay, as, text, v = {}) => add(name, svg(SIDE.w, SIDE.h, { vx: ax, vs: 1.05, glowX: ax / SIDE.w, glowY: ay / SIDE.h, ...v }, `${place(art, ax, ay, as)}${text}`));
 
 side("bonus.svg", chest(), 900, 300, 3.1, `${tag(66, 70, "FREE FIRE")}
@@ -428,6 +468,9 @@ ${cta(64, 412, "RECARGA SEGURA  →", 22)}`);
 side("soporte.svg", chat(), 885, 300, 1.8, `${heading(60, 200, [["SOPORTE", "w", 72], ["DE VERDAD", "l", 72]])}
 ${sub(66, 340, "Personas reales que conocen", 26)}${sub(66, 374, "tu pedido por su número", 26)}
 ${cta(64, 412, "ESCRÍBENOS  →", 22)}`);
+
+}
+brandBanners();
 
 // ---------------------------------------------------------------- Halloween (temporada)
 
@@ -771,6 +814,64 @@ ${Array.from({ length: 22 }, (_, i) => `<circle cx="${(i * 79 + 30) % W}" cy="${
 `);
 }
 
+// ---------------------------------------------------------------- eventos de Free Fire (src/content/event-banners.ts)
+
+/** Calendario de la semana con el día de eventos marcado (centrado en 0,0; ~300 de ancho). */
+function calendarArt() {
+  const cells = [];
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 7; c++) {
+      const x = -129 + c * 37;
+      const y = -30 + r * 40;
+      const hot = r === 0 && c === 1;
+      cells.push(`<rect x="${x}" y="${y}" width="30" height="32" rx="6" fill="${hot ? LIME : "#1c2420"}" stroke="${hot ? INK : "#2f3b35"}" stroke-width="${hot ? 2.5 : 1.5}"/>`);
+      if (hot) cells.push(gem(x + 15, y + 6, 20));
+    }
+  }
+  return `<circle cx="0" cy="0" r="190" fill="url(#gemglow)"/>${ringBack(0, 140, 170, 24)}
+<rect x="-150" y="-104" width="300" height="236" rx="18" fill="url(#dark)" stroke="${INK}" stroke-width="5"/>
+<path d="M-150 -86Q-150 -104 -132 -104H132Q150 -104 150 -86V-50H-150Z" fill="${XMAS ? XRED : LIME}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+${XMAS ? `<path d="M-146 -98Q-110 -114 -70 -100Q-30 -114 10 -100Q50 -114 90 -100Q120 -112 146 -98V-92H-146Z" fill="#f4fbff"/>` : ""}
+${[-80, 80].map((x) => `<rect x="${x - 7}" y="-118" width="14" height="30" rx="6" fill="#26302b" stroke="${LIME}" stroke-width="3"/>`).join("")}
+<text x="0" y="-62" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="28" fill="${XMAS ? "#fff" : INK}" text-anchor="middle" letter-spacing="2">EVENTOS</text>
+${["L", "M", "M", "J", "V", "S", "D"].map((d, i) => `<text x="${-114 + i * 37}" y="-36" font-family="${BODY}" font-weight="700" font-size="13" fill="#9aa59e" text-anchor="middle">${d}</text>`).join("")}
+${cells.join("")}
+<rect x="-129" y="58" width="252" height="10" rx="5" fill="#2f3b35"/><rect x="-129" y="58" width="150" height="10" rx="5" fill="${LIME}"/>
+<text x="0" y="104" font-family="${HEAD}" font-weight="900" font-size="20" fill="${LIME}" text-anchor="middle">NUEVOS CADA SEMANA</text>
+${XMAS ? `${gift(-180, 150, 56, 44, XRED, XGOLD)}${gift(180, 148, 46, 36, XGOLD, XRED)}` : ""}
+${gems([[-200, -60, 30, -16], [206, -40, 26, 14], [196, 40, 18, 10, true]])}
+${ringFront(0, 140, 170, 24)}`;
+}
+
+/** Banners de eventos de Free Fire (src/content/event-banners.ts): en la pasada navideña salen con luces y nieve. */
+function eventBanners() {
+  add("eventos/agenda-semanal.svg", svg(HERO.w, HERO.h, { vx: 1250, vs: 1.2, glowX: 0.78, glowY: 0.5 }, `${place(calendarArt(), 1230, 236, 1.12)}
+${spark(1500, 110, 1.4)}${spark(980, 90, 1.1)}
+${tag(96, 70, "AGENDA SEMANAL", 22, XMAS ? XGOLD : LIME)}
+${heading(90, 190, [["EVENTOS", "w", 76], ["NUEVOS", XMAS ? "r" : "l", 104]])}
+${sub(96, 336, "Ten tus diamantes listos · directo a tu ID", 26)}
+${cta(94, 368, "RECARGAR  →", 20)}`));
+  add("eventos/m/agenda-semanal.svg", svg(MOB.w, MOB.h, { vx: 560, vs: 0.85, glowX: 0.7, glowY: 0.34 }, `${place(calendarArt(), 520, 196, 0.82)}
+${spark(740, 70, 1.1)}
+${tag(46, 54, "AGENDA SEMANAL", 18, XMAS ? XGOLD : LIME)}
+${heading(40, 404, [["EVENTOS", "w", 58], ["NUEVOS", XMAS ? "r" : "l", 82]])}
+${sub(46, 520, "Ten tus diamantes listos · directo a tu ID", 22)}
+${cta(44, 534, "RECARGAR  →", 17)}`));
+}
+
+eventBanners();
+
+// ---------------------------------------------------------------- versiones navideñas de los banners de la marca
+
+XMAS = true;
+PREFIX = "navidad/";
+brandBanners();
+eventBanners();
+XMAS = false;
+PREFIX = "";
+/** Rutas de los banners que tienen versión navideña (la tienda las cambia solas en temporada). */
+const NAVIDAD_LIST = Object.keys(files).filter((n) => n.startsWith("navidad/")).map((n) => `/promo/${n.slice("navidad/".length)}`).sort();
+
 // ---------------------------------------------------------------- escribir
 
 for (const [name, content] of Object.entries(files)) {
@@ -778,4 +879,9 @@ for (const [name, content] of Object.entries(files)) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
 }
-console.log(`${Object.keys(files).length} archivos generados (public/promo y public/temporada)`);
+// Lista de banners con versión navideña, para la tienda (src/content/navidad-banners.ts).
+writeFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "src", "content", "navidad-banners.ts"),
+  `// Generado por scripts/generar-banners.mjs: banners de la marca que tienen versión navideña en public/promo/navidad.\nexport const NAVIDAD_BANNERS: ReadonlySet<string> = new Set([\n${NAVIDAD_LIST.map((u) => `  "${u}",`).join("\n")}\n]);\n`,
+);
+console.log(`${Object.keys(files).length} archivos generados (public/promo y public/temporada) · ${NAVIDAD_LIST.length} banners con versión navideña`);
