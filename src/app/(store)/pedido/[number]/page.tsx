@@ -79,7 +79,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const isTopup = order.type === "TOPUP" && order.item.diamonds != null;
   // Tarjeta o pase: el pedido no trae diamantes y se nombra por lo que es.
   const pass = isTopup && order.item.diamonds === 0 ? passKindOf(order.item.name) : null;
-  // Fragmentos y cajas Evo: plazo de entrega propio (hasta 12 horas).
+  // Fragmentos y cajas Evo: plazo de entrega propio (hasta 24 horas hábiles).
   const deliveryTime = isTokenKind(pass) ? TOKEN_DELIVERY_TIME : DELIVERY_TIME;
   const title = pass
     ? PASS_INFO[pass].title

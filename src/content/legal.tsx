@@ -90,7 +90,7 @@ export const LEGAL: Record<string, LegalDoc> = {
         <p>
           La entrega inicia cuando se confirma el pago. Las recargas son automáticas y casi siempre llegan en segundos, pero por alta demanda,
           mantenimiento del juego o fallas del proveedor pueden demorar hasta 24 horas; si no se pueden entregar, se reembolsa el pago. Los fragmentos
-          y las cajas de fragmentos Evo se entregan en un plazo de hasta 12 horas después del pago. En las cuentas,
+          y las cajas de fragmentos Evo no son instantáneos: se procesan en un plazo de hasta 24 horas hábiles después del pago. En las cuentas,
           el tiempo depende de la coordinación del traspaso. El estado actualizado está siempre disponible en la página de seguimiento.
         </p>
         <h2 id="menores">6. Edad mínima y menores de edad</h2>

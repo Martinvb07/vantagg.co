@@ -12,7 +12,7 @@ import { enabledPaymentProviders } from "./integrations/payments";
  *  1. Cada 20 s confirma con la pasarela los pagos de la última media hora → la entrega sale en segundos.
  *  2. Si la tarea programada deja de llamar al mantenimiento (+6 min), lo hace la tienda cada 2 min y avisa al equipo.
  *  3. Recarga pagada y sin entregar hace +5 min → aviso al equipo y al cliente («tu pago está seguro»), uno por pedido.
- *     Los fragmentos y cajas Evo tienen 12 h de plazo: dentro de él no hay avisos; al vencer, uno al equipo y al cliente.
+ *     Los fragmentos y cajas Evo tienen 24 h de plazo: dentro de él no hay avisos; al vencer, uno al equipo y al cliente.
  *     Las entregas en curso se consultan al proveedor cada 30 s (se completan sin esperar el mantenimiento).
  *  4. Cada 10 min comprueba que la tienda pueda consultar a la pasarela; si falla dos veces seguidas, avisa.
  */
@@ -80,7 +80,7 @@ export async function watchdogTick(now = Date.now()) {
 
 /**
  * Recargas pagadas que no se han entregado en 5 min (las cuentas se entregan a mano: no cuentan).
- * Los fragmentos y cajas Evo van aparte: tienen 12 h de plazo y dentro de él no se avisa a nadie (ver alertOverdueTokens).
+ * Los fragmentos y cajas Evo van aparte: tienen 24 h de plazo y dentro de él no se avisa a nadie (ver alertOverdueTokens).
  */
 async function alertStuckPaid(now: number) {
   const orders = await db.order.findMany({
@@ -112,7 +112,7 @@ async function alertStuckPaid(now: number) {
 }
 
 /**
- * Fragmento o caja Evo que pasó su plazo de 12 h sin entregarse: ahora sí se avisa, una sola vez, al equipo y al
+ * Fragmento o caja Evo que pasó su plazo de 24 h sin entregarse: ahora sí se avisa, una sola vez, al equipo y al
  * cliente (con sus propios correos). El pedido no se cancela; si el último intento con el proveedor no se completó,
  * pasa a «Entrega fallida» para que aparezca en el panel con «Reintentar entrega».
  */

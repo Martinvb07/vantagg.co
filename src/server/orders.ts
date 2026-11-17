@@ -533,7 +533,7 @@ async function handleVoidedPayment(orderId: string, p: VerifiedPayment, actor: s
 // ---------------------------------------------------------------------
 
 /**
- * Fragmentos y cajas Evo («tokens») dentro de su plazo de entrega (12 h desde el pago). En ese plazo una entrega lenta
+ * Fragmentos y cajas Evo («tokens») dentro de su plazo de entrega (24 h desde el pago). En ese plazo una entrega lenta
  * o un tropiezo del proveedor no es un error: el pedido sigue «en proceso», se reintenta sola y no sale ningún correo
  * de demora (ni al cliente ni al equipo). Nunca se cancela. Pasado el plazo, el vigilante avisa una sola vez.
  */
@@ -676,7 +676,7 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
   if (r.status === "FAILED") {
     await db.delivery.update({ where: { id: deliveryId }, data: { status: "FAILED", lastError: r.message ?? "Error desconocido", lockedAt: null } });
     if (r.message?.startsWith("[out_of_stock]") && order.packageId) await hideOutOfStockPackage(order.packageId, order.number);
-    // Tokens Evo dentro de su plazo de 12 h: no es un error de entrega. El pedido sigue en proceso, la tienda la
+    // Tokens Evo dentro de su plazo de 24 h: no es un error de entrega. El pedido sigue en proceso, la tienda la
     // reintenta sola (retryWaitingTokenDeliveries) y no se le escribe a nadie. Queda anotado solo para el panel.
     if (tokenWaiting(order) && !isHardFailure(r.message)) {
       await db.order.updateMany({ where: { id: order.id, status: "PAID" }, data: { status: "PROCESSING" } });
@@ -1205,7 +1205,7 @@ export async function retryStuckDeliveries() {
 }
 
 /**
- * Fragmentos y cajas Evo dentro de su plazo de 12 h cuyo último intento no se completó: se reintentan solas, cada vez
+ * Fragmentos y cajas Evo dentro de su plazo de 24 h cuyo último intento no se completó: se reintentan solas, cada vez
  * más espaciado (15, 30 y luego cada 60 min), hasta que lleguen o venza el plazo. Como siempre, antes de comprar otra
  * vez se confirma con el proveedor que la orden anterior falló (nunca dos cobros por la misma entrega).
  */

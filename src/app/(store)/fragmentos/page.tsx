@@ -1,3 +1,4 @@
+import { TOKEN_DELIVERY_TIME } from "@/domain/delivery-time";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, CircleAlert, Clock, KeyRound, Wallet } from "lucide-react";
@@ -90,11 +91,16 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
                     <Wallet className="size-3.5" /> Pago en COP
                   </li>
                   <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
-                    <Clock className="size-3.5" /> Entrega automática
+                    <Clock className="size-3.5" /> {TOKEN_DELIVERY_TIME.badge}
                   </li>
                 </ul>
               </div>
             </div>
+
+            <p className="mt-4 flex items-start gap-2 rounded-[12px] bg-warn-400/[0.07] px-3 py-2.5 text-[12.5px] leading-relaxed text-fg-muted ring-1 ring-warn-400/20">
+              <Clock className="mt-0.5 size-4 shrink-0 text-warn-400" />
+              <span>{TOKEN_DELIVERY_TIME.description}</span>
+            </p>
 
             <FindPlayerId className="max-lg:order-2 lg:mt-5" />
 

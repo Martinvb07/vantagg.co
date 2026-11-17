@@ -25,10 +25,11 @@ describe("tokens Evo (fragmentos y cajas): aparte de los diamantes", () => {
     expect(isTokenItem(null)).toBe(false);
   });
 
-  it("el plazo de entrega de los tokens es de 12 horas", () => {
-    expect(TOKEN_DELIVERY_MAX_MS).toBe(12 * 3600_000);
-    expect(TOKEN_DELIVERY_TIME.checkout).toContain("12 horas");
-    expect(TOKEN_DELIVERY_TIME.processing).toContain("12 horas");
+  it("el plazo de entrega de los tokens es de 24 horas hábiles", () => {
+    expect(TOKEN_DELIVERY_MAX_MS).toBe(24 * 3600_000);
+    expect(TOKEN_DELIVERY_TIME.description).toMatch(/no llegan de manera instantánea.*24 horas hábiles/);
+    expect(TOKEN_DELIVERY_TIME.checkout).toContain("24 horas hábiles");
+    expect(TOKEN_DELIVERY_TIME.processing).toContain("24 horas hábiles");
   });
 
   it("los correos de tokens nunca hablan de diamantes ni llevan a /recargas: van a /fragmentos", () => {
@@ -41,20 +42,20 @@ describe("tokens Evo (fragmentos y cajas): aparte de los diamantes", () => {
     }
   });
 
-  it("el correo de pago confirmado de tokens avisa del plazo de 12 horas; el de diamantes no cambia", () => {
+  it("el correo de pago confirmado de tokens avisa del plazo de 24 horas hábiles; el de diamantes no cambia", () => {
     const token = tokenOrderEmail(brand, "payment_confirmed", tokenOrder);
-    expect(token.text).toContain("12 horas");
+    expect(token.text).toContain("24 horas hábiles");
     expect(token.subject).not.toBe(orderEmail(brand, "payment_confirmed", diamondOrder).subject);
     for (const t of ["payment_confirmed", "delivered", "delivery_failed", "order_created"] as OrderTemplate[]) {
       const e = orderEmail(brand, t, diamondOrder);
-      expect(`${e.subject}\n${e.text}`, t).not.toMatch(/12 horas|fragmento|\bEvo\b/i);
+      expect(`${e.subject}\n${e.text}`, t).not.toMatch(/24 horas hábiles|fragmento|\bEvo\b/i);
       expect(e.html, t).toContain("Recargar diamantes");
     }
   });
 
   it("aviso al equipo: solo existe el de plazo vencido, con las horas y sin cancelar el pedido", () => {
     const e = staffTokenOverdueEmail(brand, { number: "VX-1", item: tokenOrder.item, hours: 13, state: "en proceso con el proveedor", lastError: "caído", adminLink: "https://tienda.test/admin/pedidos/1" });
-    expect(e.subject).toContain("12 horas");
+    expect(e.subject).toContain("24 horas hábiles");
     expect(e.text).toContain("13 h");
     expect(e.text).toContain("no se canceló");
   });

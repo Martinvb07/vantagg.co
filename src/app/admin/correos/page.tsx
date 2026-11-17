@@ -52,7 +52,7 @@ const TEMPLATE_LABEL: Record<string, string> = {
   token_cancelled: "Tokens Evo · Cancelado",
   token_order_recovery: "Tokens Evo · Comprar de nuevo",
   token_delay_apology: "Tokens Evo · Disculpas por demora",
-  staff_token_overdue: "Aviso: tokens Evo sin entregar tras 12 h",
+  staff_token_overdue: "Aviso: tokens Evo sin entregar tras 24 h",
   staff_login: "Seguridad: ingreso al panel",
   staff_2fa_enabled: "Seguridad: 2FA activado",
   staff_2fa_reset: "Seguridad: 2FA restablecido",

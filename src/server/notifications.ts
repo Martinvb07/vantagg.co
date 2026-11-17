@@ -135,9 +135,9 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     throw err;
   }
 
-  // Fragmentos y cajas Evo («tokens»): correos propios, aparte de los de diamantes, y plazo de entrega de 12 h.
+  // Fragmentos y cajas Evo («tokens»): correos propios, aparte de los de diamantes, y plazo de entrega de 24 h.
   const tokenTemplate = order.type === "TOPUP" && template !== "ranking_prize" && isTokenItem(order.itemSnapshot) ? template : null;
-  // Retraso del sistema: si el pago se confirmó tarde, o la entrega llegó más de 1 h después del pago (12 h en los
+  // Retraso del sistema: si el pago se confirmó tarde, o la entrega llegó más de 1 h después del pago (24 h en los
   // tokens Evo: antes de eso no es demora), el correo de pago y el de entrega piden disculpas (un solo correo; no se
   // manda aparte la disculpa).
   const slowDelivery = template === "delivered" && !!order.paidAt && !!order.deliveredAt && order.deliveredAt.getTime() - order.paidAt.getTime() > apologyAfterMs(order.itemSnapshot);
@@ -174,11 +174,11 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
 /** Una entrega que llega más de esto después del pago se considera demorada: el cliente recibe una disculpa. */
 export const APOLOGY_AFTER_MS = 60 * 60_000;
 
-/** Lo mismo según el producto: los fragmentos y cajas Evo tienen 12 h de plazo, así que antes de eso no hay demora. */
+/** Lo mismo según el producto: los fragmentos y cajas Evo tienen 24 h de plazo, así que antes de eso no hay demora. */
 export const apologyAfterMs = (itemSnapshot: unknown) => (isTokenItem(itemSnapshot) ? TOKEN_DELIVERY_MAX_MS : APOLOGY_AFTER_MS);
 
 /**
- * Disculpas por demora a pedidos ya entregados más de 1 h después del pago (12 h en fragmentos y cajas Evo), p. ej. los
+ * Disculpas por demora a pedidos ya entregados más de 1 h después del pago (24 h en fragmentos y cajas Evo), p. ej. los
  * que esperaron mientras el mantenimiento estuvo detenido. Una sola vez por pedido; los que ya la recibieron en su correo de entrega no cuentan.
  * dryRun: solo dice a quiénes les llegaría.
  */
@@ -358,7 +358,7 @@ export async function notifyStaffOrderAlert(orderId: string, kind: "stuck" | "la
 }
 
 /**
- * Fragmentos y cajas Evo: el pedido pasó el plazo de 12 h sin entregarse. Es el único aviso de demora de estos pedidos
+ * Fragmentos y cajas Evo: el pedido pasó el plazo de 24 h sin entregarse. Es el único aviso de demora de estos pedidos
  * (uno por pedido): dentro del plazo no se le escribe al equipo.
  */
 export async function notifyStaffTokenOverdue(orderId: string, p: { hours: number; state: string; lastError?: string | null }) {

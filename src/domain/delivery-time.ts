@@ -14,19 +14,24 @@ export const DELIVERY_TIME = {
 } as const;
 
 /**
- * Fragmentos y cajas Evo («tokens»): el proveedor los entrega con más calma que los diamantes. Tienen hasta 12 horas
- * desde el pago; dentro de ese plazo una entrega lenta es normal: no es un error, no se avisa al equipo, no se le
- * escribe al cliente que «se está demorando» y nunca se cancela el pedido. Pasado el plazo, se avisa una sola vez.
+ * Fragmentos y cajas Evo («tokens»): no son instantáneos como los diamantes; el pedido se procesa en un plazo de hasta
+ * 24 horas hábiles desde el pago. Dentro de ese plazo (la tienda cuenta 24 horas desde el pago) una entrega lenta es
+ * normal: no es un error, no se avisa al equipo, no se le escribe al cliente que «se está demorando» y nunca se cancela
+ * el pedido. Pasado el plazo, se avisa una sola vez.
  */
-export const TOKEN_DELIVERY_MAX_HOURS = 12;
+export const TOKEN_DELIVERY_MAX_HOURS = 24;
 export const TOKEN_DELIVERY_MAX_MS = TOKEN_DELIVERY_MAX_HOURS * 3600_000;
-export const TOKEN_DELIVERY_MAX = `${TOKEN_DELIVERY_MAX_HOURS} horas`;
+export const TOKEN_DELIVERY_MAX = `${TOKEN_DELIVERY_MAX_HOURS} horas hábiles`;
 
 export const TOKEN_DELIVERY_TIME = {
+  /** Etiqueta corta (página de fragmentos). */
+  badge: `Entrega en ${TOKEN_DELIVERY_MAX}`,
+  /** Descripción del producto (página de fragmentos). */
+  description: `Los pedidos de fragmentos y cajas Evo no llegan de manera instantánea: se procesan en un tiempo de hasta ${TOKEN_DELIVERY_MAX} después del pago.`,
   /** Antes de pagar. */
-  checkout: `Los fragmentos y las cajas Evo se entregan en un plazo de hasta ${TOKEN_DELIVERY_MAX} después del pago (muchas veces llegan antes). Si no llegan en ese plazo, te devolvemos el dinero.`,
+  checkout: `Este pedido no llega de manera instantánea: los fragmentos y las cajas Evo se procesan en un tiempo de hasta ${TOKEN_DELIVERY_MAX} después del pago. Si no llegan en ese plazo, te devolvemos el dinero.`,
   /** Pagado / entregando. */
-  processing: `La entrega de fragmentos y cajas Evo puede tardar hasta ${TOKEN_DELIVERY_MAX} desde el pago: es lo normal para este producto. No tienes que hacer nada: te avisamos por correo cuando llegue.`,
+  processing: `Tu pedido se procesa en un tiempo de hasta ${TOKEN_DELIVERY_MAX} desde el pago: los fragmentos y las cajas Evo no llegan de manera instantánea. No tienes que hacer nada: te avisamos por correo cuando llegue.`,
   /** Pasó el plazo y todavía no llega (o el proveedor no puede entregarla y la revisa el equipo). */
   delayed: "La entrega de tu compra Evo está tardando más de lo previsto. Ya la estamos revisando con prioridad y tu pago está seguro: la completamos o te devolvemos el dinero.",
 } as const;

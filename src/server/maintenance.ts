@@ -49,7 +49,7 @@ async function run() {
     expireStaleOrders(),
     sendPaymentReminders().catch(() => 0),
     pollPendingDeliveries(),
-    // Diamantes y pases con error, y fragmentos/cajas Evo que siguen dentro de su plazo de 12 h (sin avisos).
+    // Diamantes y pases con error, y fragmentos/cajas Evo que siguen dentro de su plazo de 24 h (sin avisos).
     retryStuckDeliveries().then(async (n) => n + (await retryWaitingTokenDeliveries().catch(() => 0))),
     supplier ? ensureFreshCatalog() : Promise.resolve(false),
   ]);
