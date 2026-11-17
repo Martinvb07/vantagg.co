@@ -188,7 +188,10 @@ jobs:
             c=$(estado "$B$1"); [ "$c" = "$2" ] && echo "  ✔ $1 → $c" || echo "  ✖ $1 → $c (esperado $2) ${3:-}"
           }
           echo "== páginas públicas"
-          for p in / /recargas /pedido /ayuda /ingresar /registro /carrito /buscar /medios-de-pago /legal/terminos /legal/privacidad /legal/reembolsos /legal/cookies /recuperar /robots.txt /sitemap.xml /api/health /icon.png; do revisar "$p" 200; done
+          for p in / /recargas /fragmentos /pedido /ayuda /ingresar /registro /carrito /buscar /medios-de-pago /legal/terminos /legal/privacidad /legal/reembolsos /legal/cookies /recuperar /robots.txt /sitemap.xml /api/health /icon.png /brand/fragmentos-evo-720.webp; do revisar "$p" 200; done
+          # La categoría se llamaba /armas-evo: los enlaces viejos redirigen a /fragmentos (con el paquete).
+          echo "  /armas-evo?paquete=x → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 "$B/armas-evo?paquete=x" | sed "s#$B##")"
+          echo "  nombre en el menú: $(curl -s --max-time 20 "$B/fragmentos" | grep -o 'Fragmentos Evo' | head -1 || true)"
           echo "== rutas ocultas o privadas"
           revisar /admin 404 "(el panel no debe existir sin la dirección secreta)"
           revisar /acceso-equipo 404
