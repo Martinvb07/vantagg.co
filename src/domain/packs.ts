@@ -49,7 +49,7 @@ export const PASS_INFO: Record<PassKind, PassInfo> = {
         headline: `×${n}`,
         caption: "Fragmentos Evo",
         short: `${n} fragmentos para tus armas Evo`,
-        detail: `${n} fragmentos de arma Evo de Free Fire: sirven para mejorar las armas evolutivas. Se entregan con el ID del jugador.`,
+        detail: `${n} fragmentos de arma Evo de Free Fire: sirven para mejorar las armas evolutivas. Se entregan con el ID del jugador; el pedido se procesa en un plazo máximo de 24 horas (no es instantáneo); si no se entrega, se reembolsa.`,
         sort: 40 + i,
         art: "evo-frag",
       },
@@ -63,7 +63,7 @@ export const PASS_INFO: Record<PassKind, PassInfo> = {
         headline: `×${n}`,
         caption: n === 1 ? "Caja Evo" : "Cajas Evo",
         short: n === 1 ? "Caja con fragmentos de arma Evo" : `${n} cajas con fragmentos de arma Evo`,
-        detail: `${n === 1 ? "Una caja" : `${n} cajas`} de fragmentos Evo de Free Fire: al abrirlas recibes fragmentos para tus armas evolutivas. Se entregan con el ID del jugador.`,
+        detail: `${n === 1 ? "Una caja" : `${n} cajas`} de fragmentos Evo de Free Fire: al abrirlas recibes fragmentos para tus armas evolutivas. Se entregan con el ID del jugador; el pedido se procesa en un plazo máximo de 24 horas (no es instantáneo); si no se entrega, se reembolsa.`,
         sort: 50 + i,
         art: "evo-box",
       },
@@ -129,6 +129,19 @@ export function passGroup(kind: PassKind): PassGroup {
 
 /** ¿Va en «Armas Evo»? (fragmentos, cajas de fragmentos y acceso Evo). */
 export const isEvoKind = (kind: PassKind | null | undefined): boolean => !!kind && passGroup(kind) !== "pass";
+
+/**
+ * «Tokens» Evo: fragmentos de arma y cajas de fragmentos (lo nuevo de la tienda). Van aparte de los diamantes:
+ * tienen sus propios correos y un plazo de entrega más largo (ver TOKEN_DELIVERY en delivery-time.ts).
+ */
+export const isTokenKind = (kind: PassKind | null | undefined): boolean => !!kind && (passGroup(kind) === "evo-frag" || passGroup(kind) === "evo-box");
+
+/** ¿El producto de un pedido (su copia guardada) es un fragmento o caja Evo? */
+export function isTokenItem(snapshot: unknown): boolean {
+  const s = (snapshot ?? {}) as { diamonds?: number; name?: string; pass?: string | null };
+  if ((s.diamonds ?? 0) > 0) return false;
+  return isTokenKind((s.pass as PassKind | null | undefined) ?? null) || isTokenKind(passKindOf(s.name ?? ""));
+}
 
 /** Subtítulo de cada grupo en la lista de compra. */
 export const PASS_GROUP_TITLE: Record<PassGroup, string> = {

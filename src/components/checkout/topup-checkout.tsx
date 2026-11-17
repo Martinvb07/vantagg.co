@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Check, CircleAlert, Clock, Info, Lock, MapPin, ShieldCheck } from "lucide-react";
-import { DELIVERY_TIME } from "@/domain/delivery-time";
+import { DELIVERY_TIME, TOKEN_DELIVERY_TIME } from "@/domain/delivery-time";
 import { PackCover } from "@/components/brand/covers";
-import { PASS_GROUP_TITLE, PASS_INFO, packDetail, passGroup } from "@/domain/packs";
+import { isTokenKind, PASS_GROUP_TITLE, PASS_INFO, packDetail, passGroup } from "@/domain/packs";
 import { trackInitiateCheckout } from "@/lib/ads";
 import { PriceHint, useMarket, useUsdCharge } from "@/components/store/market";
 import { Button } from "@/components/ui/button";
@@ -589,7 +589,7 @@ export function TopUpCheckout({ packages: allPackages, regions, initialRegion, p
 
             <p className="mt-4 flex items-start gap-2 rounded-[10px] bg-white/[0.04] px-3 py-2.5 text-[12.5px] leading-relaxed text-fg-muted ring-1 ring-white/[0.06]">
               <Clock className="mt-0.5 size-4 shrink-0 text-volt-300" />
-              <span>{DELIVERY_TIME.checkout}</span>
+              <span>{isTokenKind(pkg?.pass) ? TOKEN_DELIVERY_TIME.checkout : DELIVERY_TIME.checkout}</span>
             </p>
 
             <Button type="button" size="lg" className="mt-4 h-12 w-full text-[15px]" onClick={submit} disabled={!ready} loading={submitting}>

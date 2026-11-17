@@ -1,3 +1,4 @@
+import { TOKEN_DELIVERY_TIME } from "@/domain/delivery-time";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, CircleAlert, Clock, KeyRound, Wallet } from "lucide-react";
@@ -89,10 +90,12 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
                   <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
                     <Wallet className="size-3.5" /> Pago en COP
                   </li>
-                  <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
-                    <Clock className="size-3.5" /> Entrega automática
+                  <li className="inline-flex items-center gap-1 rounded-md bg-warn-400/[0.12] px-2 py-1 font-medium text-warn-400">
+                    <Clock className="size-3.5" /> {TOKEN_DELIVERY_TIME.badge}
                   </li>
                 </ul>
+                {/* Estos pedidos no son instantáneos como los diamantes: plazo máximo de 24 horas o reembolso. */}
+                <p className="mt-3 text-[12.5px] leading-relaxed text-fg-muted">{TOKEN_DELIVERY_TIME.header}</p>
               </div>
             </div>
 

@@ -35,6 +35,7 @@ const fakes = vi.hoisted(() => ({
     notifyStaffUnknownPayment: vi.fn(async () => {}),
     notifyStaffOrderAlert: vi.fn(async () => {}),
     notifyStaffSystemAlert: vi.fn(async () => {}),
+    notifyStaffTokenOverdue: vi.fn(async () => {}),
   },
   topup: {
     id: "fake",
@@ -64,7 +65,7 @@ vi.mock("@/lib/auth", () => ({ isStaff: (r: string) => r === "ADMIN" || r === "S
 import { db } from "@/lib/db";
 import { canTransitionManually, ORDER_STATUSES } from "@/domain/order-status";
 import { boldReference } from "@/server/integrations/payments/signatures";
-import { applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, pollCancelledPayments, recheckCancelledPayment, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, sendPaymentReminders } from "@/server/orders";
+import { applyDeliveryResult, transitionOrder, applyVerifiedPayment, checkPendingPayment, confirmApprovedWebhook, expireStaleOrders, pollCancelledPayments, recheckCancelledPayment, markTopupDeliveredManually, verifyDeliveryWithProvider, createAccountOrder, createTopUpOrder, fulfillOrder, resumeCheckout, retryDelivery, retryWaitingTokenDeliveries, sendPaymentReminders } from "@/server/orders";
 import { getSettings } from "@/server/settings";
 import { reminderState, sendReminders } from "@/server/reminders";
 import { canonicalEmail } from "@/server/order-limits";
@@ -757,6 +758,86 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     }
   });
 
+  // --- Fragmentos y cajas Evo («tokens»): plazo de entrega de 24 h, sin errores ni avisos dentro del plazo ---
+  const tokenSnapshot = { kind: "TOPUP", name: "100 Fragmentos de arma Evo Free Fire", pass: "evo-frag-100", diamonds: 0, bonusDiamonds: 0, sku: "sku-frag-100", region: "latam", regionName: "LATAM", costCents: null, isDemo: false };
+
+  it("tokens Evo: si el proveedor falla dentro de las 24 h, el pedido sigue en proceso, sin correos, y se reintenta solo", async () => {
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-tk1`, simulated: false, message: "[provider_unavailable] caído" });
+    const { order } = await makeOrder({ snapshot: tokenSnapshot });
+    await applyVerifiedPayment("bold", approved(order.number, `TX-${RUN}-tk1`), "WEBHOOK:bold");
+    expect(await statusOf(order.id)).toBe("PROCESSING");
+    expect((await db.delivery.findUniqueOrThrow({ where: { orderId: order.id } })).status).toBe("FAILED");
+    expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(order.id, "delivery_failed");
+    expect(fakes.notify.notifyStaffDeliveryIssue).not.toHaveBeenCalled();
+    expect(await db.orderEvent.count({ where: { orderId: order.id, type: { in: ["DELIVERY_ISSUE", "DELIVERY_FAILED"] } } })).toBe(0);
+    expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_WAITING", public: false } })).toBe(1);
+
+    // Aún no toca reintentar (el último intento fue hace un momento).
+    expect(await retryWaitingTokenDeliveries()).toBe(0);
+    // 20 min después: se confirma con el proveedor que la orden anterior falló y se compra de nuevo; ahora sí llega.
+    await db.delivery.update({ where: { orderId: order.id }, data: { updatedAt: new Date(Date.now() - 20 * 60_000) } });
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "SUCCESS", providerRef: `co-${RUN}-tk1b`, simulated: false });
+    expect(await retryWaitingTokenDeliveries()).toBe(1);
+    expect(await statusOf(order.id)).toBe("DELIVERED");
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(order.id, "delivered");
+  });
+
+  it("tokens Evo: un fallo que esperar no arregla (ID inválido) sí queda como error y avisa al equipo", async () => {
+    fakes.topup.createTopUp.mockResolvedValueOnce({ status: "FAILED", providerRef: `co-${RUN}-tk2`, simulated: false, message: "[invalid_player] El ID del jugador no existe." });
+    const { order } = await makeOrder({ snapshot: tokenSnapshot });
+    await applyVerifiedPayment("bold", approved(order.number, `TX-${RUN}-tk2`), "WEBHOOK:bold");
+    expect(await statusOf(order.id)).toBe("DELIVERY_FAILED");
+    expect(fakes.notify.notifyStaffDeliveryIssue).toHaveBeenCalledWith(order.id, expect.stringContaining("invalid_player"));
+  });
+
+  it("vigilante: los tokens Evo no avisan dentro de las 24 h; al pasar el plazo, un aviso al equipo y al cliente, sin cancelar", async () => {
+    const { watchdogTick } = await import("@/server/watchdog");
+    const paidAgo = async (ms: number, status: "PROCESSING" | "PAID" = "PROCESSING") => {
+      const { order } = await makeOrder({ snapshot: tokenSnapshot });
+      const at = new Date(Date.now() - ms);
+      await db.order.update({ where: { id: order.id }, data: { status, paidAt: at } });
+      await db.orderEvent.create({ data: { orderId: order.id, type: "PAYMENT_CONFIRMED", message: "La pasarela confirmó el pago.", actor: "POLL:bold", createdAt: at } });
+      return order;
+    };
+    const waiting = await paidAgo(13 * 3600_000);
+    const overdue = await paidAgo(25 * 3600_000);
+    const overdueFailed = await paidAgo(25 * 3600_000);
+    await db.delivery.create({ data: { orderId: overdueFailed.id, provider: "fake", idempotencyKey: `topup-${overdueFailed.id}`, status: "FAILED", lastError: "[provider_unavailable] caído", attempts: 3 } });
+    // La revisión corre una vez por minuto: se simula que pasó el minuto desde la anterior.
+    await watchdogTick(Date.now() + 61_000);
+
+    // 13 h esperando: nada de correos ni de «se está demorando».
+    expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(waiting.id, "stuck", expect.anything(), expect.anything(), expect.anything());
+    expect(fakes.notify.notifyStaffTokenOverdue).not.toHaveBeenCalledWith(waiting.id, expect.anything());
+    expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(waiting.id, "delivery_failed");
+    expect(await db.orderEvent.count({ where: { orderId: waiting.id, type: "DELIVERY_ISSUE" } })).toBe(0);
+    expect(await statusOf(waiting.id)).toBe("PROCESSING");
+
+    // 25 h: el pedido pasa a «Reembolso solicitado» (lo aprueba el equipo; no se reembolsa ni cancela solo), con el
+    // aviso propio de tokens (no el de «pago sin entregar» de diamantes) y correo al cliente.
+    expect(fakes.notify.notifyStaffTokenOverdue).toHaveBeenCalledWith(overdue.id, expect.objectContaining({ hours: 25 }));
+    expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(overdue.id, "stuck", expect.anything(), expect.anything(), expect.anything());
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(overdue.id, "delivery_failed");
+    expect(await statusOf(overdue.id)).toBe("REFUND_REQUESTED");
+    expect(await statusOf(overdueFailed.id)).toBe("REFUND_REQUESTED");
+    expect(await db.orderEvent.count({ where: { orderId: overdue.id, type: "REFUND_AUTO_REQUESTED" } })).toBe(1);
+    expect((await db.order.findUniqueOrThrow({ where: { id: overdue.id } })).refundedAt).toBeNull();
+    // No se repite en la siguiente revisión.
+    await watchdogTick(Date.now() + 2 * 61_000);
+    expect(fakes.notify.notifyStaffTokenOverdue).toHaveBeenCalledTimes(2);
+    expect(await db.orderEvent.count({ where: { orderId: overdue.id, type: "REFUND_AUTO_REQUESTED" } })).toBe(1);
+
+    // El equipo aprueba: solo así queda Reembolsado.
+    expect((await transitionOrder(overdueFailed.id, "REFUNDED", "ADMIN:equipo", "Devuelto en la pasarela.")).ok).toBe(true);
+    expect(await statusOf(overdueFailed.id)).toBe("REFUNDED");
+    // Si el proveedor alcanza a entregar antes de que el equipo apruebe, queda Entregado y la solicitud sin efecto.
+    const d = await db.delivery.create({ data: { orderId: overdue.id, provider: "fake", idempotencyKey: `topup-${overdue.id}`, status: "PROCESSING", providerRef: `co-${RUN}-late`, attempts: 1 } });
+    await applyDeliveryResult(d.id, { status: "SUCCESS", providerRef: `co-${RUN}-late`, simulated: false }, "POLL:fake");
+    expect(await statusOf(overdue.id)).toBe("DELIVERED");
+    expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(overdue.id, "delivered");
+    expect(await retryWaitingTokenDeliveries()).toBe(0);
+  });
+
   it("ningún cambio manual de estado puede marcar un pedido como pagado", () => {
     for (const from of ORDER_STATUSES) expect(canTransitionManually(from, "PAID")).toBe(false);
   });
@@ -770,15 +851,16 @@ describe.skipIf(!cfg.enabled)("Flujo de pago y entrega (base de pruebas)", () =>
     const fresh = await makeOrder();
     await db.order.update({ where: { id: fresh.order.id }, data: { status: "PAID", paidAt: new Date() } });
     await db.orderEvent.create({ data: { orderId: fresh.order.id, type: "PAYMENT_CONFIRMED", message: "La pasarela confirmó el pago.", actor: "POLL:bold" } });
-    // La revisión de entregas trabadas corre una vez por minuto: se simula que pasó el minuto desde la anterior.
-    await watchdogTick(Date.now() + 61_000);
-    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringMatching(/lleva 1[01] min sin entregarse/), expect.any(String));
+    // La revisión de entregas trabadas corre una vez por minuto: se simula que pasó el minuto desde la anterior
+    // (la prueba de los tokens Evo ya usó los dos primeros).
+    await watchdogTick(Date.now() + 3 * 61_000);
+    expect(fakes.notify.notifyStaffOrderAlert).toHaveBeenCalledWith(order.id, "stuck", "Pago sin entregar", expect.stringMatching(/lleva 1[0-3] min sin entregarse/), expect.any(String));
     expect(fakes.notify.notifyStaffOrderAlert).not.toHaveBeenCalledWith(fresh.order.id, "stuck", expect.anything(), expect.anything(), expect.anything());
     // El cliente también se entera (una vez): «tu recarga se está demorando, tu pago está seguro».
     expect(fakes.notify.notifyOrder).toHaveBeenCalledWith(order.id, "delivery_failed");
     expect(fakes.notify.notifyOrder).not.toHaveBeenCalledWith(fresh.order.id, "delivery_failed");
     expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
-    await watchdogTick(Date.now() + 2 * 61_000);
+    await watchdogTick(Date.now() + 4 * 61_000);
     expect(await db.orderEvent.count({ where: { orderId: order.id, type: "DELIVERY_ISSUE", public: true } })).toBe(1);
     expect(fakes.notify.notifyStaffSystemAlert).not.toHaveBeenCalled();
     // 7 min sin que la tarea programada llame: la tienda corre el mantenimiento por su cuenta y avisa.

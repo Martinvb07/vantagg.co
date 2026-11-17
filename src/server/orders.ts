@@ -9,7 +9,8 @@ import { formatCharge, formatDate, formatNumber } from "@/lib/money";
 import { accountOrderSchema, firstError, topUpOrderSchema } from "@/lib/validation";
 import { canTransitionManually, ORDER_STATUS_META, type OrderStatusValue } from "@/domain/order-status";
 import { quotePrice } from "@/domain/pricing";
-import { PASS_INFO, passOf } from "@/domain/packs";
+import { isTokenItem, PASS_INFO, passOf } from "@/domain/packs";
+import { TOKEN_DELIVERY_MAX, TOKEN_DELIVERY_MAX_MS } from "@/domain/delivery-time";
 import { maintenanceNotice } from "@/domain/maintenance";
 import { usdPriceCents } from "@/domain/market";
 import { costInCop, parseRegionList, regionLabel } from "@/domain/topup-regions";
@@ -531,6 +532,19 @@ async function handleVoidedPayment(orderId: string, p: VerifiedPayment, actor: s
 // Entrega
 // ---------------------------------------------------------------------
 
+/**
+ * Fragmentos y cajas Evo («tokens») dentro de su plazo de entrega (24 h desde el pago). En ese plazo una entrega lenta
+ * o un tropiezo del proveedor no es un error: el pedido sigue «en proceso», se reintenta sola y no sale ningún correo
+ * de demora (ni al cliente ni al equipo). Nunca se cancela. Pasado el plazo, el vigilante avisa una sola vez.
+ */
+export function tokenWaiting(order: Pick<Order, "type" | "itemSnapshot" | "paidAt" | "createdAt">, now = Date.now()): boolean {
+  return order.type === "TOPUP" && isTokenItem(order.itemSnapshot) && now - (order.paidAt ?? order.createdAt).getTime() < TOKEN_DELIVERY_MAX_MS;
+}
+
+/** Fallos del proveedor que esperar no arregla (configuración, o el ID no puede recibir el producto): se avisan igual. */
+const TOKEN_HARD_FAILURES = ["unknown_product", "invalid_api_key", "insufficient_scope", "unsupported_target", "idempotency_key_reused", "invalid_player", "not_eligible", "quantity_not_supported"];
+const isHardFailure = (message: string | null | undefined) => TOKEN_HARD_FAILURES.some((c) => (message ?? "").startsWith(`[${c}]`));
+
 /** Pedidos de prueba: no cobran saldo del proveedor ni entregan diamantes reales. */
 const supplierTest = (order: Order) => order.isTest || env.topup.forceTest;
 
@@ -644,10 +658,14 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
       data: { status: "SUCCESS", providerRef: r.providerRef ?? undefined, lastError: null, lockedAt: null, ...(r.costCents && !r.simulated ? { costCents: r.costCents, costCheckedAt: new Date() } : {}) },
     });
     if (updated.count === 0) return;
+    // Tokens Evo con solicitud de reembolso automática (plazo vencido) que el equipo aún no aprobó: si el proveedor
+    // alcanza a entregar, el pedido queda Entregado y la solicitud sin efecto (no se reembolsa algo ya entregado).
+    const autoRefund = order.status === "REFUND_REQUESTED" && (await db.orderEvent.count({ where: { orderId: order.id, type: "REFUND_AUTO_REQUESTED" } })) > 0;
     await db.order.updateMany({
-      where: { id: order.id, status: { in: ["PAID", "PROCESSING", "DELIVERY_FAILED"] } },
+      where: { id: order.id, status: { in: ["PAID", "PROCESSING", "DELIVERY_FAILED", ...(autoRefund ? (["REFUND_REQUESTED"] as const) : [])] } },
       data: { status: "DELIVERED", deliveredAt: new Date() },
     });
+    if (autoRefund) await addEvent(order.id, "REFUND_REQUEST_VOIDED", "El proveedor completó la entrega después del plazo: la solicitud de reembolso automática quedó sin efecto.", actor);
     const snap = order.itemSnapshot as { name?: string; diamonds: number; bonusDiamonds?: number };
     const total = snap.diamonds + (snap.bonusDiamonds ?? 0);
     const what = total > 0 ? `${formatNumber(total)} diamantes` : (snap.name ?? "la recarga");
@@ -662,6 +680,18 @@ export async function applyDeliveryResult(deliveryId: string, r: TopUpResult, ac
   if (r.status === "FAILED") {
     await db.delivery.update({ where: { id: deliveryId }, data: { status: "FAILED", lastError: r.message ?? "Error desconocido", lockedAt: null } });
     if (r.message?.startsWith("[out_of_stock]") && order.packageId) await hideOutOfStockPackage(order.packageId, order.number);
+    // Tokens Evo dentro de su plazo de 24 h: no es un error de entrega. El pedido sigue en proceso, la tienda la
+    // reintenta sola (retryWaitingTokenDeliveries) y no se le escribe a nadie. Queda anotado solo para el panel.
+    if (tokenWaiting(order) && !isHardFailure(r.message)) {
+      await db.order.updateMany({ where: { id: order.id, status: "PAID" }, data: { status: "PROCESSING" } });
+      await addEvent(order.id, "DELIVERY_WAITING", `${r.message ?? "El proveedor no completó la entrega."} Está dentro del plazo de ${TOKEN_DELIVERY_MAX} de los fragmentos y cajas Evo: se reintenta sola, sin avisos.`, actor, { data: { providerRef: r.providerRef } });
+      return;
+    }
+    // Con el reembolso ya solicitado o hecho no se repiten avisos: queda anotado que el proveedor no entregó.
+    if (order.status === "REFUND_REQUESTED" || order.status === "REFUNDED") {
+      await addEvent(order.id, "DELIVERY_FAILED", `${r.message ?? "El proveedor no pudo completar la entrega."} (El pedido ya está en «${ORDER_STATUS_META[order.status].label}».)`, actor, { data: { providerRef: r.providerRef } });
+      return;
+    }
     await db.order.updateMany({ where: { id: order.id, status: { in: ["PAID", "PROCESSING"] } }, data: { status: "DELIVERY_FAILED" } });
     await addEvent(order.id, "DELIVERY_FAILED", r.message ?? "El proveedor no pudo completar la entrega.", actor, { data: { providerRef: r.providerRef } });
     await addEvent(order.id, "DELIVERY_ISSUE", "La entrega se está demorando. Nuestro equipo ya la está revisando; tu pago está seguro.", "SYSTEM", { public: true });
@@ -712,7 +742,9 @@ export async function retryDelivery(orderId: string, actor: string, opts: { manu
     await fulfillOrder(order.id, { force: true });
     return { ok: true, message: "Entrega iniciada." };
   }
-  if (order.status !== "DELIVERY_FAILED") return { ok: false, message: "La orden no está en error de entrega." };
+  // Tokens Evo en espera: el pedido sigue «en proceso» aunque el último intento con el proveedor no se completó.
+  const waiting = order.status === "PROCESSING" && order.delivery?.status === "FAILED";
+  if (order.status !== "DELIVERY_FAILED" && !waiting) return { ok: false, message: "La orden no está en error de entrega." };
 
   const provider = activeTopUpProvider();
   if (!provider) return { ok: false, message: "No hay proveedor de recargas configurado." };
@@ -753,7 +785,7 @@ export async function retryDelivery(orderId: string, actor: string, opts: { manu
     } catch {
       // Si no se puede consultar, no se arriesga una segunda entrega.
       await db.delivery.update({ where: { id: d.id }, data: { status: "FAILED", lockedAt: null } });
-      await db.order.updateMany({ where: { id: order.id, status: "PROCESSING" }, data: { status: "DELIVERY_FAILED" } });
+      if (!waiting) await db.order.updateMany({ where: { id: order.id, status: "PROCESSING" }, data: { status: "DELIVERY_FAILED" } });
       return { ok: false, message: "No se pudo verificar la transacción anterior con el proveedor. No se reintentó." };
     }
   }
@@ -1176,6 +1208,29 @@ export async function retryStuckDeliveries() {
   let retried = 0;
   for (const d of stuck) {
     const r = await retryDelivery(d.orderId, "SYSTEM:auto-reintento");
+    if (r.ok) retried++;
+  }
+  return retried;
+}
+
+/**
+ * Fragmentos y cajas Evo dentro de su plazo de 24 h cuyo último intento no se completó: se reintentan solas, cada vez
+ * más espaciado (15, 30 y luego cada 60 min), hasta que lleguen o venza el plazo. Como siempre, antes de comprar otra
+ * vez se confirma con el proveedor que la orden anterior falló (nunca dos cobros por la misma entrega).
+ */
+export async function retryWaitingTokenDeliveries(now = Date.now()) {
+  const waiting = await db.delivery.findMany({
+    where: { status: "FAILED", updatedAt: { lt: new Date(now - 15 * 60_000) }, order: { status: "PROCESSING", type: "TOPUP", paidAt: { gte: new Date(now - TOKEN_DELIVERY_MAX_MS) } } },
+    select: { orderId: true, attempts: true, updatedAt: true, order: { select: { type: true, itemSnapshot: true, paidAt: true, createdAt: true } } },
+    orderBy: { updatedAt: "asc" },
+    take: 30,
+  });
+  let retried = 0;
+  for (const d of waiting) {
+    if (!tokenWaiting(d.order, now)) continue;
+    const waitMin = Math.min(60, 15 * 2 ** Math.max(0, d.attempts - 1));
+    if (now - d.updatedAt.getTime() < waitMin * 60_000) continue;
+    const r = await retryDelivery(d.orderId, "SYSTEM:auto-reintento-tokens").catch(() => ({ ok: false }));
     if (r.ok) retried++;
   }
   return retried;

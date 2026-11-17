@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleCheck, Clock, CreditCard, Loader, MessageCircle, RotateCcw, XCircle } from "lucide-react";
 import { PackCover } from "@/components/brand/covers";
-import { PASS_INFO, passKindOf } from "@/domain/packs";
+import { isTokenKind, PASS_INFO, passKindOf } from "@/domain/packs";
 import { AccountPlaceholder } from "@/components/brand/illustrations";
 import { CopyButton } from "@/components/orders/copy-button";
 import { AutoRefresh, ResumePayment } from "@/components/orders/order-live";
@@ -17,7 +17,7 @@ import { cn, whatsappLink } from "@/lib/utils";
 import { getOrderForCustomer } from "@/server/order-view";
 import { checkPendingPayment, refreshDeliveryIfStale } from "@/server/orders";
 import { getSettings } from "@/server/settings";
-import { DELIVERY_TIME } from "@/domain/delivery-time";
+import { DELIVERY_TIME, TOKEN_DELIVERY_TIME } from "@/domain/delivery-time";
 import { googleTagConfig } from "@/domain/google-tag";
 import { parseMetaPixelId } from "@/domain/meta-pixel";
 import { PurchaseTracker } from "@/components/analytics/purchase-tracker";
@@ -79,6 +79,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const isTopup = order.type === "TOPUP" && order.item.diamonds != null;
   // Tarjeta o pase: el pedido no trae diamantes y se nombra por lo que es.
   const pass = isTopup && order.item.diamonds === 0 ? passKindOf(order.item.name) : null;
+  // Fragmentos y cajas Evo: plazo de entrega propio (hasta 24 horas).
+  const deliveryTime = isTokenKind(pass) ? TOKEN_DELIVERY_TIME : DELIVERY_TIME;
   const title = pass
     ? PASS_INFO[pass].title
     : isTopup
@@ -174,11 +176,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 : from === "pago" && order.status === "PENDING_PAYMENT"
                   ? "Si ya pagaste, la confirmación puede tardar unos minutos (PSE tarda un poco más). Esta página se actualiza sola."
                   : order.status === "DELIVERY_FAILED" && order.type === "TOPUP"
-                    ? DELIVERY_TIME.delayed
+                    ? deliveryTime.delayed
                     : ORDER_STATUS_META[order.status].customer}
             </p>
             {order.type === "TOPUP" && (order.status === "PAID" || order.status === "PROCESSING") && (
-              <p className="mt-1.5 text-[13px] text-fg-muted">{DELIVERY_TIME.processing}</p>
+              <p className="mt-1.5 text-[13px] text-fg-muted">{deliveryTime.processing}</p>
             )}
             {order.status === "DELIVERED" && order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-warn-400">Entrega simulada por el proveedor de prueba: no se enviaron diamantes reales.</p>}
             {order.status === "DELIVERED" && order.type === "TOPUP" && !order.simulatedDelivery && <p className="mt-1.5 text-[13px] text-fg-muted">Abre Free Fire y revisa tu saldo de diamantes.</p>}

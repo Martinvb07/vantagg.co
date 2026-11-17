@@ -37,9 +37,9 @@ const TONE: Record<Tone, { bg: string; fg: string; dot: string }> = {
   neutral: { bg: "#e5e7eb", fg: "#374151", dot: "#6b7280" },
 };
 
-type Row = [label: string, value: string];
-type Steps = { labels: string[]; done: number; problem?: boolean };
-type Block = {
+export type Row = [label: string, value: string];
+export type Steps = { labels: string[]; done: number; problem?: boolean };
+export type Block = {
   title: string;
   intro: string;
   preheader: string;
@@ -55,6 +55,7 @@ type Block = {
   quote?: string;
   internal?: boolean; // aviso al equipo: pie distinto, sin ayuda al cliente
   unsubscribeUrl?: string; // correo de ofertas: pie con «Darte de baja» (Ley 1581)
+  shop?: { label: string; url: string }; // primer enlace del pie (por defecto «Recargar diamantes»)
 };
 
 function stepsHtml(s: Steps): string {
@@ -107,7 +108,7 @@ function layout(b: Brand, k: Block): string {
   const host = esc(b.appUrl.replace(/^https?:\/\//, ""));
   const footer = k.internal
     ? `Aviso interno de ${esc(b.storeName)} para el equipo. No lo reenvíes a clientes.`
-    : `<a href="${esc(b.appUrl)}/recargas" style="color:${C.muted};text-decoration:none">Recargar diamantes</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/pedido" style="color:${C.muted};text-decoration:none">Seguimiento</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/ayuda" style="color:${C.muted};text-decoration:none">Ayuda</a><br><br>
+    : `<a href="${esc(k.shop?.url ?? `${b.appUrl}/recargas`)}" style="color:${C.muted};text-decoration:none">${esc(k.shop?.label ?? "Recargar diamantes")}</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/pedido" style="color:${C.muted};text-decoration:none">Seguimiento</a> &nbsp;·&nbsp; <a href="${esc(b.appUrl)}/ayuda" style="color:${C.muted};text-decoration:none">Ayuda</a><br><br>
 🔒 Nunca te pediremos contraseñas, códigos de tu banco ni pagos fuera de <a href="${esc(b.appUrl)}" style="color:${C.muted}">${host}</a>.<br>
 ${esc(b.storeName)} es una tienda independiente. Free Fire es una marca de Garena; no estamos afiliados.<br>${
         k.unsubscribeUrl
@@ -163,7 +164,7 @@ function plain(b: Brand, k: Block): string {
     .join("\n");
 }
 
-const build = (b: Brand, subject: string, k: Block): Email => ({ subject, html: layout(b, k), text: plain(b, k) });
+export const build = (b: Brand, subject: string, k: Block): Email => ({ subject, html: layout(b, k), text: plain(b, k) });
 
 // ---------------------------------------------------------------------
 // Cuenta
@@ -281,7 +282,7 @@ export function passwordChangedEmail(b: Brand, p: { when: string; how: "reset" |
 
 export type OrderTemplate = "order_created" | "payment_reminder" | "payment_confirmed" | "delivered" | "delivery_failed" | "refunded" | "cancelled" | "order_recovery" | "delay_apology" | "ranking_prize";
 /** expiresAt: hora límite para pagar, ya en texto (ej. «3:45 p. m.»). buyAgainUrl: «comprar de nuevo» (pedido vencido). */
-export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean; /** Premio del Top 3 del mes (p. ej. «puesto #1 del Top 3 de noviembre»): pedido sin cobro. */ prize?: string };
+export type OrderEmailData = { number: string; type: "TOPUP" | "ACCOUNT"; item: string; total: string; playerId?: string | null; link: string; isTest: boolean; expiresAt?: string; /** Tarjeta o pase (no diamantes). */ isPass?: boolean; buyAgainUrl?: string; /** El pago se confirmó tarde por una falla de la tienda: se pide perdón por la demora. */ late?: boolean; /** Premio del Top 3 del mes (p. ej. «puesto #1 del Top 3 de noviembre»): pedido sin cobro. */ prize?: string; /** Tokens Evo: pasó el plazo y quedó registrada la solicitud de reembolso (la aprueba el equipo). */ refundRequested?: boolean };
 
 export function orderEmail(b: Brand, t: OrderTemplate, o: OrderEmailData): Email {
   const account = o.type === "ACCOUNT";
