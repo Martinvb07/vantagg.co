@@ -7,12 +7,12 @@ import { Gift, Snowflake, TreePine } from "lucide-react";
  * src/domain/season.ts y Panel → Ajustes → Temporada):
  *  - barra roja con la cuenta regresiva (ChristmasBar), arriba del encabezado;
  *  - guirnalda de pino con nieve debajo del encabezado y sus luces en 3 capas que titilan por turnos;
- *  - nieve que cae (dos capas que solo se desplazan), un trineo que cruza la pantalla de vez en cuando y brillo de fondo;
+ *  - nieve que cae despacio y se mece (dos capas que solo se desplazan) y brillo de fondo;
  *  - pueblito nevado antes del pie de página (ChristmasVillage).
  * Liviano a propósito: la guirnalda, la nieve de las tarjetas, el gorro, el regalo y el acebo son imágenes de fondo
  * definidas en globals.css solo para [data-season="navidad"] (fuera de temporada no se descargan), y todas las
  * animaciones son de transform u opacity, que mueve la tarjeta gráfica sin trabajo para el procesador.
- * Con «reducir movimiento» no hay animaciones, ni nieve, ni trineo.
+ * Con «reducir movimiento» no hay animaciones ni nieve.
  */
 
 export function ChristmasDecor() {
@@ -26,13 +26,15 @@ export function ChristmasDecor() {
         <span className="xmas-lights xmas-lights-2" />
         <span className="xmas-lights xmas-lights-3" />
       </div>
-      {/* Nieve: dos capas que bajan (chica y rápida, grande y lenta); solo se mueven, no se redibujan */}
+      {/* Nieve: dos capas que bajan despacio y se mecen de lado a lado; solo se mueven, no se redibujan */}
       <div aria-hidden className="xmas-snow pointer-events-none fixed inset-0 z-[5] overflow-hidden">
-        <div className="xmas-snow-a" />
-        <div className="xmas-snow-b" />
+        <div className="xmas-sway xmas-sway-a">
+          <div className="xmas-snow-a" />
+        </div>
+        <div className="xmas-sway xmas-sway-b">
+          <div className="xmas-snow-b" />
+        </div>
       </div>
-      {/* Trineo con renos: cruza la pantalla cada ~40 s */}
-      <img src="/temporada/trineo.svg" alt="" aria-hidden decoding="async" draggable={false} className="xmas-sleigh pointer-events-none fixed left-0 top-[118px] z-[6] w-[170px] sm:top-[150px] sm:w-[250px]" />
     </>
   );
 }

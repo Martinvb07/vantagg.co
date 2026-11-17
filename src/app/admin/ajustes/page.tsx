@@ -54,7 +54,7 @@ export default async function SettingsAdmin() {
             <Field label="Anuncio superior (opcional)" className="sm:col-span-2">
               <input name="announcement" defaultValue={s.announcement} maxLength={180} className="field" />
             </Field>
-            <Field label="Temporada" hint="Navidad: luces, nieve, gorro en el logo, regalo en los paquetes y banner navideño de primero. Normal: el diseño de siempre." className="sm:col-span-2">
+            <Field label="Temporada" hint="Navidad: luces, nieve, gorro en el logo, regalo en los paquetes y banner navideño de primero; se apaga sola el 1 de enero. Normal: el diseño de siempre." className="sm:col-span-2">
               <select name="seasonTheme" defaultValue={s.seasonTheme === "navidad" ? "navidad" : ""} className="field">
                 <option value="">Normal (diseño de siempre)</option>
                 <option value="navidad">Navidad</option>

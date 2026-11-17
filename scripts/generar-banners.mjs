@@ -735,37 +735,6 @@ ${ball(22, 27, 6, XRED)}${ball(33, 28, 6, XRED)}${ball(27, 19, 6, "#e0293f")}
 </svg>
 `);
 
-/** Trineo con regalos y renos volando (para cruzar la pantalla de vez en cuando). Mira a la derecha. */
-function reindeer(x, y, s = 1, lift = 0) {
-  const c = "#7a4a28";
-  return `<g transform="translate(${x} ${y}) scale(${s})" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
-<path d="M-26 6L-34 22M-18 8L-22 26M14 8L22 24M20 6L32 18" stroke="${c}" stroke-width="5"/>
-<path d="M-28 6L-34 22M-18 8L-22 26M14 8L22 24M20 6L32 18" fill="none"/>
-<ellipse cx="-4" cy="0" rx="30" ry="12" fill="${c}"/><path d="M-34 -4Q-42 -8 -40 2" fill="#f2e6d6"/>
-<path d="M18 -6L30 -26L40 -24L30 -2Z" fill="${c}"/><ellipse cx="40" cy="-26" rx="11" ry="7.5" fill="${c}" transform="rotate(-12 40 -26)"/>
-<circle cx="51" cy="-27" r="4" fill="${lift ? XRED : "#3a2414"}"/>
-<path d="M33 -32L28 -46L22 -50M28 -46L34 -54M36 -33L38 -48L44 -54M38 -48L32 -54" fill="none" stroke="#c8a476" stroke-width="3"/>
-<circle cx="40" cy="-28" r="1.6" fill="${INK}" stroke="none"/></g>`;
-}
-add("../temporada/trineo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 130" width="420" height="130">
-<defs><linearGradient id="sl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a68"/><stop offset="1" stop-color="#b3132b"/></linearGradient>
-<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
-<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/></defs>
-${[[8, 96, 0.5], [30, 88, 0.7], [56, 92, 0.55], [78, 82, 0.9], [102, 88, 0.6]].map(([x, y, s]) => `<use href="#spark" transform="translate(${x} ${y}) scale(${s})" fill="${XGOLD}" opacity=".85"/>`).join("")}
-<path d="M14 98Q70 86 120 92" fill="none" stroke="${XGOLD}" stroke-width="2" stroke-dasharray="2 6" opacity=".8"/>
-<path d="M196 72Q250 58 300 64M196 76Q280 70 360 58" fill="none" stroke="${XGOLD}" stroke-width="2"/>
-${reindeer(282, 66, 0.82)}${reindeer(356, 52, 0.82, 1)}
-${gift(150, 58, 30, 26, XRED, XGOLD)}${gift(176, 60, 24, 22, "#1f8a45", XGOLD)}
-<path d="M168 50Q178 26 168 18Q156 14 150 30" fill="#c81d33" stroke="${INK}" stroke-width="2.2"/><circle cx="148" cy="31" r="5" fill="#f4f7f6" stroke="${INK}" stroke-width="2"/>
-<circle cx="168" cy="54" r="12" fill="#c81d33" stroke="${INK}" stroke-width="2.2"/><circle cx="174" cy="44" r="8" fill="#f6d2b5" stroke="${INK}" stroke-width="2"/>
-<path d="M166 46Q172 60 182 48Q182 42 176 44Z" fill="#f4f7f6" stroke="${INK}" stroke-width="2"/>
-<path d="M164 38Q170 26 184 36" fill="#c81d33" stroke="${INK}" stroke-width="2"/><rect x="162" y="36" width="24" height="5" rx="2.5" fill="#f4f7f6" stroke="${INK}" stroke-width="1.6"/>
-<path d="M118 58H206Q214 58 212 70L204 92H130Q116 92 116 78Z" fill="url(#sl)" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
-<path d="M126 64H200" stroke="${XGOLD}" stroke-width="3" stroke-linecap="round"/>
-<path d="M112 102H210Q228 102 230 88Q231 80 222 82" fill="none" stroke="${XGOLD}" stroke-width="4" stroke-linecap="round"/><path d="M140 92V102M190 92V102" stroke="${XGOLD}" stroke-width="3"/>
-</svg>
-`);
-
 /** Pueblito nevado (1600 × 170, cielo transparente): colinas, pinos con nieve, casitas con luz y el árbol de la plaza. */
 {
   const W = 1600;

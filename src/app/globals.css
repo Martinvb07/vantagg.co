@@ -414,35 +414,31 @@
 
 /* Guirnalda de pino (mosaico que se repite) y sus 3 capas de luces que titilan por turnos (solo opacidad). */
 .xmas-garland { background: url("/temporada/guirnalda.svg") 50% 0 / auto 100% repeat-x; }
-.xmas-lights { position: absolute; inset: 0; background-position: 50% 0; background-size: auto 100%; background-repeat: repeat-x; animation: xmas-blink 3.6s linear infinite; will-change: opacity; }
+.xmas-lights { position: absolute; inset: 0; background-position: 50% 0; background-size: auto 100%; background-repeat: repeat-x; animation: xmas-blink 4.2s ease-in-out infinite; will-change: opacity; }
 .xmas-lights-1 { background-image: url("/temporada/luces-1.svg"); }
-.xmas-lights-2 { background-image: url("/temporada/luces-2.svg"); animation-delay: -1.2s; }
-.xmas-lights-3 { background-image: url("/temporada/luces-3.svg"); animation-delay: -2.4s; }
-/* Prende y apaga (sin fundido): el valor solo cambia dos veces por ciclo. */
+.xmas-lights-2 { background-image: url("/temporada/luces-2.svg"); animation-delay: -1.4s; }
+.xmas-lights-3 { background-image: url("/temporada/luces-3.svg"); animation-delay: -2.8s; }
+/* Se encienden y se apagan con un fundido suave, por turnos. */
 @keyframes xmas-blink {
-  0%, 49.9% { opacity: 1; }
-  50%, 100% { opacity: 0.12; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.18; }
 }
 
 /* Nieve: dos capas con un mosaico de copos que bajan exactamente un mosaico por ciclo (no se nota el salto). Solo
    transform: la tarjeta gráfica las mueve sin redibujar. */
 .xmas-snow-a, .xmas-snow-b { position: absolute; inset-inline: 0; bottom: 0; background-repeat: repeat; will-change: transform; }
-.xmas-snow-a { top: -560px; background-image: url("/temporada/nieve-a.svg"); background-size: 560px 560px; animation: xmas-snow-a 22s linear infinite; }
-.xmas-snow-b { top: -800px; background-image: url("/temporada/nieve-b.svg"); background-size: 800px 800px; animation: xmas-snow-b 40s linear infinite; opacity: 0.85; }
+.xmas-snow-a { top: -560px; background-image: url("/temporada/nieve-a.svg"); background-size: 560px 560px; animation: xmas-snow-a 32s linear infinite; }
+.xmas-snow-b { top: -800px; background-image: url("/temporada/nieve-b.svg"); background-size: 800px 800px; animation: xmas-snow-b 56s linear infinite; opacity: 0.85; }
+/* Vaivén suave de lado a lado (cada capa a su ritmo), como copos que flotan. */
+.xmas-sway { position: absolute; inset: -40px; will-change: transform; animation: xmas-sway 9s ease-in-out infinite alternate; }
+.xmas-sway-b { animation-duration: 13s; animation-delay: -4s; }
+@keyframes xmas-sway { from { transform: translate3d(-18px, 0, 0); } to { transform: translate3d(18px, 0, 0); } }
 @keyframes xmas-snow-a { to { transform: translate3d(0, 560px, 0); } }
 @keyframes xmas-snow-b { to { transform: translate3d(0, 800px, 0); } }
 
-/* Trineo: cruza la pantalla en ~13 s y desaparece; vuelve cada ~40 s. Fuera de la pantalla mientras espera. */
-@keyframes xmas-sleigh {
-  0% { transform: translate3d(-40vw, 34px, 0); }
-  33% { transform: translate3d(115vw, -26px, 0); }
-  100% { transform: translate3d(115vw, -26px, 0); }
-}
-.xmas-sleigh { transform: translate3d(-40vw, 34px, 0); animation: xmas-sleigh 45s linear 5s infinite; will-change: transform; }
-
 @media (prefers-reduced-motion: reduce) {
   .xmas-lights { animation: none; }
-  .xmas-snow, .xmas-sleigh { display: none; }
+  .xmas-snow { display: none; }
 }
 
 /* Halloween: calabaza de las portadas y telaraña del pie de página (solo se descargan en su temporada). */

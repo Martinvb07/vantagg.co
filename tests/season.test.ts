@@ -3,7 +3,7 @@
  *   npx vitest run tests/season.test.ts
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { christmasMessage, currentSeason, isHalloween, seasonBanner } from "@/domain/season";
+import { christmasMessage, christmasOver, currentSeason, isHalloween, seasonBanner } from "@/domain/season";
 import { activeEventBanners, type EventBanner } from "@/content/event-banners";
 
 // Mediodía en Colombia (UTC−5) del día indicado.
@@ -22,6 +22,17 @@ describe("temporada", () => {
     expect(currentSeason("", co("2026-12-10"))).toBeNull();
     expect(currentSeason(undefined, co("2027-01-20"))).toBeNull();
     expect(currentSeason("navidad", co("2026-11-17"))).toBe("navidad"); // se puede encender antes de diciembre
+  });
+
+  it("el 1 de enero vuelve sola al diseño normal (hora de Colombia)", () => {
+    delete process.env.SEASON;
+    expect(currentSeason("navidad", new Date("2027-01-01T04:59:00Z"))).toBe("navidad"); // 31 de dic., 11:59 p. m.
+    expect(currentSeason("navidad", new Date("2027-01-01T05:00:00Z"))).toBeNull(); // 1 de enero, medianoche
+    expect(currentSeason("navidad", co("2027-02-14"))).toBeNull();
+    expect(currentSeason("navidad", co("2027-09-20"))).toBe("navidad"); // se puede encender desde septiembre
+    expect(christmasOver(co("2026-12-31"))).toBe(false);
+    expect(christmasOver(co("2027-01-01"))).toBe(true);
+    expect(christmasOver(co("2027-08-31"))).toBe(true);
   });
 
   it("Halloween sigue sola por fecha (si Navidad no está encendida)", () => {

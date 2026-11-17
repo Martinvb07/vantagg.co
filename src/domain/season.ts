@@ -2,7 +2,8 @@
  * Temporadas de la tienda: decoración que va ENCIMA del diseño de siempre (no reemplaza nada). Fuera de temporada la
  * tienda se ve exactamente igual que siempre.
  *  - Halloween: sola, del 20 de octubre al 2 de noviembre, hora de Colombia (UTC−5).
- *  - Navidad: a mano, en Panel → Ajustes → Temporada (seasonTheme = "navidad"); «Normal» la quita.
+ *  - Navidad: a mano, en Panel → Ajustes → Temporada (seasonTheme = "navidad"); «Normal» la quita. El 1 de enero
+ *    se apaga sola (ver christmasOver y el mantenimiento).
  * SEASON=halloween, SEASON=navidad u SEASON=off en el .env la fuerza a mano (por ejemplo, para apagarla antes).
  */
 export type Season = "halloween" | "navidad";
@@ -17,12 +18,21 @@ export function isHalloween(now = new Date()): boolean {
   return (month === 9 && day >= 20) || (month === 10 && day <= 2);
 }
 
-/** Temporada activa: la forzada en el .env, la elegida en Ajustes (Navidad) o la de la fecha (Halloween). */
+/**
+ * ¿Ya terminó la Navidad? Desde el 1 de enero (hora de Colombia) y hasta agosto la decoración navideña no se muestra
+ * aunque siga encendida en Ajustes, y el mantenimiento la apaga (vuelve a «Normal»). De septiembre a diciembre se
+ * puede encender a mano.
+ */
+export function christmasOver(now = new Date()): boolean {
+  return new Date(now.getTime() - 5 * 3600_000).getUTCMonth() <= 7;
+}
+
+/** Temporada activa: la forzada en el .env, la elegida en Ajustes (Navidad, hasta el 31 de diciembre) o la de la fecha (Halloween). */
 export function currentSeason(seasonTheme: string | null | undefined, now = new Date()): Season | null {
   const forced = process.env.SEASON;
   if (forced === "halloween" || forced === "navidad") return forced;
   if (forced === "off") return null;
-  if (seasonTheme === "navidad") return "navidad";
+  if (seasonTheme === "navidad" && !christmasOver(now)) return "navidad";
   return isHalloween(now) ? "halloween" : null;
 }
 

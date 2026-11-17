@@ -6,8 +6,10 @@ import { runEmailAutomations } from "./marketing";
 import { purgeCancelledOrders } from "./retention";
 import { ensureFxHistory, ensureFxRates } from "./fx";
 import { backfillDeliveryCosts } from "./supplier-costs";
-import { getSettings } from "./settings";
+import { getSettings, saveSettings } from "./settings";
 import { notifyRankingClosed } from "./ranking";
+import { christmasOver } from "@/domain/season";
+import { audit } from "@/lib/audit";
 
 /**
  * Mantenimiento periódico (lo llama la tarea programada cada 2 min y, si esa tarea se detiene, el vigilante de la
@@ -41,6 +43,14 @@ export function runMaintenance(source: "cron" | "vigilante"): Promise<Maintenanc
   return running;
 }
 
+/** Apaga la decoración navideña cuando ya terminó la temporada (desde el 1 de enero). Una sola vez: queda en «Normal». */
+export async function endChristmasIfOver(now = new Date()): Promise<boolean> {
+  if ((await getSettings()).seasonTheme !== "navidad" || !christmasOver(now)) return false;
+  await saveSettings({ seasonTheme: "" });
+  await audit({ actorId: null, action: "settings.season_ended", entity: "Setting", data: { seasonTheme: "navidad → normal" } });
+  return true;
+}
+
 async function run() {
   const supplier = !!activeTopUpProvider()?.wholesale;
   // Primero se confirman los pagos que la pasarela ya aprobó; luego se vencen los que siguen sin pagar.
@@ -72,5 +82,7 @@ async function run() {
   }) : 0;
   // Top 3 del mes: al cerrar la temporada, un aviso al equipo para entregar los premios (una vez por mes).
   const rankingClosed = await notifyRankingClosed().catch(() => false);
-  return { ok: true as const, fxHistory, realCosts, rankingClosed, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
+  // Navidad: el 1 de enero la tienda vuelve sola al diseño normal (Ajustes → Temporada queda en «Normal»).
+  const seasonEnded = await endChristmasIfOver().catch(() => false);
+  return { ok: true as const, seasonEnded, fxHistory, realCosts, rankingClosed, expired, paymentsConfirmed, latePayments, remindersSent, deliveriesUpdated: deliveries, deliveriesRetried: retried, catalogSynced, emails: emails && { recovery: emails.recovery, firstPurchase: emails.firstPurchase, winback: emails.winback }, cancelledPurged: purged };
 }
