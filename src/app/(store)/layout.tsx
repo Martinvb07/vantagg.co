@@ -10,8 +10,8 @@ import { publicPaymentOptions } from "@/server/integrations/payments";
 import { accountsVisible } from "@/server/catalog";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { HalloweenDecor } from "@/components/store/halloween";
-import { christmasMessage, currentSeason } from "@/domain/season";
-import { ChristmasBar, ChristmasDecor, ChristmasVillage } from "@/components/store/navidad";
+import { currentSeason } from "@/domain/season";
+import { ChristmasDecor, ChristmasVillage } from "@/components/store/navidad";
 import { maintenanceNotice } from "@/domain/maintenance";
 import { googleTagConfig } from "@/domain/google-tag";
 import { GoogleTag } from "@/components/analytics/google-tag";
@@ -44,7 +44,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             <span>{paused}</span>
           </div>
         )}
-        {season === "navidad" && <ChristmasBar message={christmasMessage()} />}
         {settings.announcement && (
           <div className="border-b border-white/[0.06] bg-ink-850 px-4 py-2 text-center text-[13px] text-fg-muted">{settings.announcement}</div>
         )}

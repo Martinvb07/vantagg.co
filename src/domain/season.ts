@@ -39,24 +39,6 @@ export function currentSeason(seasonTheme: string | null | undefined, now = new 
 }
 
 /**
- * Texto de la barra navideña según el día en Colombia: cuenta regresiva a Navidad, Noche de Velitas (7 de diciembre),
- * Novena de Aguinaldos (16 al 23), Nochebuena, Navidad, fin de año y Año Nuevo (hasta Reyes, 6 de enero).
- */
-export function christmasMessage(now = new Date()): string {
-  const co = new Date(now.getTime() - 5 * 3600_000);
-  const [y, m, d] = [co.getUTCFullYear(), co.getUTCMonth(), co.getUTCDate()];
-  if (m === 0 && d <= 6) return "¡Feliz Año Nuevo!";
-  if (m === 11 && d === 24) return "¡Hoy es Nochebuena!";
-  if (m === 11 && d === 25) return "¡Feliz Navidad!";
-  if (m === 11 && d > 25) return "¡Feliz fin de año!";
-  if (m === 11 && d === 7) return "¡Feliz Noche de Velitas!";
-  const days = Math.round((Date.UTC(y, 11, 25) - Date.UTC(y, m, d)) / 86_400_000);
-  if (days <= 0) return "Temporada navideña";
-  const left = days === 1 ? "Falta 1 día para Navidad" : `Faltan ${days} días para Navidad`;
-  return m === 11 && d >= 16 ? `Novena de Aguinaldos · ${left.charAt(0).toLowerCase()}${left.slice(1)}` : left;
-}
-
-/**
  * Banners en temporada: en Navidad, los banners de la marca (public/promo) se cambian solos por su versión navideña
  * (public/promo/navidad, ver scripts/generar-banners.mjs). Lo guardado en el panel no cambia: fuera de temporada se
  * ven los de siempre. Los banners propios subidos al panel llevan nieve en el borde (season-cap en BannerPicture).

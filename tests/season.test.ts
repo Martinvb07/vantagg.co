@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { christmasMessage, christmasOver, currentSeason, isHalloween, isSeasonalImage, seasonalBanner, seasonBanner } from "@/domain/season";
+import { christmasOver, currentSeason, isHalloween, isSeasonalImage, seasonalBanner, seasonBanner } from "@/domain/season";
 import { NAVIDAD_BANNERS } from "@/content/navidad-banners";
 import { activeEventBanners, EVENT_BANNERS, type EventBanner } from "@/content/event-banners";
 
@@ -57,22 +57,6 @@ describe("temporada", () => {
     expect(seasonBanner("navidad")).toMatchObject({ id: "temporada-navidad", imageUrl: "/promo/hero-navidad.svg", imageMobileUrl: "/promo/m/hero-navidad.svg", href: "/recargas" });
     expect(seasonBanner("halloween")?.id).toBe("temporada-halloween");
     expect(seasonBanner(null)).toBeNull();
-  });
-});
-
-describe("barra navideña", () => {
-  it("cuenta los días a Navidad y saluda en las fechas colombianas", () => {
-    expect(christmasMessage(co("2026-11-17"))).toBe("Faltan 38 días para Navidad");
-    expect(christmasMessage(co("2026-12-07"))).toBe("¡Feliz Noche de Velitas!");
-    expect(christmasMessage(co("2026-12-16"))).toBe("Novena de Aguinaldos · faltan 9 días para Navidad");
-    expect(christmasMessage(co("2026-12-23"))).toBe("Novena de Aguinaldos · faltan 2 días para Navidad");
-    expect(christmasMessage(co("2026-12-24"))).toBe("¡Hoy es Nochebuena!");
-    expect(christmasMessage(co("2026-12-25"))).toBe("¡Feliz Navidad!");
-    expect(christmasMessage(co("2026-12-28"))).toBe("¡Feliz fin de año!");
-    expect(christmasMessage(co("2027-01-03"))).toBe("¡Feliz Año Nuevo!");
-    expect(christmasMessage(co("2027-01-20"))).toBe("Faltan 339 días para Navidad");
-    // 24 de diciembre a las 10 p. m. en Colombia (ya 25 en UTC): todavía es Nochebuena.
-    expect(christmasMessage(new Date("2026-12-25T03:00:00Z"))).toBe("¡Hoy es Nochebuena!");
   });
 });
 
