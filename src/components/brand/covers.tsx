@@ -49,6 +49,8 @@ export function DiamondCover({
       {/* Navidad: regalo abajo a la derecha (solo en temporada). Sin loading="lazy", por lo mismo que la calabaza. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/temporada/regalo.svg" alt="" decoding="async" draggable={false} className="navidad-only absolute bottom-[4%] right-[4%] w-[22%] drop-shadow-[0_4px_10px_rgba(255,77,94,0.45)]" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/temporada/nieve-borde.svg" alt="" decoding="async" draggable={false} className="navidad-only absolute inset-x-0 top-0 w-full" />
 
       {/* Bonus: etiqueta verde de la marca, arriba a la izquierda */}
       {!plain && bonus > 0 && (

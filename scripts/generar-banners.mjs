@@ -619,7 +619,11 @@ function svgXmas(w, h, { vx, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
   const vh = 330 * vs;
   const v = `M${vx - vw / 2} -10H${vx - vw / 2 + 92 * vs}L${vx} ${vh * 0.62}L${vx + vw / 2 - 92 * vs} -10H${vx + vw / 2}L${vx + 16 * vs} ${vh}H${vx - 16 * vs}Z`;
   const snow = Array.from({ length: 70 }, (_, i) => `<circle cx="${(i * 397 + 53) % w}" cy="${(i * 173 + 29) % h}" r="${[1.4, 2.2, 3, 1.8][i % 4]}" fill="#fff" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`).join("");
-  const mounds = [0.06, 0.2, 0.82, 0.96].map((p, i) => `<ellipse cx="${w * p}" cy="${h + 6}" rx="${h * [0.34, 0.26, 0.3, 0.36][i]}" ry="${h * [0.12, 0.09, 0.1, 0.13][i]}" fill="#e9f6f3" opacity=".16"/>`).join("");
+  // Nieve en el suelo: suave a la izquierda (debajo del texto) y blanca y brillante a la derecha (debajo del árbol).
+  const mounds = [0.06, 0.2].map((p, i) => `<ellipse cx="${w * p}" cy="${h + 6}" rx="${h * [0.34, 0.26][i]}" ry="${h * [0.12, 0.09][i]}" fill="#e9f6f3" opacity=".14"/>`).join("") +
+    `<path d="M${w * 0.52} ${h}C${w * 0.6} ${h * 0.9} ${w * 0.7} ${h * 0.86} ${w * 0.78} ${h * 0.89}S${w * 0.92} ${h * 0.84} ${w} ${h * 0.87}V${h}Z" fill="url(#snowground)"/>
+<path d="M${w * 0.6} ${h}C${w * 0.68} ${h * 0.93} ${w * 0.8} ${h * 0.92} ${w * 0.88} ${h * 0.95}S${w * 0.97} ${h * 0.93} ${w} ${h * 0.94}V${h}Z" fill="#ffffff" opacity=".9"/>
+${[0.64, 0.71, 0.86, 0.93].map((p, i) => `<use href="#spark" transform="translate(${w * p} ${h * [0.93, 0.9, 0.9, 0.95][i]}) scale(.6)"/>`).join("")}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
 <defs>
 <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#0c1d17"/><stop offset="1" stop-color="#020604"/></linearGradient>
@@ -628,6 +632,7 @@ function svgXmas(w, h, { vx, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
 <radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".35"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
 <linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#2c3a31"/><stop offset="1" stop-color="#0a110d"/></linearGradient>
 <linearGradient id="goldstar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".6" stop-color="${XGOLD}"/><stop offset="1" stop-color="#d48a12"/></linearGradient>
+<linearGradient id="snowground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4fbff"/><stop offset="1" stop-color="#b9d6e6"/></linearGradient>
 <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
 <path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
 </defs>
@@ -670,6 +675,104 @@ add("../temporada/regalo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
 ${gift(0, 46, 84, 70, XRED, XGOLD)}
 </svg>
 `);
+
+// Nieve acumulada en el borde de arriba de las portadas (200 × 26, con gotas que cuelgan).
+{
+  let d = "M0 0H200V9";
+  const drips = [14, 41, 63, 97, 128, 152, 181];
+  for (let x = 200; x > 0; x -= 10) {
+    const nx = x - 10;
+    const drip = drips.find((dx) => dx > nx && dx <= x);
+    if (drip) d += `C${x - 2} ${10 + (x % 3)} ${drip + 3} 10 ${drip + 2.5} ${15 + (drip % 9)}A2.5 2.5 0 0 1 ${drip - 2.5} ${15 + (drip % 9)}C${drip - 3} 10 ${nx + 2} ${9 + (nx % 2)} ${nx} ${8 + (nx % 3)}`;
+    else d += `Q${x - 5} ${12 + ((x / 10) % 2) * 2} ${nx} ${8 + (nx % 3)}`;
+  }
+  add("../temporada/nieve-borde.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 26" width="200" height="26" preserveAspectRatio="none">
+<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d4e8f4"/></linearGradient></defs>
+<path d="${d}Z" fill="#7fa3b8" opacity=".35" transform="translate(0 1.6)"/><path d="${d}Z" fill="url(#s)"/>
+<path d="M6 4H60M84 3H150M166 4H194" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".9"/></svg>
+`);
+}
+
+/** Hoja de acebo (de la base 0,0 a la punta L,0) con puntas. */
+function hollyLeaf(L, W) {
+  const n = 4;
+  let d = "M0 0";
+  for (let i = 1; i <= n; i++) d += `Q${(L * (i - 0.5)) / n} ${(-W * Math.sin((Math.PI * (i - 0.5)) / n) * 0.55).toFixed(1)} ${(L * i) / n} ${i === n ? 0 : (-W * Math.sin((Math.PI * i) / n)).toFixed(1)}`;
+  for (let i = n - 1; i >= 0; i--) d += `Q${(L * (i + 0.5)) / n} ${(W * Math.sin((Math.PI * (i + 0.5)) / n) * 0.55).toFixed(1)} ${(L * i) / n} ${i === 0 ? 0 : (W * Math.sin((Math.PI * i) / n)).toFixed(1)}`;
+  return `${d}Z`;
+}
+add("../temporada/acebo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 44" width="56" height="44">
+<g transform="translate(26 26) rotate(-155)"><path d="${hollyLeaf(26, 9)}" fill="#1f8a45" stroke="#0b2e17" stroke-width="2.2" stroke-linejoin="round"/><path d="M2 0H23" stroke="#7fd99a" stroke-width="1.4" opacity=".7"/></g>
+<g transform="translate(30 26) rotate(-25)"><path d="${hollyLeaf(26, 9)}" fill="#26a352" stroke="#0b2e17" stroke-width="2.2" stroke-linejoin="round"/><path d="M2 0H23" stroke="#9be8b2" stroke-width="1.4" opacity=".7"/></g>
+${ball(22, 27, 6, XRED)}${ball(33, 28, 6, XRED)}${ball(27, 19, 6, "#e0293f")}
+</svg>
+`);
+
+/** Trineo con regalos y renos volando (para cruzar la pantalla de vez en cuando). Mira a la derecha. */
+function reindeer(x, y, s = 1, lift = 0) {
+  const c = "#7a4a28";
+  return `<g transform="translate(${x} ${y}) scale(${s})" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
+<path d="M-26 6L-34 22M-18 8L-22 26M14 8L22 24M20 6L32 18" stroke="${c}" stroke-width="5"/>
+<path d="M-28 6L-34 22M-18 8L-22 26M14 8L22 24M20 6L32 18" fill="none"/>
+<ellipse cx="-4" cy="0" rx="30" ry="12" fill="${c}"/><path d="M-34 -4Q-42 -8 -40 2" fill="#f2e6d6"/>
+<path d="M18 -6L30 -26L40 -24L30 -2Z" fill="${c}"/><ellipse cx="40" cy="-26" rx="11" ry="7.5" fill="${c}" transform="rotate(-12 40 -26)"/>
+<circle cx="51" cy="-27" r="4" fill="${lift ? XRED : "#3a2414"}"/>
+<path d="M33 -32L28 -46L22 -50M28 -46L34 -54M36 -33L38 -48L44 -54M38 -48L32 -54" fill="none" stroke="#c8a476" stroke-width="3"/>
+<circle cx="40" cy="-28" r="1.6" fill="${INK}" stroke="none"/></g>`;
+}
+add("../temporada/trineo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 130" width="420" height="130">
+<defs><linearGradient id="sl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a68"/><stop offset="1" stop-color="#b3132b"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/></defs>
+${[[8, 96, 0.5], [30, 88, 0.7], [56, 92, 0.55], [78, 82, 0.9], [102, 88, 0.6]].map(([x, y, s]) => `<use href="#spark" transform="translate(${x} ${y}) scale(${s})" fill="${XGOLD}" opacity=".85"/>`).join("")}
+<path d="M14 98Q70 86 120 92" fill="none" stroke="${XGOLD}" stroke-width="2" stroke-dasharray="2 6" opacity=".8"/>
+<path d="M196 72Q250 58 300 64M196 76Q280 70 360 58" fill="none" stroke="${XGOLD}" stroke-width="2"/>
+${reindeer(282, 66, 0.82)}${reindeer(356, 52, 0.82, 1)}
+${gift(150, 58, 30, 26, XRED, XGOLD)}${gift(176, 60, 24, 22, "#1f8a45", XGOLD)}
+<path d="M168 50Q178 26 168 18Q156 14 150 30" fill="#c81d33" stroke="${INK}" stroke-width="2.2"/><circle cx="148" cy="31" r="5" fill="#f4f7f6" stroke="${INK}" stroke-width="2"/>
+<circle cx="168" cy="54" r="12" fill="#c81d33" stroke="${INK}" stroke-width="2.2"/><circle cx="174" cy="44" r="8" fill="#f6d2b5" stroke="${INK}" stroke-width="2"/>
+<path d="M166 46Q172 60 182 48Q182 42 176 44Z" fill="#f4f7f6" stroke="${INK}" stroke-width="2"/>
+<path d="M164 38Q170 26 184 36" fill="#c81d33" stroke="${INK}" stroke-width="2"/><rect x="162" y="36" width="24" height="5" rx="2.5" fill="#f4f7f6" stroke="${INK}" stroke-width="1.6"/>
+<path d="M118 58H206Q214 58 212 70L204 92H130Q116 92 116 78Z" fill="url(#sl)" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+<path d="M126 64H200" stroke="${XGOLD}" stroke-width="3" stroke-linecap="round"/>
+<path d="M112 102H210Q228 102 230 88Q231 80 222 82" fill="none" stroke="${XGOLD}" stroke-width="4" stroke-linecap="round"/><path d="M140 92V102M190 92V102" stroke="${XGOLD}" stroke-width="3"/>
+</svg>
+`);
+
+/** Pueblito nevado (1600 × 170, cielo transparente): colinas, pinos con nieve, casitas con luz y el árbol de la plaza. */
+{
+  const W = 1600;
+  const pine = (x, y, s, dark = "#0f3a22") =>
+    `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-4" y="-6" width="8" height="12" fill="#3b2a1e"/>
+<path d="M0 -78L22 -44H12L30 -20H16L36 2H-36L-16 -20H-30L-12 -44H-22Z" fill="${dark}" stroke="#061a0e" stroke-width="2" stroke-linejoin="round"/>
+<path d="M0 -78L10 -62Q4 -58 0 -62Q-4 -58 -10 -62ZM-12 -44Q-4 -40 2 -44Q8 -40 12 -44L16 -40Q6 -36 -2 -40Q-10 -36 -16 -40ZM-16 -20Q-6 -16 2 -20Q10 -16 16 -20L22 -15Q8 -11 0 -15Q-10 -11 -22 -15Z" fill="#f2f9fc"/></g>`;
+  const house = (x, y, s, wall) =>
+    `<g transform="translate(${x} ${y}) scale(${s})"><rect x="18" y="-64" width="10" height="18" fill="#3a2c27" stroke="#140c0a" stroke-width="2"/>
+<rect x="-34" y="-36" width="68" height="36" fill="${wall}" stroke="#140c0a" stroke-width="2.5"/>
+<path d="M-42 -34L0 -66L42 -34Z" fill="#5a2a28" stroke="#140c0a" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M-44 -33L0 -67L44 -33L36 -30Q22 -40 12 -36Q0 -44 -12 -36Q-24 -40 -36 -30Z" fill="#f4fbff"/>
+${[-20, 10].map((wx) => `<rect x="${wx}" y="-28" width="12" height="12" rx="1.5" fill="#ffd56b" stroke="#140c0a" stroke-width="1.6"/><rect x="${wx - 6}" y="-34" width="24" height="24" fill="#ffd56b" opacity=".18" filter="url(#soft)"/>`).join("")}
+<rect x="-6" y="-18" width="10" height="18" fill="#3b2a1e" stroke="#140c0a" stroke-width="1.6"/>
+<path d="M-34 -36H34" stroke="${XRED}" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round"/></g>`;
+  const pines = [[60, 150, 0.9], [140, 156, 1.2], [230, 152, 0.8], [520, 154, 1.1], [600, 158, 0.75], [1000, 156, 1.05], [1080, 152, 0.8], [1350, 158, 1.25], [1440, 150, 0.85], [1540, 156, 1.1]];
+  const bigTree = `<g transform="translate(800 156)"><path d="M0 -112L34 -64H20L46 -30H26L56 2H-56L-26 -30H-46L-20 -64H-34Z" fill="#14502c" stroke="#061a0e" stroke-width="2.5" stroke-linejoin="round"/>
+${[[-14, -76, XRED], [12, -58, XGOLD], [-26, -40, LIME], [20, -30, XRED], [-36, -10, XGOLD], [34, -8, "#62dcea"], [0, -18, "#ff8fd0"]].map(([bx, by, c]) => `<circle cx="${bx}" cy="${by}" r="4.5" fill="${c}" stroke="#061a0e" stroke-width="1.4"/>`).join("")}
+${star5(0, -116, 14)}</g>`;
+  add("../temporada/pueblo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 170" width="${W}" height="170" preserveAspectRatio="xMidYMax slice">
+<defs><linearGradient id="h1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe3ee"/><stop offset="1" stop-color="#8fb3c7"/></linearGradient>
+<linearGradient id="h2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe2ec"/></linearGradient>
+<linearGradient id="goldstar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".6" stop-color="${XGOLD}"/><stop offset="1" stop-color="#d48a12"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+<path d="M0 132C180 104 340 120 520 112S880 96 1060 114S1400 104 1600 120V170H0Z" fill="url(#h1)" opacity=".55"/>
+${pines.slice(0, 5).map(([x, y, s]) => pine(x, y - 12, s * 0.8, "#123d26")).join("")}
+${house(330, 154, 0.95, "#7a2f2b")}${house(690, 158, 0.8, "#2f4a63")}${house(1200, 156, 1, "#6b4a2a")}
+${bigTree}
+${pines.map(([x, y, s]) => pine(x, y, s)).join("")}
+<path d="M0 150C200 138 420 146 640 142S1040 136 1240 146S1480 140 1600 146V170H0Z" fill="url(#h2)"/>
+${Array.from({ length: 22 }, (_, i) => `<circle cx="${(i * 79 + 30) % W}" cy="${152 + (i % 4) * 4}" r="1.6" fill="#fff"/>`).join("")}
+</svg>
+`);
+}
 
 // ---------------------------------------------------------------- escribir
 

@@ -375,8 +375,27 @@
    Temporada de Navidad (Panel → Ajustes → Temporada): solo con data-season="navidad". Luces que titilan, nieve
    suave, gorro en el logo y regalo en las portadas. En «Normal» nada de esto se ve.
 --------------------------------------------------------------------------------------------------- */
-.navidad-only { display: none; }
+.navidad-only, .navidad-inline { display: none; }
 [data-season="navidad"] .navidad-only { display: block; }
+[data-season="navidad"] .navidad-inline { display: inline-block; }
+
+/* Brillo navideño de fondo: rojo arriba a la izquierda, verde arriba a la derecha y dorado abajo. */
+.xmas-glow {
+  background:
+    radial-gradient(900px 520px at 0% 0%, rgb(200 30 50 / 0.16), transparent 62%),
+    radial-gradient(900px 520px at 100% 6%, rgb(30 160 80 / 0.13), transparent 62%),
+    radial-gradient(700px 420px at 50% 100%, rgb(255 198 58 / 0.07), transparent 62%);
+}
+@keyframes xmas-spin { to { transform: rotate(360deg); } }
+.xmas-spin { animation: xmas-spin 8s linear infinite; }
+
+/* Trineo: cruza la pantalla en ~13 s y desaparece; vuelve cada ~40 s. Fuera de la pantalla mientras espera. */
+@keyframes xmas-sleigh {
+  0% { transform: translate3d(-40vw, 34px, 0); }
+  33% { transform: translate3d(115vw, -26px, 0); }
+  100% { transform: translate3d(115vw, -26px, 0); }
+}
+.xmas-sleigh { transform: translate3d(-40vw, 34px, 0); animation: xmas-sleigh 40s linear 5s infinite; filter: drop-shadow(0 0 10px rgb(255 198 58 / 0.35)); }
 
 @keyframes xmas-blink {
   0%, 100% { opacity: 1; }
@@ -391,15 +410,12 @@
 .xmas-flake {
   position: absolute;
   top: 0;
-  border-radius: 9999px;
-  background: #fff;
-  box-shadow: 0 0 6px rgb(255 255 255 / 0.6);
   animation-name: xmas-fall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   will-change: transform;
 }
 @media (prefers-reduced-motion: reduce) {
-  .xmas-bulb { animation: none; }
-  .xmas-snow { display: none; }
+  .xmas-bulb, .xmas-spin { animation: none; }
+  .xmas-snow, .xmas-sleigh { display: none; }
 }

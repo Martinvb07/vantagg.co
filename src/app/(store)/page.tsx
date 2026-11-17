@@ -51,7 +51,12 @@ function RowHead({ title, sub, href, cta }: { title: string; sub?: string; href?
   return (
     <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
       <div>
-        <h2 className="text-[20px] font-extrabold leading-tight tracking-tight sm:text-[26px]">{title}</h2>
+        <h2 className="text-[20px] font-extrabold leading-tight tracking-tight sm:text-[26px]">
+          {/* Navidad: ramita de acebo antes del título (solo en temporada) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/temporada/acebo.svg" alt="" aria-hidden decoding="async" className="navidad-inline mr-1.5 h-[1em] w-auto align-[-0.14em]" />
+          {title}
+        </h2>
         {sub && <p className="mt-0.5 text-[13px] text-fg-subtle">{sub}</p>}
       </div>
       {href && (
