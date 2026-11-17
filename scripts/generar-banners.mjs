@@ -288,7 +288,7 @@ function xmasFront(w, h, { ground: withGround = true } = {}) {
   return `${withGround ? ground : ""}${gifts}<path d="${wire}" fill="none" stroke="#1d2622" stroke-width="2.4"/>${bulbs}`;
 }
 
-function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
+function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5, xmasGround = true }, body) {
   const vw = 400 * vs;
   const vh = 330 * vs;
   const v = `M${vx - vw / 2} ${vy - 10}H${vx - vw / 2 + 92 * vs}L${vx} ${vy + vh * 0.62}L${vx + vw / 2 - 92 * vs} ${vy - 10}H${vx + vw / 2}L${vx + 16 * vs} ${vy + vh}H${vx - 16 * vs}Z`;
@@ -315,7 +315,7 @@ function svg(w, h, { vx, vy = 0, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
 <path d="${v}" fill="url(#v)"/>
 <rect width="${w}" height="${h}" fill="url(#glow)"/>
 ${XMAS ? xmasBack(w, h) : ""}${slashes}${clouds}
-${body}${XMAS ? `\n${xmasFront(w, h)}` : ""}
+${body}${XMAS ? `\n${xmasFront(w, h, { ground: xmasGround })}` : ""}
 </svg>
 `;
 }
@@ -816,51 +816,61 @@ ${Array.from({ length: 22 }, (_, i) => `<circle cx="${(i * 79 + 30) % W}" cy="${
 
 // ---------------------------------------------------------------- eventos de Free Fire (src/content/event-banners.ts)
 
-// Arte oficial del evento (capturas del juego que envió el dueño, recortadas en scripts/eventos/*.webp) con el texto
-// de VANTAGG al lado; el arte se funde con el fondo. En la pasada navideña, luces, nieve y regalos (sin cubrir el arte).
+// Eventos con el arte oficial recortado (el arma y el puño, sin el fondo del juego; ver scripts/eventos/*.webp) sobre
+// el fondo de VANTAGG, con los atributos en vector. En la pasada navideña, luces y regalos (sin nieve en el suelo).
 const EVENT_ART = (name) => `data:image/webp;base64,${readFileSync(join(dirname(fileURLToPath(import.meta.url)), "eventos", `${name}.webp`)).toString("base64")}`;
+const ART_SIZE = { awm: [1365, 403], "awm-m": [1000, 295], punos: [683, 852], "punos-m": [480, 599] };
 
-function svgEvent(w, h, art, box, fade, body) {
-  const stars = `<g fill="#fff">${Array.from({ length: Math.round(w / 45) }, (_, i) => `<circle cx="${(i * 337 + 41) % w}" cy="${(i * 211 + 17) % h}" r="${[1, 1.6, 2.2][i % 3]}" opacity="${(0.3 + (i % 4) * 0.15).toFixed(2)}"/>`).join("")}</g>`;
-  const fadeGrad =
-    fade === "left"
-      ? `<linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".28" stop-color="#fff"/></linearGradient>`
-      : `<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset=".72" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
-<defs>
-<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c0a3e"/><stop offset=".55" stop-color="#21146b"/><stop offset="1" stop-color="#0a1440"/></linearGradient>
-<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#323a36"/><stop offset="1" stop-color="#0c100e"/></linearGradient>
-${fadeGrad}<mask id="artmask"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="url(#fade)"/></mask>
-<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
-${XMAS ? xmasDefs() : ""}
-</defs>
-<rect width="${w}" height="${h}" fill="url(#bg)"/>
-${stars}
-<image href="${EVENT_ART(art)}" x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" preserveAspectRatio="xMidYMid slice" mask="url(#artmask)"/>
-${XMAS ? xmasBack(w, h) : ""}
-${body}${XMAS ? `\n${xmasFront(w, h, { ground: false })}` : ""}
-</svg>
-`;
+/** Pieza recortada (arma o puño) de ancho w en (x, y); con fade, se desvanece abajo (el borde recto del recorte). */
+function artPiece(name, x, y, w, fade = false) {
+  const [aw, ah] = ART_SIZE[name];
+  const h = Math.round((w * ah) / aw);
+  const id = `m-${name}`;
+  const mask = fade ? `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset=".78" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${id}g)"/></mask></defs>` : "";
+  return `${mask}<image href="${EVENT_ART(name)}" x="${x}" y="${y}" width="${w}" height="${h}"${fade ? ` mask="url(#${id})"` : ""}/>`;
 }
 
-/** Banners de eventos de Free Fire (src/content/event-banners.ts): en la pasada navideña salen con luces y nieve. */
+/** Brillo cósmico (morado y azul) detrás de la pieza del evento. */
+const cosmicGlow = (cx, cy, r) =>
+  `<defs><radialGradient id="cg${cx}"><stop offset="0" stop-color="#9b6bff" stop-opacity=".5"/><stop offset=".55" stop-color="#3f7bff" stop-opacity=".16"/><stop offset="1" stop-color="#3f7bff" stop-opacity="0"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg${cx})"/>`;
+
+/** Barra de atributo (como en el juego, en lima de la marca): nombre a la izquierda y +, ++ o − a la derecha. */
+function statBar(x, y, w, label, mark, size = 17) {
+  const hh = size * 1.75;
+  return `<g transform="translate(${x} ${y})"><path d="M${hh * 0.35} 0H${w}L${w - hh * 0.35} ${hh}H0Z" fill="${LIME}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="${hh * 0.55}" y="${hh * 0.7}" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="${size}" fill="${INK}" letter-spacing=".5">${esc(label)}</text>
+<text x="${w - hh * 0.55}" y="${hh * 0.76}" font-family="${HEAD}" font-weight="900" font-size="${size * 1.3}" fill="${INK}" text-anchor="end">${mark}</text></g>`;
+}
+
+/** Banners de eventos de Free Fire (src/content/event-banners.ts): en la pasada navideña salen con luces y regalos. */
 function eventBanners() {
-  const desk = { x: 560, y: 0, w: 1040, h: 480 };
-  const mob = { x: 0, y: 0, w: 800, h: 340 };
-  const deskText = (l1, l2) => `${tag(96, 64, "NUEVO EN FREE FIRE", 22, LIME)}
-${heading(90, 172, [[l1, "w", 60], [l2, "l", 70]])}
-${sub(96, 304, "Recarga tus diamantes · directo a tu ID", 24)}
-${cta(94, 336, "RECARGAR  →", 22)}`;
-  const mobText = (l1, l2) => `${tag(46, 350, "NUEVO EN FREE FIRE", 18, LIME)}
-${heading(40, 432, [[l1, "w", 44], [l2, "l", 60]])}
-${sub(46, 524, "Recarga tus diamantes · directo a tu ID", 20)}
-${cta(44, 540, "RECARGAR  →", 17)}`;
-  // Evo AWM «Abismo Cósmico» (salió el 17 de noviembre de 2026, Free Fire Latinoamérica).
-  add("eventos/awm-abismo-cosmico.svg", svgEvent(HERO.w, HERO.h, "awm-d", desk, "left", deskText("¡YA LLEGÓ!", "LA EVO AWM")));
-  add("eventos/m/awm-abismo-cosmico.svg", svgEvent(MOB.w, MOB.h, "awm-m", mob, "bottom", mobText("¡YA LLEGÓ LA", "EVO AWM!")));
-  // Puños «Cometa Cósmico» (salieron el 17 de noviembre de 2026, Free Fire Latinoamérica).
-  add("eventos/punos-cometa-cosmico.svg", svgEvent(HERO.w, HERO.h, "punos-d", desk, "left", deskText("¡YA LLEGARON!", "LOS PUÑOS")));
-  add("eventos/m/punos-cometa-cosmico.svg", svgEvent(MOB.w, MOB.h, "punos-m", mob, "bottom", mobText("¡YA LLEGARON", "LOS PUÑOS!")));
+  const deskText = (name, l2, l3) => `${tag(96, 60, "NUEVO EN FREE FIRE", 22, LIME)}
+${heading(90, 152, [[name, "l", 60], [l2, "w", 86], [l3, "w", 86]], 0.98)}
+${sub(96, 366, "Recarga tus diamantes · directo a tu ID", 24)}
+${cta(94, 388, "RECARGAR  →", 20)}`;
+  const mobText = (name, l2) => `${tag(46, 352, "NUEVO EN FREE FIRE", 18, LIME)}
+${heading(40, 432, [[name, "l", 44], [l2, "w", 52]])}
+${sub(46, 520, "Recarga tus diamantes · directo a tu ID", 20)}
+${cta(44, 538, "RECARGAR  →", 17)}`;
+  // Evo AWM «Abismo Cósmico» (salió el 17 de noviembre de 2026, Free Fire Latinoamérica): arma y atributos.
+  add("eventos/awm-abismo-cosmico.svg", svg(HERO.w, HERO.h, { vx: 1200, vs: 1.15, glowX: 0.7, glowY: 0.45, xmasGround: false }, `${cosmicGlow(1110, 215, 430)}
+${artPiece("awm", 600, 66, 950)}
+${statBar(1170, 352, 300, "VEL. DE RECARGA", "+")}${statBar(1150, 388, 300, "DAÑO", "++")}${statBar(1130, 424, 300, "RANGO", "−")}
+${spark(1540, 110, 1.3)}${spark(700, 70, 1)}
+${deskText("EVO AWM", "ABISMO", "CÓSMICO")}`));
+  add("eventos/m/awm-abismo-cosmico.svg", svg(MOB.w, MOB.h, { vx: 560, vs: 0.8, glowX: 0.55, glowY: 0.3, xmasGround: false }, `${cosmicGlow(420, 170, 320)}
+${artPiece("awm-m", 24, 58, 752)}
+${statBar(30, 290, 250, "RECARGA", "+", 14)}${statBar(290, 290, 220, "DAÑO", "++", 14)}${statBar(520, 290, 240, "RANGO", "−", 14)}
+${mobText("EVO AWM", "ABISMO CÓSMICO")}`));
+  // Puños «Cometa Cósmico» (salieron el 17 de noviembre de 2026, Free Fire Latinoamérica): el puño.
+  add("eventos/punos-cometa-cosmico.svg", svg(HERO.w, HERO.h, { vx: 1180, vs: 1.15, glowX: 0.72, glowY: 0.5, xmasGround: false }, `${cosmicGlow(1210, 250, 360)}
+${artPiece("punos", 1020, 6, 380)}
+${gems([[860, 120, 40, -14], [1500, 90, 34, 16], [1480, 300, 26, 10], [900, 330, 24, -8, true]])}${spark(1540, 200, 1.3)}${spark(820, 250, 1)}
+${deskText("PUÑOS", "COMETA", "CÓSMICO")}`));
+  add("eventos/m/punos-cometa-cosmico.svg", svg(MOB.w, MOB.h, { vx: 560, vs: 0.8, glowX: 0.7, glowY: 0.3, xmasGround: false }, `${cosmicGlow(610, 180, 280)}
+${artPiece("punos-m", 450, 4, 300, true)}
+${gems([[110, 110, 34, -14], [330, 70, 26, 12], [250, 230, 22, -8, true]])}${spark(740, 70, 1.1)}
+${mobText("PUÑOS", "COMETA CÓSMICO")}`));
 }
 
 eventBanners();
