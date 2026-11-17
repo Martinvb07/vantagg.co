@@ -370,3 +370,36 @@
 @media (prefers-reduced-motion: reduce) {
   .halloween-bat, .halloween-bat > img, .halloween-spider { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------------------------------
+   Temporada de Navidad (Panel → Ajustes → Temporada): solo con data-season="navidad". Luces que titilan, nieve
+   suave, gorro en el logo y regalo en las portadas. En «Normal» nada de esto se ve.
+--------------------------------------------------------------------------------------------------- */
+.navidad-only { display: none; }
+[data-season="navidad"] .navidad-only { display: block; }
+
+@keyframes xmas-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.xmas-bulb { animation: xmas-blink 2.4s ease-in-out infinite; }
+
+@keyframes xmas-fall {
+  from { transform: translate3d(0, -12vh, 0); }
+  to { transform: translate3d(var(--xmas-drift, 0), 112vh, 0); }
+}
+.xmas-flake {
+  position: absolute;
+  top: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 6px rgb(255 255 255 / 0.6);
+  animation-name: xmas-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xmas-bulb { animation: none; }
+  .xmas-snow { display: none; }
+}

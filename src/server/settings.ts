@@ -22,6 +22,7 @@ export const SETTING_DEFAULTS = {
   supportHours: "",
   showGarenaDisclaimer: "true",
   announcement: "",
+  seasonTheme: "", // decoración de temporada: "navidad" (luces, nieve, gorro en el logo y banner) o "" = diseño normal
   paymentMethods: "debito,credito,nequi,pse",
   accountsMode: "auto", // sección de cuentas: auto (solo si hay cuentas publicadas) | on | off
   maintenanceMode: "false", // "true": la tienda se ve, pero no acepta compras nuevas ni pagos de pedidos pendientes

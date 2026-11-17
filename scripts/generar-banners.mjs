@@ -10,6 +10,8 @@ const LIME = "#b9f43c";
 const LIME2 = "#dcff7a";
 const INK = "#030504";
 const ORANGE = "#ff8a1f";
+const XRED = "#ff4d5e";
+const XGOLD = "#ffc63a";
 const HEAD = "Arial Black, Arial, Helvetica, sans-serif";
 const BODY = "Arial, Helvetica, sans-serif";
 
@@ -232,7 +234,7 @@ function heading(x, y, lines, gap = 1.02) {
   return lines
     .map(([t, c, s], i) => {
       if (i > 0) yy += s * gap;
-      const fill = c === "l" ? LIME : c === "o" ? ORANGE : "#fff";
+      const fill = c === "l" ? LIME : c === "o" ? ORANGE : c === "r" ? XRED : "#fff";
       return `<text x="${x}" y="${yy}" font-family="${HEAD}" font-weight="900" font-style="italic" font-size="${s}" fill="${fill}">${esc(t)}</text>`;
     })
     .join("");
@@ -540,6 +542,132 @@ add("../temporada/calabaza.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBo
 <defs><linearGradient id="pump" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#ffb24a"/><stop offset=".55" stop-color="#ef6b0c"/><stop offset="1" stop-color="#a53d06"/></linearGradient>
 <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
 ${pumpkin()}
+</svg>
+`);
+
+// ---------------------------------------------------------------- Navidad (temporada)
+
+const BULBS = [XRED, XGOLD, LIME, "#62dcea", "#ff8fd0"];
+
+/** Bombillo de una instalación de luces (centro arriba en x, y; color c). */
+const bulb = (x, y, c, r = 0) =>
+  `<g transform="translate(${x} ${y}) rotate(${r})"><circle cx="0" cy="14" r="16" fill="${c}" opacity=".28" filter="url(#soft)"/>
+<rect x="-4" y="-2" width="8" height="8" rx="2" fill="#26302b" stroke="${INK}" stroke-width="1.5"/><ellipse cx="0" cy="15" rx="7" ry="10" fill="${c}" stroke="${INK}" stroke-width="1.5"/>
+<ellipse cx="-2.4" cy="11" rx="2" ry="3.6" fill="#fff" opacity=".55"/></g>`;
+
+/** Cable de luces de lado a lado (arriba del banner): curvas que cuelgan entre ganchos cada `step`. */
+function lights(w, y = 6, step = 160, sag = 34) {
+  let d = `M-20 ${y}`;
+  let bulbs = "";
+  let k = 0;
+  for (let x = -20; x < w + 20; x += step) {
+    d += `Q${x + step / 2} ${y + sag * 2} ${x + step} ${y}`;
+    for (const t of [0.22, 0.5, 0.78]) {
+      // Punto de la curva (Bézier cuadrática) para colgar el bombillo.
+      const bx = x + step * t;
+      const by = (1 - t) * (1 - t) * y + 2 * (1 - t) * t * (y + sag * 2) + t * t * y;
+      bulbs += bulb(bx.toFixed(1), by.toFixed(1), BULBS[k++ % BULBS.length], (t - 0.5) * 40);
+    }
+  }
+  return `<path d="${d}" fill="none" stroke="#1d2622" stroke-width="3"/>${bulbs}`;
+}
+
+/** Bola de árbol (adorno) roja, dorada o lima con brillo. */
+const ball = (x, y, r, c) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${INK}" stroke-width="2.5"/><circle cx="${x - r * 0.35}" cy="${y - r * 0.35}" r="${r * 0.3}" fill="#fff" opacity=".6"/>`;
+
+/** Estrella dorada de cinco puntas (centro x, y; radio r). */
+function star5(x, y, r) {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = (Math.PI / 5) * i - Math.PI / 2;
+    const rr = i % 2 ? r * 0.45 : r;
+    return `${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)}`;
+  });
+  return `<circle cx="${x}" cy="${y}" r="${r * 1.7}" fill="${XGOLD}" opacity=".35" filter="url(#soft)"/><path d="M${pts.join("L")}Z" fill="url(#goldstar)" stroke="#5a3a05" stroke-width="3" stroke-linejoin="round"/>`;
+}
+
+/** Regalo: caja (color c) con cinta (color r) y moño. Centro abajo en (x, y). */
+function gift(x, y, w, h, c, r) {
+  return `<g transform="translate(${x} ${y})"><rect x="${-w / 2}" y="${-h}" width="${w}" height="${h}" rx="4" fill="${c}" stroke="${INK}" stroke-width="4"/>
+<rect x="${-w / 2 - 5}" y="${-h - 4}" width="${w + 10}" height="${h * 0.24}" rx="4" fill="${c}" stroke="${INK}" stroke-width="4"/>
+<rect x="${-w * 0.09}" y="${-h - 4}" width="${w * 0.18}" height="${h + 4}" fill="${r}" stroke="${INK}" stroke-width="3"/>
+<path d="M0 ${-h - 4}C${-w * 0.42} ${-h - h * 0.5} ${-w * 0.48} ${-h + 6} 0 ${-h - 4}ZM0 ${-h - 4}C${w * 0.42} ${-h - h * 0.5} ${w * 0.48} ${-h + 6} 0 ${-h - 4}Z" fill="${r}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/></g>`;
+}
+
+/**
+ * Árbol de Navidad de VANTAGG (centrado en 0,0; ~300 de alto): capas negras con borde lima, guirnalda de luces,
+ * diamantes y bolas de adorno, estrella dorada y regalos al pie.
+ */
+function xmasTree() {
+  const layer = (y, w, h) =>
+    `<path d="M0 ${y}L${w / 2} ${y + h}Q0 ${y + h + 16} ${-w / 2} ${y + h}Z" fill="url(#dark)" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+<path d="M0 ${y + 16}L${w / 2 - 18} ${y + h - 6}" fill="none" stroke="${LIME}" stroke-width="4" stroke-linecap="round"/><path d="M0 ${y + 16}L${-w / 2 + 18} ${y + h - 6}" fill="none" stroke="${LIME}" stroke-width="4" stroke-linecap="round" opacity=".55"/>`;
+  const garland = (y, w, c) => `<path d="M${-w / 2} ${y}Q0 ${y + 26} ${w / 2} ${y - 6}" fill="none" stroke="${c}" stroke-width="3.5" stroke-linecap="round" opacity=".9"/>`;
+  return `<circle cx="0" cy="-10" r="170" fill="url(#gemglow)"/>${ringBack(0, 112, 160, 22)}
+<rect x="-16" y="86" width="32" height="30" rx="3" fill="#3a2a1a" stroke="${INK}" stroke-width="4"/>
+${layer(-40, 290, 130)}${layer(-100, 220, 110)}${layer(-152, 150, 90)}
+${garland(-92, 120, XGOLD)}${garland(-30, 190, XGOLD)}${garland(40, 260, XGOLD)}
+${ball(-40, -78, 9, XRED)}${ball(46, -60, 8, XGOLD)}${ball(-74, -6, 10, XGOLD)}${ball(70, 6, 10, XRED)}${ball(-104, 66, 11, XRED)}${ball(24, 58, 10, LIME)}${ball(112, 70, 9, XGOLD)}
+${gems([[6, -126, 22, 8], [-6, -16, 26, -10], [-40, 28, 22, 12], [64, 30, 20, -14]])}
+${star5(0, -160, 26)}
+${gift(-130, 120, 70, 54, XRED, XGOLD)}${gift(130, 120, 62, 48, "url(#dark)", LIME)}${gift(-72, 122, 40, 32, XGOLD, XRED)}
+${ringFront(0, 112, 160, 22)}`;
+}
+
+/** Noche de Navidad: verde pino muy oscuro, nieve cayendo, la V de la marca, luces arriba y montículos de nieve. */
+function svgXmas(w, h, { vx, vs = 1, glowX = 0.75, glowY = 0.5 }, body) {
+  const vw = 400 * vs;
+  const vh = 330 * vs;
+  const v = `M${vx - vw / 2} -10H${vx - vw / 2 + 92 * vs}L${vx} ${vh * 0.62}L${vx + vw / 2 - 92 * vs} -10H${vx + vw / 2}L${vx + 16 * vs} ${vh}H${vx - 16 * vs}Z`;
+  const snow = Array.from({ length: 70 }, (_, i) => `<circle cx="${(i * 397 + 53) % w}" cy="${(i * 173 + 29) % h}" r="${[1.4, 2.2, 3, 1.8][i % 4]}" fill="#fff" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`).join("");
+  const mounds = [0.06, 0.2, 0.82, 0.96].map((p, i) => `<ellipse cx="${w * p}" cy="${h + 6}" rx="${h * [0.34, 0.26, 0.3, 0.36][i]}" ry="${h * [0.12, 0.09, 0.1, 0.13][i]}" fill="#e9f6f3" opacity=".16"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#0c1d17"/><stop offset="1" stop-color="#020604"/></linearGradient>
+<linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${LIME}" stop-opacity=".3"/><stop offset="1" stop-color="${LIME}" stop-opacity=".03"/></linearGradient>
+<radialGradient id="glow" cx="${glowX}" cy="${glowY}" r="0.55"><stop offset="0" stop-color="${LIME}" stop-opacity=".22"/><stop offset=".55" stop-color="${LIME}" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<radialGradient id="gemglow"><stop offset="0" stop-color="#4fc3ff" stop-opacity=".35"/><stop offset="1" stop-color="#4fc3ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#2c3a31"/><stop offset="1" stop-color="#0a110d"/></linearGradient>
+<linearGradient id="goldstar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".6" stop-color="${XGOLD}"/><stop offset="1" stop-color="#d48a12"/></linearGradient>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+<path id="spark" d="M0 -10L2.2 -2.2L10 0L2.2 2.2L0 10L-2.2 2.2L-10 0L-2.2 -2.2Z" fill="#fff"/>
+</defs>
+<rect width="${w}" height="${h}" fill="url(#bg)"/>
+<path d="${v}" fill="url(#v)"/>
+<rect width="${w}" height="${h}" fill="url(#glow)"/>
+${snow}${mounds}
+${body}
+${lights(w)}
+</svg>
+`;
+}
+
+add("hero-navidad.svg", svgXmas(HERO.w, HERO.h, { vx: 1250, vs: 1.2, glowX: 0.78, glowY: 0.55 }, `${place(xmasTree(), 1240, 270, 1.15)}
+${spark(1490, 150, 1.4)}${spark(1010, 120, 1.1)}${spark(1530, 380, 1)}
+${tag(96, 74, "NAVIDAD VANTAGG", 22, XGOLD)}
+${heading(90, 194, [["FELIZ", "w", 70], ["NAVIDAD", "r", 104]])}
+${sub(96, 338, "Regala diamantes · directo a su ID", 26)}
+${cta(94, 370, "RECARGAR  →", 20)}`));
+
+add("m/hero-navidad.svg", svgXmas(MOB.w, MOB.h, { vx: 560, vs: 0.85, glowX: 0.7, glowY: 0.34 }, `${place(xmasTree(), 560, 214, 0.8)}
+${spark(740, 110, 1.1)}${spark(380, 120, 0.9)}
+${tag(46, 92, "NAVIDAD VANTAGG", 18, XGOLD)}
+${heading(40, 404, [["FELIZ", "w", 56], ["NAVIDAD", "r", 82]])}
+${sub(46, 520, "Regala diamantes · directo a su ID", 22)}
+${cta(44, 534, "RECARGAR  →", 17)}`));
+
+// Piezas sueltas de Navidad (fondo transparente): gorro para el logo y regalo para las portadas de los paquetes.
+add("../temporada/gorro.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" width="120" height="100">
+<defs><linearGradient id="hat" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#ff6b78"/><stop offset="1" stop-color="#c81d33"/></linearGradient></defs>
+<path d="M16 74C20 40 46 14 78 10C96 8 108 18 110 34C104 28 96 26 90 30C84 44 86 60 92 74Z" fill="url(#hat)" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+<path d="M34 50C44 34 60 24 76 20" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="4" stroke-linecap="round"/>
+<rect x="8" y="68" width="92" height="22" rx="11" fill="#f4f7f6" stroke="${INK}" stroke-width="4"/>
+<path d="M18 76H90" stroke="#cfd8d6" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 7"/>
+<circle cx="108" cy="38" r="11" fill="#f4f7f6" stroke="${INK}" stroke-width="4"/>
+</svg>
+`);
+add("../temporada/regalo.svg", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 -80 120 130" width="120" height="130">
+<defs><linearGradient id="dark" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#2c3a31"/><stop offset="1" stop-color="#0a110d"/></linearGradient></defs>
+${gift(0, 46, 84, 70, XRED, XGOLD)}
 </svg>
 `);
 

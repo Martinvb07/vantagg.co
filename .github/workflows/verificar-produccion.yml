@@ -192,6 +192,10 @@ jobs:
           # La categoría se llamaba /armas-evo: los enlaces viejos redirigen a /fragmentos (con el paquete).
           echo "  /armas-evo?paquete=x → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 "$B/armas-evo?paquete=x" | sed "s#$B##")"
           echo "  nombre en el menú: $(curl -s --max-time 20 "$B/fragmentos" | grep -o 'Fragmentos Evo' | head -1 || true)"
+          # Temporada (Panel → Ajustes → Temporada): Navidad o el diseño normal.
+          ini=$(curl -s --max-time 20 "$B/")
+          echo "  temporada: $(printf '%s' "$ini" | grep -o 'data-season="[a-z]*"' | head -1 || true) · banner navideño: $(printf '%s' "$ini" | grep -c 'hero-navidad' || true)"
+          revisar /promo/hero-navidad.svg 200
           echo "== rutas ocultas o privadas"
           revisar /admin 404 "(el panel no debe existir sin la dirección secreta)"
           revisar /acceso-equipo 404

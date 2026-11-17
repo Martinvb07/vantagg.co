@@ -10,7 +10,8 @@ import { publicPaymentOptions } from "@/server/integrations/payments";
 import { accountsVisible } from "@/server/catalog";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { HalloweenDecor } from "@/components/store/halloween";
-import { isHalloween } from "@/domain/season";
+import { currentSeason } from "@/domain/season";
+import { ChristmasDecor } from "@/components/store/navidad";
 import { maintenanceNotice } from "@/domain/maintenance";
 import { googleTagConfig } from "@/domain/google-tag";
 import { GoogleTag } from "@/components/analytics/google-tag";
@@ -25,8 +26,8 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   if (!showAccounts && /^\/cuentas(\/|$)/.test((await headers()).get("x-pathname") ?? "")) notFound();
   const payments = publicPaymentOptions();
   const wa = whatsappLink(settings.whatsapp, `Hola ${settings.storeName}, tengo una pregunta.`);
-  // Temporada: la decoración va encima del diseño de siempre y se apaga sola al terminar.
-  const halloween = isHalloween();
+  // Temporada: la decoración va encima del diseño de siempre (Halloween se apaga sola; Navidad, en Ajustes).
+  const season = currentSeason(settings.seasonTheme);
   const paused = maintenanceNotice(settings);
   // Etiqueta de Google (campañas): solo si se configuró en Panel → Ajustes → Publicidad.
   const gtag = googleTagConfig(settings);
@@ -34,7 +35,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
 
   return (
     <MarketProvider market={market}>
-      <div data-season={halloween ? "halloween" : undefined}>
+      <div data-season={season ?? undefined}>
         {metaPixel && <MetaPixel id={metaPixel} />}
         {gtag && <GoogleTag cfg={gtag} />}
         {paused && (
@@ -52,8 +53,9 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           showAccounts={showAccounts}
           user={user ? { name: user.name, email: user.email, staff: isStaff(user.role), avatarUrl: user.avatarUrl, avatarPreset: user.avatarPreset } : null}
         />
-        <main id="contenido" className={halloween ? "relative" : undefined}>
-          {halloween && <HalloweenDecor />}
+        <main id="contenido" className={season ? "relative" : undefined}>
+          {season === "halloween" && <HalloweenDecor />}
+          {season === "navidad" && <ChristmasDecor />}
           {children}
         </main>
         <SiteFooter settings={settings} payments={payments} showAccounts={showAccounts} />

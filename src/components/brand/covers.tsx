@@ -46,6 +46,9 @@ export function DiamondCover({
           dentro de la misma zona de carga: la navegación se quedaba pegada (pestañas de Mi cuenta, Rastrear pedido). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/temporada/calabaza.svg" alt="" decoding="async" draggable={false} className="halloween-only absolute bottom-[4%] right-[4%] w-[24%] drop-shadow-[0_4px_10px_rgba(255,138,31,0.45)]" />
+      {/* Navidad: regalo abajo a la derecha (solo en temporada). Sin loading="lazy", por lo mismo que la calabaza. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/temporada/regalo.svg" alt="" decoding="async" draggable={false} className="navidad-only absolute bottom-[4%] right-[4%] w-[22%] drop-shadow-[0_4px_10px_rgba(255,77,94,0.45)]" />
 
       {/* Bonus: etiqueta verde de la marca, arriba a la izquierda */}
       {!plain && bonus > 0 && (

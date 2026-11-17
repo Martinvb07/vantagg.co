@@ -3,7 +3,8 @@ import { ChevronRight, ClipboardList, CreditCard, Gem as GemIcon, LifeBuoy, Rada
 import { JsonLd } from "@/components/seo/json-ld";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { PackCover } from "@/components/brand/covers";
-import { isHalloween } from "@/domain/season";
+import { currentSeason, seasonBanner } from "@/domain/season";
+import { activeEventBanners } from "@/content/event-banners";
 import { isEvoKind, packDetail, packPath, packTitle, passGroup } from "@/domain/packs";
 import { ProductTile } from "@/components/store/product-tile";
 import { formatNumber, packageTitle } from "@/lib/money";
@@ -74,10 +75,10 @@ const SHORTCUTS = [
 export default async function HomePage() {
   const [packages, recent, settings, heroBanners, ranking] = await Promise.all([getPackages(), getLiveDeliveries(10).catch(() => ({ items: [], stats: { today: 0, diamonds30d: 0 } })), getSettings(), db.promoBanner.findMany({ where: { placement: "TOP", active: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, imageUrl: true, imageMobileUrl: true, href: true } }).catch(() => []), getPublicRanking().catch(() => null)]);
   const showAccounts = await accountsVisible();
-  // Temporada: el banner de Halloween va de primero (los del panel siguen igual detrás).
-  const banners = isHalloween()
-    ? [{ id: "temporada-halloween", title: "Noche de Halloween: recarga tus diamantes", imageUrl: "/promo/hero-halloween.svg", imageMobileUrl: "/promo/m/hero-halloween.svg", href: "/recargas" }, ...heroBanners]
-    : heroBanners;
+  // Carrusel: el banner de la temporada (Halloween o Navidad) de primero, luego los eventos de Free Fire vigentes
+  // (src/content/event-banners.ts, se apagan solos) y detrás los del panel, igual que siempre.
+  const season = seasonBanner(currentSeason(settings.seasonTheme));
+  const banners = [...(season ? [season] : []), ...activeEventBanners(), ...heroBanners];
   const shortcuts = showAccounts ? SHORTCUTS : SHORTCUTS.filter((s) => s.href !== "/cuentas");
   const diamondPacks = packages.filter((p) => !p.pass);
   const passes = packages.filter((p) => p.pass && !isEvoKind(p.pass));
