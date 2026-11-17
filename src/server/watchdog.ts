@@ -2,7 +2,9 @@ import "server-only";
 import { db } from "@/lib/db";
 import { maintenanceStatus, runMaintenance } from "./maintenance";
 import { addEvent, pollPendingDeliveries, pollPendingPayments } from "./orders";
-import { notifyOrder, notifyStaffOrderAlert, notifyStaffSystemAlert } from "./notifications";
+import { notifyOrder, notifyStaffOrderAlert, notifyStaffSystemAlert, notifyStaffTokenOverdue } from "./notifications";
+import { isTokenItem } from "@/domain/packs";
+import { TOKEN_DELIVERY_MAX, TOKEN_DELIVERY_MAX_MS } from "@/domain/delivery-time";
 import { enabledPaymentProviders } from "./integrations/payments";
 
 /**
@@ -10,6 +12,7 @@ import { enabledPaymentProviders } from "./integrations/payments";
  *  1. Cada 20 s confirma con la pasarela los pagos de la última media hora → la entrega sale en segundos.
  *  2. Si la tarea programada deja de llamar al mantenimiento (+6 min), lo hace la tienda cada 2 min y avisa al equipo.
  *  3. Recarga pagada y sin entregar hace +5 min → aviso al equipo y al cliente («tu pago está seguro»), uno por pedido.
+ *     Los fragmentos y cajas Evo tienen 12 h de plazo: dentro de él no hay avisos; al vencer, uno al equipo y al cliente.
  *     Las entregas en curso se consultan al proveedor cada 30 s (se completan sin esperar el mantenimiento).
  *  4. Cada 10 min comprueba que la tienda pueda consultar a la pasarela; si falla dos veces seguidas, avisa.
  */
@@ -75,15 +78,24 @@ export async function watchdogTick(now = Date.now()) {
   }
 }
 
-/** Recargas pagadas que no se han entregado en 5 min (las cuentas se entregan a mano: no cuentan). */
+/**
+ * Recargas pagadas que no se han entregado en 5 min (las cuentas se entregan a mano: no cuentan).
+ * Los fragmentos y cajas Evo van aparte: tienen 12 h de plazo y dentro de él no se avisa a nadie (ver alertOverdueTokens).
+ */
 async function alertStuckPaid(now: number) {
   const orders = await db.order.findMany({
     where: { type: "TOPUP", isTest: false, status: { in: ["PAID", "PROCESSING"] }, events: { some: { type: "PAYMENT_CONFIRMED", createdAt: { lt: new Date(now - STUCK_MS) } } } },
-    select: { id: true, status: true, events: { where: { type: "PAYMENT_CONFIRMED" }, orderBy: { createdAt: "asc" }, select: { createdAt: true }, take: 1 } },
-    take: 20,
+    select: { id: true, status: true, itemSnapshot: true, paidAt: true, delivery: { select: { status: true, lastError: true } }, events: { where: { type: "PAYMENT_CONFIRMED" }, orderBy: { createdAt: "asc" }, select: { createdAt: true }, take: 1 } },
+    orderBy: { createdAt: "asc" },
+    take: 100,
   });
   for (const o of orders) {
-    const mins = Math.round((now - (o.events[0]?.createdAt.getTime() ?? now)) / 60_000);
+    const paidAt = o.events[0]?.createdAt.getTime() ?? o.paidAt?.getTime() ?? now;
+    if (isTokenItem(o.itemSnapshot)) {
+      if (now - paidAt >= TOKEN_DELIVERY_MAX_MS) await alertOverdueToken(o, paidAt, now);
+      continue;
+    }
+    const mins = Math.round((now - paidAt) / 60_000);
     await notifyStaffOrderAlert(
       o.id,
       "stuck",
@@ -97,6 +109,25 @@ async function alertStuckPaid(now: number) {
     }
     await notifyOrder(o.id, "delivery_failed").catch(() => {});
   }
+}
+
+/**
+ * Fragmento o caja Evo que pasó su plazo de 12 h sin entregarse: ahora sí se avisa, una sola vez, al equipo y al
+ * cliente (con sus propios correos). El pedido no se cancela; si el último intento con el proveedor no se completó,
+ * pasa a «Entrega fallida» para que aparezca en el panel con «Reintentar entrega».
+ */
+async function alertOverdueToken(o: { id: string; status: string; delivery: { status: string; lastError: string | null } | null }, paidAt: number, now: number) {
+  const failed = o.delivery?.status === "FAILED";
+  if (failed) await db.order.updateMany({ where: { id: o.id, status: "PROCESSING" }, data: { status: "DELIVERY_FAILED" } }).catch(() => {});
+  await notifyStaffTokenOverdue(o.id, {
+    hours: Math.floor((now - paidAt) / 3600_000),
+    state: failed ? "el último intento con el proveedor no se completó" : o.status === "PAID" ? "pagado, sin enviar al proveedor" : "en proceso con el proveedor",
+    lastError: o.delivery?.lastError?.replace(/^\[[a-z0-9_]+\]\s*/i, "") ?? null,
+  }).catch(() => {});
+  if (!(await db.orderEvent.count({ where: { orderId: o.id, type: "DELIVERY_ISSUE" } }))) {
+    await addEvent(o.id, "DELIVERY_ISSUE", `La entrega pasó el plazo de ${TOKEN_DELIVERY_MAX}. Nuestro equipo ya la está revisando; tu pago está seguro.`, "SYSTEM", { public: true }).catch(() => {});
+  }
+  await notifyOrder(o.id, "delivery_failed").catch(() => {});
 }
 
 /** ¿La tienda puede consultar a la pasarela? (sin consulta no se pueden confirmar pagos si el aviso no llega). */

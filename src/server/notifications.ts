@@ -24,6 +24,9 @@ import {
   type OrderTemplate,
   type StaffSecurityEvent,
 } from "./email-templates";
+import { staffTokenOverdueEmail, tokenOrderEmail, tokenTemplateName } from "./email-templates-tokens";
+import { TOKEN_DELIVERY_MAX_MS } from "@/domain/delivery-time";
+import { isTokenItem } from "@/domain/packs";
 import { getSettings } from "./settings";
 import { adminEntryUrl } from "./admin-gate";
 import { deliverable, describeDevice } from "@/lib/email-utils";
@@ -132,15 +135,18 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     throw err;
   }
 
-  // Retraso del sistema: si el pago se confirmó tarde, o la entrega llegó más de 1 h después del pago, el correo de pago
-  // y el de entrega piden disculpas (un solo correo; no se manda aparte la disculpa).
-  const slowDelivery = template === "delivered" && !!order.paidAt && !!order.deliveredAt && order.deliveredAt.getTime() - order.paidAt.getTime() > APOLOGY_AFTER_MS;
+  // Fragmentos y cajas Evo («tokens»): correos propios, aparte de los de diamantes, y plazo de entrega de 12 h.
+  const tokenTemplate = order.type === "TOPUP" && template !== "ranking_prize" && isTokenItem(order.itemSnapshot) ? template : null;
+  // Retraso del sistema: si el pago se confirmó tarde, o la entrega llegó más de 1 h después del pago (12 h en los
+  // tokens Evo: antes de eso no es demora), el correo de pago y el de entrega piden disculpas (un solo correo; no se
+  // manda aparte la disculpa).
+  const slowDelivery = template === "delivered" && !!order.paidAt && !!order.deliveredAt && order.deliveredAt.getTime() - order.paidAt.getTime() > apologyAfterMs(order.itemSnapshot);
   const late = (template === "payment_confirmed" || template === "delivered") && (slowDelivery || (await db.orderEvent.count({ where: { orderId, type: "PAYMENT_CONFIRMED_LATE" } })) > 0);
   // Premio del Top 3 del mes: pedido sin cobro.
   const prizeInfo = (order.itemSnapshot as { prize?: { period?: string; pos?: number } }).prize;
   const prizeMonth = prizeInfo?.period ? parsePeriodKey(prizeInfo.period)?.month : null;
   const prize = prizeInfo?.pos ? `puesto #${prizeInfo.pos} del Top 3 de ${prizeMonth ?? "el mes"}` : undefined;
-  const email = orderEmail(await getBrand(), template, {
+  const data = {
     late,
     prize,
     number: order.number,
@@ -154,8 +160,10 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
     expiresAt: new Intl.DateTimeFormat("es-CO", { hour: "numeric", minute: "2-digit", timeZone: "America/Bogota" }).format(order.expiresAt),
     isPass: order.type === "TOPUP" && (order.itemSnapshot as { diamonds?: number }).diamonds === 0,
     buyAgainUrl: extra.buyAgainUrl,
-  });
-  const r = await sendEmail(order.customerEmail, template, email);
+  };
+  const brand = await getBrand();
+  const email = tokenTemplate ? tokenOrderEmail(brand, tokenTemplate, data) : orderEmail(brand, template, data);
+  const r = await sendEmail(order.customerEmail, tokenTemplate ? tokenTemplateName(tokenTemplate) : template, email);
   await db.notification.update({ where: { id: notification.id }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
   // La disculpa ya fue en el correo de entrega: queda anotada para no mandarla otra vez por separado.
   if (late && template === "delivered") {
@@ -166,20 +174,23 @@ export async function notifyOrder(orderId: string, template: NotificationTemplat
 /** Una entrega que llega más de esto después del pago se considera demorada: el cliente recibe una disculpa. */
 export const APOLOGY_AFTER_MS = 60 * 60_000;
 
+/** Lo mismo según el producto: los fragmentos y cajas Evo tienen 12 h de plazo, así que antes de eso no hay demora. */
+export const apologyAfterMs = (itemSnapshot: unknown) => (isTokenItem(itemSnapshot) ? TOKEN_DELIVERY_MAX_MS : APOLOGY_AFTER_MS);
+
 /**
- * Disculpas por demora a pedidos ya entregados más de 1 h después del pago (p. ej. los que esperaron mientras el
- * mantenimiento estuvo detenido). Una sola vez por pedido; los que ya la recibieron en su correo de entrega no cuentan.
+ * Disculpas por demora a pedidos ya entregados más de 1 h después del pago (12 h en fragmentos y cajas Evo), p. ej. los
+ * que esperaron mientras el mantenimiento estuvo detenido. Una sola vez por pedido; los que ya la recibieron en su correo de entrega no cuentan.
  * dryRun: solo dice a quiénes les llegaría.
  */
 export async function sendDelayApologies(opts: { dryRun: boolean; days?: number }) {
   const since = new Date(Date.now() - (opts.days ?? 15) * 86400_000);
   const orders = await db.order.findMany({
     where: { type: "TOPUP", isTest: false, status: "DELIVERED", paidAt: { not: null }, deliveredAt: { gte: since }, notifications: { none: { template: "delay_apology" } } },
-    select: { id: true, number: true, paidAt: true, deliveredAt: true },
+    select: { id: true, number: true, paidAt: true, deliveredAt: true, itemSnapshot: true },
     orderBy: { deliveredAt: "asc" },
     take: 200,
   });
-  const due = orders.filter((o) => o.deliveredAt!.getTime() - o.paidAt!.getTime() > APOLOGY_AFTER_MS);
+  const due = orders.filter((o) => o.deliveredAt!.getTime() - o.paidAt!.getTime() > apologyAfterMs(o.itemSnapshot));
   if (!opts.dryRun) for (const o of due) await notifyOrder(o.id, "delay_apology");
   return due.map((o) => ({ number: o.number, paidAt: o.paidAt!, deliveredAt: o.deliveredAt! }));
 }
@@ -343,6 +354,26 @@ export async function notifyStaffOrderAlert(orderId: string, kind: "stuck" | "la
     throw err;
   }
   const r = await sendEmail(to, template, staffAlertEmail(await getBrand(), { title, reason: reason.slice(0, 600), number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Pedido", adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`), note }));
+  await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
+}
+
+/**
+ * Fragmentos y cajas Evo: el pedido pasó el plazo de 12 h sin entregarse. Es el único aviso de demora de estos pedidos
+ * (uno por pedido): dentro del plazo no se le escribe al equipo.
+ */
+export async function notifyStaffTokenOverdue(orderId: string, p: { hours: number; state: string; lastError?: string | null }) {
+  const to = await staffInbox();
+  if (!to) return;
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, number: true, itemSnapshot: true } });
+  if (!order) return;
+  const template = "staff_token_overdue";
+  try {
+    await db.notification.create({ data: { orderId, channel: "email", recipient: to, template } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return;
+    throw err;
+  }
+  const r = await sendEmail(to, template, staffTokenOverdueEmail(await getBrand(), { number: order.number, item: (order.itemSnapshot as { name?: string }).name ?? "Fragmentos Evo", ...p, adminLink: adminEntryUrl(`/admin/pedidos/${order.id}`) }));
   await db.notification.updateMany({ where: { orderId, template }, data: { status: r.status, sentAt: r.status === "SENT" ? new Date() : null, error: r.error ?? null } });
 }
 

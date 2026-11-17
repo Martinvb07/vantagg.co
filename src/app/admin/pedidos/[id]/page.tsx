@@ -184,7 +184,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
                 </SubmitButton>
               </ActionForm>
 
-              {order.type === "TOPUP" && (order.status === "DELIVERY_FAILED" || (order.status === "PAID" && !order.delivery)) && (
+              {order.type === "TOPUP" && (order.status === "DELIVERY_FAILED" || (order.status === "PAID" && !order.delivery) || (order.status === "PROCESSING" && order.delivery?.status === "FAILED")) && (
                 <ActionForm action={orderAction} className="border-t border-white/[0.06] pt-5">
                   <input type="hidden" name="orderId" value={order.id} />
                   <input type="hidden" name="op" value="retry" />

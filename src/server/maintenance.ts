@@ -1,5 +1,5 @@
 import "server-only";
-import { expireStaleOrders, pollCancelledPayments, pollPendingDeliveries, pollPendingPayments, retryStuckDeliveries, sendPaymentReminders } from "./orders";
+import { expireStaleOrders, pollCancelledPayments, pollPendingDeliveries, pollPendingPayments, retryStuckDeliveries, retryWaitingTokenDeliveries, sendPaymentReminders } from "./orders";
 import { activeTopUpProvider } from "./integrations/topup";
 import { ensureFreshCatalog } from "./supplier";
 import { runEmailAutomations } from "./marketing";
@@ -49,7 +49,8 @@ async function run() {
     expireStaleOrders(),
     sendPaymentReminders().catch(() => 0),
     pollPendingDeliveries(),
-    retryStuckDeliveries(),
+    // Diamantes y pases con error, y fragmentos/cajas Evo que siguen dentro de su plazo de 12 h (sin avisos).
+    retryStuckDeliveries().then(async (n) => n + (await retryWaitingTokenDeliveries().catch(() => 0))),
     supplier ? ensureFreshCatalog() : Promise.resolve(false),
   ]);
   // Pagos que llegaron después de vencer el pedido (los avisos de la pasarela pueden no llegar): cada 20 min.
