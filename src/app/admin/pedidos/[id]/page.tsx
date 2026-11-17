@@ -1,3 +1,5 @@
+import { isTokenItem } from "@/domain/packs";
+import { tokenWindow } from "@/domain/delivery-time";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Info } from "lucide-react";
@@ -45,6 +47,8 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
   if (!order) notFound();
   const item = order.itemSnapshot as { name: string; diamonds?: number; bonusDiamonds?: number; sku?: string | null; region?: string; regionName?: string | null; costCents?: number | null };
   const transitions = MANUAL_TRANSITIONS[order.status] ?? [];
+  // Fragmentos y cajas Evo pagados y aún sin entregar: su plazo de 24 h.
+  const tokenPlazo = order.type === "TOPUP" && order.paidAt && ["PAID", "PROCESSING", "DELIVERY_FAILED"].includes(order.status) && isTokenItem(order.itemSnapshot) ? tokenWindow(order.paidAt) : null;
   const state = chatState(order);
   const [settings, chatMessages, reminder] = await Promise.all([getSettings(), state === "hidden" ? [] : listMessages(order.id), reminderState(order.id)]);
   if (state !== "hidden") await markRead(order.id, "staff");
@@ -62,7 +66,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
             {order.number} {order.isTest && <DemoBadge />}
           </h1>
           <p className="mt-1 text-[13px] text-fg-muted">
-            {order.type === "TOPUP" ? "Recarga" : "Cuenta"} · creado {formatDate(order.createdAt)} · pasarela {order.paymentProvider}
+            {order.type !== "TOPUP" ? "Cuenta" : isTokenItem(order.itemSnapshot) ? "Fragmentos / cajas Evo (entrega en máximo 24 h)" : "Recarga"} · creado {formatDate(order.createdAt)} · pasarela {order.paymentProvider}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -120,6 +124,22 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
               </ul>
             )}
           </Panel>
+
+          {/* Fragmentos y cajas Evo: no son instantáneos; se toman con su plazo de 24 h. */}
+          {tokenPlazo && (
+            <Panel title="Fragmentos y cajas Evo · plazo de 24 horas">
+              <dl className="grid gap-2 text-[13px] sm:grid-cols-2">
+                <Row k="Pagado" v={formatDate(order.paidAt!)} />
+                <Row k="Vence el plazo" v={formatDate(tokenPlazo.deadline)} />
+                <Row k="Estado del plazo" v={<strong className={tokenPlazo.overdue ? "text-bad-400" : "text-ok-400"}>{tokenPlazo.label}</strong>} />
+              </dl>
+              <Alert tone={tokenPlazo.overdue ? "danger" : "info"} className="mt-3">
+                {tokenPlazo.overdue
+                  ? "El plazo prometido al cliente ya venció. Verifica el pedido en el proveedor: si allá figura completado, márcalo como entregado; si no, reintenta la entrega o reembolsa."
+                  : "Este pedido no es instantáneo como los diamantes: es normal que siga «en proceso». Dentro del plazo la tienda consulta y reintenta sola con el proveedor, sin marcar error ni enviar correos de demora. Cuando el proveedor lo complete pasa solo a Entregado; también puedes verificarlo o marcarlo como entregado desde aquí."}
+              </Alert>
+            </Panel>
+          )}
 
           {order.delivery && (
             <Panel title="Entrega">

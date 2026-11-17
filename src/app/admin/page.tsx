@@ -1,3 +1,5 @@
+import { NOT_TOKEN_ORDER, TOKEN_ORDER } from "@/server/admin-filters";
+import { tokenWindow } from "@/domain/delivery-time";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowRight, Scale, CircleAlert, CircleCheck, CreditCard, Flag, Gem, Inbox, MessagesSquare, Plus, Receipt, RotateCcw, Store, Ticket, Wallet } from "lucide-react";
@@ -88,7 +90,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
     db.order.count({ where: { type: "ACCOUNT", status: "PROCESSING" } }),
     db.order.count({ where: { type: "ACCOUNT", chatUnreadStaff: { gt: 0 } } }),
     db.order.count({ where: { status: "DELIVERY_FAILED" } }),
-    db.order.count({ where: { status: "PAID", paidAt: { lt: new Date(Date.now() - 10 * 60_000) } } }),
+    db.order.count({ where: { status: "PAID", paidAt: { lt: new Date(Date.now() - 10 * 60_000) }, AND: [NOT_TOKEN_ORDER] } }),
     db.order.count({ where: { status: "REFUND_REQUESTED" } }),
     db.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     db.listingClaim.count({ where: { status: { in: ["OPEN", "REVIEWING"] } } }),
@@ -105,6 +107,12 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   if (unreadChats && unreadChats !== toDeliver) todos.push({ href: "/admin/chats", icon: MessagesSquare, text: `Responder ${s(unreadChats, "chat", "chats")}`, hint: "Mensajes de clientes sin leer.", tone: "bg-sky-400/12 text-sky-300" });
   if (failed) todos.push({ href: "/admin/pedidos?estado=DELIVERY_FAILED", icon: CircleAlert, text: `Revisar ${s(failed, "recarga con error", "recargas con error")}`, hint: "Ábrela y usa «Reintentar entrega» o reembolsa.", tone: "bg-bad-400/12 text-bad-400" });
   if (stuck) todos.push({ href: "/admin/pedidos?estado=PAID", icon: CreditCard, text: `Revisar ${s(stuck, "pago sin entrega", "pagos sin entrega")}`, hint: "Pagados hace más de 10 minutos y sin enviar al proveedor.", tone: "bg-warn-400/12 text-warn-400" });
+  // Fragmentos y cajas Evo: van aparte de las recargas; se toman con su plazo de 24 h (no son instantáneos).
+  const tokenOrders = await db.order.findMany({ where: { type: "TOPUP", isTest: withTest ? undefined : false, status: { in: ["PAID", "PROCESSING"] }, paidAt: { not: null }, ...TOKEN_ORDER }, select: { paidAt: true }, orderBy: { paidAt: "asc" }, take: 200 });
+  const tokenOverdue = tokenOrders.filter((o) => tokenWindow(o.paidAt!).overdue).length;
+  const tokenWaiting = tokenOrders.length - tokenOverdue;
+  if (tokenOverdue) todos.push({ href: "/admin/pedidos?tipo=TOKENS&estado=PROCESSING&fecha=pagado", icon: AlertTriangle, text: `Resolver ${s(tokenOverdue, "pedido Evo con el plazo vencido", "pedidos Evo con el plazo vencido")}`, hint: "Fragmentos o cajas Evo pagados hace más de 24 h y sin entregar: verifica en el proveedor, entrega o reembolsa.", tone: "bg-bad-400/12 text-bad-400" });
+  if (tokenWaiting) todos.push({ href: "/admin/pedidos?tipo=TOKENS&estado=PROCESSING&fecha=pagado", icon: Gem, text: `${s(tokenWaiting, "pedido de fragmentos o cajas Evo en proceso", "pedidos de fragmentos o cajas Evo en proceso")}`, hint: `No son instantáneos: plazo máximo de 24 h. El más antiguo: ${tokenWindow(tokenOrders[tokenOverdue].paidAt!).label.toLowerCase()}.`, tone: "bg-violet-500/12 text-violet-300" });
   if (refundReq) todos.push({ href: "/admin/pedidos?estado=REFUND_REQUESTED", icon: RotateCcw, text: `Reembolsar ${s(refundReq, "pedido", "pedidos")}`, hint: "Devuelve el dinero desde la pasarela y marca el pedido como reembolsado.", tone: "bg-warn-400/12 text-warn-400" });
   if (tickets) todos.push({ href: "/admin/soporte", icon: Inbox, text: `Responder ${s(tickets, "mensaje de soporte", "mensajes de soporte")}`, hint: "Tu respuesta le llega al cliente por correo.", tone: "bg-violet-500/12 text-violet-300" });
   if (claims) todos.push({ href: "/admin/reclamos", icon: Flag, text: `Revisar ${s(claims, "reclamo", "reclamos")} de cuentas`, hint: "Alguien dice ser dueño de una cuenta publicada.", tone: "bg-pink-500/12 text-pink-300" });

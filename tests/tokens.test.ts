@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isTokenItem, isTokenKind } from "@/domain/packs";
-import { TOKEN_DELIVERY_MAX_MS, TOKEN_DELIVERY_TIME } from "@/domain/delivery-time";
+import { TOKEN_DELIVERY_MAX_MS, TOKEN_DELIVERY_TIME, tokenWindow } from "@/domain/delivery-time";
 import { orderEmail, type OrderTemplate } from "@/server/email-templates";
 import { staffTokenOverdueEmail, tokenOrderEmail, tokenTemplateName, type TokenOrderTemplate } from "@/server/email-templates-tokens";
 
@@ -25,11 +25,13 @@ describe("tokens Evo (fragmentos y cajas): aparte de los diamantes", () => {
     expect(isTokenItem(null)).toBe(false);
   });
 
-  it("el plazo de entrega de los tokens es de 24 horas hábiles", () => {
+  it("el plazo de entrega de los tokens es de 24 horas", () => {
     expect(TOKEN_DELIVERY_MAX_MS).toBe(24 * 3600_000);
-    expect(TOKEN_DELIVERY_TIME.description).toMatch(/no llegan de manera instantánea.*24 horas hábiles/);
-    expect(TOKEN_DELIVERY_TIME.checkout).toContain("24 horas hábiles");
-    expect(TOKEN_DELIVERY_TIME.processing).toContain("24 horas hábiles");
+    expect(TOKEN_DELIVERY_TIME.description).toMatch(/no llegan de manera instantánea.*plazo máximo de 24 horas.*reembolso/);
+    expect(TOKEN_DELIVERY_TIME.checkout).toMatch(/plazo máximo de 24 horas.*reembolso/);
+    expect(tokenWindow(new Date(1000), 1000 + 6 * 3600_000 + 30 * 60_000)).toMatchObject({ overdue: false, label: "Quedan 17 h 30 min del plazo" });
+    expect(tokenWindow(new Date(1000), 1000 + 26 * 3600_000)).toMatchObject({ overdue: true, label: "Plazo vencido hace 2 h" });
+    expect(TOKEN_DELIVERY_TIME.processing).toContain("24 horas");
   });
 
   it("los correos de tokens nunca hablan de diamantes ni llevan a /recargas: van a /fragmentos", () => {
@@ -42,20 +44,20 @@ describe("tokens Evo (fragmentos y cajas): aparte de los diamantes", () => {
     }
   });
 
-  it("el correo de pago confirmado de tokens avisa del plazo de 24 horas hábiles; el de diamantes no cambia", () => {
+  it("el correo de pago confirmado de tokens avisa del plazo de 24 horas; el de diamantes no cambia", () => {
     const token = tokenOrderEmail(brand, "payment_confirmed", tokenOrder);
-    expect(token.text).toContain("24 horas hábiles");
+    expect(token.text).toContain("24 horas");
     expect(token.subject).not.toBe(orderEmail(brand, "payment_confirmed", diamondOrder).subject);
     for (const t of ["payment_confirmed", "delivered", "delivery_failed", "order_created"] as OrderTemplate[]) {
       const e = orderEmail(brand, t, diamondOrder);
-      expect(`${e.subject}\n${e.text}`, t).not.toMatch(/24 horas hábiles|fragmento|\bEvo\b/i);
+      expect(`${e.subject}\n${e.text}`, t).not.toMatch(/plazo máximo|fragmento|\bEvo\b/i);
       expect(e.html, t).toContain("Recargar diamantes");
     }
   });
 
   it("aviso al equipo: solo existe el de plazo vencido, con las horas y sin cancelar el pedido", () => {
     const e = staffTokenOverdueEmail(brand, { number: "VX-1", item: tokenOrder.item, hours: 13, state: "en proceso con el proveedor", lastError: "caído", adminLink: "https://tienda.test/admin/pedidos/1" });
-    expect(e.subject).toContain("24 horas hábiles");
+    expect(e.subject).toContain("24 horas");
     expect(e.text).toContain("13 h");
     expect(e.text).toContain("no se canceló");
   });

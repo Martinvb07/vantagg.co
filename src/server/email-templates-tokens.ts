@@ -5,7 +5,7 @@ import { build, type Block, type Brand, type Email, type OrderEmailData, type Or
 /**
  * Correos de los fragmentos y cajas Evo («tokens»). Van completamente aparte de los de diamantes (email-templates.ts):
  * tienen sus propios asuntos y textos, nunca hablan de diamantes, llevan al cliente a /fragmentos y explican el plazo
- * de entrega de hasta 24 horas hábiles. En el registro de correos quedan con el prefijo «token_».
+ * de entrega de hasta 24 horas. En el registro de correos quedan con el prefijo «token_».
  */
 
 /** Pedidos de premio (Top 3 del mes) son siempre de diamantes: no tienen versión de tokens. */
@@ -22,7 +22,7 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
   const labels = ["Pedido", "Pago", "Entregado"];
   const steps = (done: number, problem = false): Steps => ({ labels, done, problem });
   const sorry = o.late ? "Te pedimos disculpas por la demora: hubo un retraso en nuestro sistema, ya resuelto. Tu pago siempre estuvo seguro. " : "";
-  const window = `Los pedidos de fragmentos y cajas Evo no llegan de manera instantánea: se procesan en un tiempo de hasta ${TOKEN_DELIVERY_MAX} desde el pago.`;
+  const window = `Los pedidos de fragmentos y cajas Evo no llegan de manera instantánea: se procesan en un plazo máximo de ${TOKEN_DELIVERY_MAX} desde el pago. Si no se entrega en ese plazo, se realiza el reembolso.`;
 
   const map: Record<TokenOrderTemplate, { subject: string; block: Omit<Block, "rows" | "tag" | "shop"> }> = {
     order_created: {
@@ -43,14 +43,14 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
       },
     },
     payment_confirmed: {
-      subject: `Pago confirmado: tu pedido Evo llega en ${TOKEN_DELIVERY_MAX} · ${o.number}`,
+      subject: `Pago confirmado: tu pedido Evo llega en máximo ${TOKEN_DELIVERY_MAX} · ${o.number}`,
       block: {
         badge: "Pago confirmado",
         tone: "success",
         steps: steps(2),
         title: "¡Pago confirmado!",
         intro: `${sorry}Ya estamos procesando ${o.item} para tu ID. ${TOKEN_DELIVERY_TIME.processing}`,
-        preheader: `Entrega en un plazo de hasta ${TOKEN_DELIVERY_MAX}`,
+        preheader: `Se procesa en un plazo máximo de ${TOKEN_DELIVERY_MAX}`,
         cta: view,
         note: test ?? `Dentro de ese plazo no hace falta escribirnos: tu pago está seguro y la entrega sigue su curso.`,
       },
@@ -69,7 +69,7 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
         note: test,
       },
     },
-    // Sale cuando ya pasó el plazo de 24 horas hábiles (antes de eso, una entrega lenta es normal y no se avisa), o si el
+    // Sale cuando ya pasó el plazo de 24 horas (antes de eso, una entrega lenta es normal y no se avisa), o si el
     // proveedor no puede entregarla y el equipo tiene que revisarla.
     delivery_failed: {
       subject: `Estamos revisando tu compra Evo · ${o.number}`,
@@ -122,7 +122,7 @@ export function tokenOrderEmail(b: Brand, t: TokenOrderTemplate, o: OrderEmailDa
 }
 
 /**
- * Aviso al equipo: un pedido de fragmentos o cajas Evo pasó el plazo de 24 horas hábiles sin entregarse. Es el único aviso
+ * Aviso al equipo: un pedido de fragmentos o cajas Evo pasó el plazo de 24 horas sin entregarse. Es el único aviso
  * de demora de estos pedidos (dentro del plazo la tienda espera y reintenta sola, sin correos).
  */
 export function staffTokenOverdueEmail(b: Brand, p: { number: string; item: string; hours: number; state: string; lastError?: string | null; adminLink: string }): Email {

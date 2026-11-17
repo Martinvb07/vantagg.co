@@ -10,6 +10,8 @@ import { ORDER_STATUSES, ORDER_STATUS_META, REVENUE_STATUSES } from "@/domain/or
 import { dateField, orderSort, orderWhere, type OrderFilterParams } from "@/server/admin-filters";
 import { periodLabel, presetPeriod, type PresetKey } from "@/domain/accounting";
 import { cn } from "@/lib/utils";
+import { isTokenItem } from "@/domain/packs";
+import { tokenWindow } from "@/domain/delivery-time";
 import { requireStaff } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney } from "@/lib/money";
@@ -79,9 +81,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             </option>
           ))}
         </select>
-        <select name="tipo" defaultValue={sp.tipo ?? ""} className="field sm:w-[165px]" aria-label="Tipo">
+        <select name="tipo" defaultValue={sp.tipo ?? ""} className="field sm:w-[200px]" aria-label="Tipo">
           <option value="">Todos los tipos</option>
-          <option value="TOPUP">Recargas</option>
+          <option value="TOPUP">Recargas (todas)</option>
+          <option value="RECARGAS">Diamantes, tarjetas y pases</option>
+          <option value="TOKENS">Fragmentos y cajas Evo</option>
           <option value="ACCOUNT">Cuentas</option>
         </select>
         <select name="orden" defaultValue={sp.orden === "actividad" ? "actividad" : ""} className="field sm:w-[165px]" aria-label="Ordenar">
@@ -162,7 +166,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 </Link>
               </td>
               <td className="max-w-[260px] truncate">
-                <span className="mr-1.5 text-[11px] uppercase text-fg-subtle">{o.type === "TOPUP" ? "Recarga" : "Cuenta"}</span>
+                <span className={cn("mr-1.5 text-[11px] uppercase", isTokenItem(o.itemSnapshot) ? "text-violet-300" : "text-fg-subtle")}>{o.type !== "TOPUP" ? "Cuenta" : isTokenItem(o.itemSnapshot) ? "Evo · 24 h" : "Recarga"}</span>
                 {(o.itemSnapshot as { name: string }).name}
               </td>
               <td className="text-fg-muted">
@@ -172,6 +176,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               <td className="tabular-nums">{formatMoney(o.total, o.currency)}</td>
               <td>
                 <OrderStatusBadge status={o.status} simulated={o.delivery?.simulated} />
+                {/* Fragmentos y cajas Evo pagados y sin entregar: cuánto queda de su plazo de 24 h. */}
+                {(() => {
+                  if (!o.paidAt || !["PAID", "PROCESSING", "DELIVERY_FAILED"].includes(o.status) || !isTokenItem(o.itemSnapshot)) return null;
+                  const w = tokenWindow(o.paidAt);
+                  return <span className={cn("mt-1 block whitespace-nowrap text-[11.5px]", w.overdue ? "font-semibold text-bad-400" : "text-fg-muted")}>{w.label}</span>;
+                })()}
               </td>
               <td className="whitespace-nowrap text-fg-muted">
                 {formatDate(o.createdAt)}
