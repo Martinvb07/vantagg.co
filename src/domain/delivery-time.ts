@@ -26,7 +26,9 @@ export const TOKEN_DELIVERY_MAX = `${TOKEN_DELIVERY_MAX_HOURS} horas`;
 export const TOKEN_DELIVERY_TIME = {
   /** Etiqueta corta (página de fragmentos). */
   badge: `Entrega en máximo ${TOKEN_DELIVERY_MAX}`,
-  /** Descripción del producto (página de fragmentos). */
+  /** Encabezado de la página de fragmentos, debajo del título. */
+  header: `Los pedidos se procesan en un plazo máximo de ${TOKEN_DELIVERY_MAX} (no llegan de manera instantánea). Si no se entrega en ese plazo, se realiza el reembolso.`,
+  /** Descripción del producto. */
   description: `Los pedidos de fragmentos y cajas Evo no llegan de manera instantánea: se procesan en un plazo máximo de ${TOKEN_DELIVERY_MAX} después del pago. Si no se entrega en ese plazo, se realiza el reembolso.`,
   /** Antes de pagar. */
   checkout: `Este pedido no llega de manera instantánea: se procesa en un plazo máximo de ${TOKEN_DELIVERY_MAX} después del pago. Si no se entrega en ese plazo, se realiza el reembolso.`,

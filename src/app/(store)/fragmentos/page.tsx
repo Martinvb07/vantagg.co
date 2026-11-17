@@ -90,17 +90,14 @@ export default async function ArmasEvoPage({ searchParams }: { searchParams: Pro
                   <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
                     <Wallet className="size-3.5" /> Pago en COP
                   </li>
-                  <li className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-fg-muted">
+                  <li className="inline-flex items-center gap-1 rounded-md bg-warn-400/[0.12] px-2 py-1 font-medium text-warn-400">
                     <Clock className="size-3.5" /> {TOKEN_DELIVERY_TIME.badge}
                   </li>
                 </ul>
+                {/* Estos pedidos no son instantáneos como los diamantes: plazo máximo de 24 horas o reembolso. */}
+                <p className="mt-3 text-[12.5px] leading-relaxed text-fg-muted">{TOKEN_DELIVERY_TIME.header}</p>
               </div>
             </div>
-
-            <p className="mt-4 flex items-start gap-2 rounded-[12px] bg-warn-400/[0.07] px-3 py-2.5 text-[12.5px] leading-relaxed text-fg-muted ring-1 ring-warn-400/20">
-              <Clock className="mt-0.5 size-4 shrink-0 text-warn-400" />
-              <span>{TOKEN_DELIVERY_TIME.description}</span>
-            </p>
 
             <FindPlayerId className="max-lg:order-2 lg:mt-5" />
 
